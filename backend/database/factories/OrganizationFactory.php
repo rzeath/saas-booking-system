@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\BusinessSetting;
 use App\Models\Organization;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -14,5 +15,10 @@ class OrganizationFactory extends Factory
             'name' => fake()->company(),
             'status' => Organization::STATUS_ACTIVE,
         ];
+    }
+
+    public function withBusinessSettings(): static
+    {
+        return $this->has(BusinessSetting::factory(), 'businessSetting');
     }
 }

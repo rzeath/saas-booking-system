@@ -2,6 +2,7 @@
 
 namespace App\Actions\Auth;
 
+use App\Models\BusinessSetting;
 use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -18,11 +19,17 @@ class RegisterAdmin
                 'name' => $data['business_name'],
             ]);
 
-            return $organization->user()->create([
+            $user = $organization->user()->create([
                 'name' => $data['admin_name'],
                 'email' => $data['email'],
                 'password' => $data['password'],
-            ])->load('organization');
+            ]);
+
+            $organization->businessSetting()->create(
+                BusinessSetting::defaults($organization->name),
+            );
+
+            return $user->load('organization');
         });
     }
 }

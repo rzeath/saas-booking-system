@@ -3,6 +3,7 @@
 namespace Tests\Feature\Auth;
 
 use App\Actions\Auth\RegisterAdmin;
+use App\Models\BusinessSetting;
 use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Database\QueryException;
@@ -39,11 +40,19 @@ class RegistrationTest extends TestCase
 
         $organization = Organization::sole();
         $user = User::sole();
+        $settings = BusinessSetting::sole();
 
         $this->assertAuthenticatedAs($user);
         $this->assertTrue($user->organization->is($organization));
         $this->assertTrue($organization->user->is($user));
         $this->assertSame(1, $organization->user()->count());
+        $this->assertTrue($settings->organization->is($organization));
+        $this->assertSame('Rzeath Events', $settings->display_name);
+        $this->assertSame(BusinessSetting::DEFAULT_TIMEZONE, $settings->timezone);
+        $this->assertSame(BusinessSetting::DEFAULT_CURRENCY, $settings->currency);
+        $this->assertSame(BusinessSetting::DEFAULT_BOOKING_PREFIX, $settings->booking_prefix);
+        $this->assertSame(BusinessSetting::DEFAULT_QUOTATION_PREFIX, $settings->quotation_prefix);
+        $this->assertSame(BusinessSetting::DEFAULT_BILLING_PREFIX, $settings->billing_prefix);
         $this->assertTrue(Hash::check('StrongPass1', $user->password));
         $this->assertNotSame('StrongPass1', $user->password);
     }
@@ -58,6 +67,7 @@ class RegistrationTest extends TestCase
 
         $this->assertDatabaseCount('organizations', 1);
         $this->assertDatabaseCount('users', 1);
+        $this->assertDatabaseEmpty('business_settings');
     }
 
     public function test_invalid_registration_is_rejected(): void
@@ -78,6 +88,7 @@ class RegistrationTest extends TestCase
 
         $this->assertDatabaseEmpty('organizations');
         $this->assertDatabaseEmpty('users');
+        $this->assertDatabaseEmpty('business_settings');
     }
 
     public function test_user_creation_failure_rolls_back_the_new_organization(): void
@@ -96,6 +107,7 @@ class RegistrationTest extends TestCase
             $this->assertDatabaseMissing('organizations', ['name' => 'Should Roll Back']);
             $this->assertDatabaseCount('organizations', 1);
             $this->assertDatabaseCount('users', 1);
+            $this->assertDatabaseEmpty('business_settings');
 
             return;
         }

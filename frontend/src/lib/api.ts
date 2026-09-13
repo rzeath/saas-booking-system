@@ -7,12 +7,27 @@ const authContextSchema = z.object({
   organization: z.object({ id: z.number(), name: z.string(), status: z.string() }),
 })
 
+const businessSettingSchema = z.object({
+  display_name: z.string(),
+  email: z.string().nullable(),
+  phone: z.string().nullable(),
+  address: z.string().nullable(),
+  logo_path: z.string().nullable(),
+  timezone: z.string(),
+  currency: z.string(),
+  booking_prefix: z.string(),
+  quotation_prefix: z.string(),
+  billing_prefix: z.string(),
+})
+
 const errorResponseSchema = z.object({
   message: z.string().optional(),
   errors: z.record(z.string(), z.array(z.string())).optional(),
 })
 
 export type AuthContext = z.infer<typeof authContextSchema>
+export type BusinessSetting = z.infer<typeof businessSettingSchema>
+export type UpdateBusinessSettingInput = Omit<BusinessSetting, 'logo_path'>
 export type LoginInput = { email: string; password: string }
 export type RegisterInput = {
   business_name: string
@@ -98,4 +113,21 @@ export async function register(input: RegisterInput): Promise<AuthContext> {
 export async function logout(): Promise<void> {
   await initializeCsrf()
   await request('/auth/logout', { method: 'POST' })
+}
+
+export async function getBusinessSettings(): Promise<BusinessSetting> {
+  const response = await request('/business-settings')
+  return businessSettingSchema.parse(await response.json())
+}
+
+export async function updateBusinessSettings(
+  input: UpdateBusinessSettingInput,
+): Promise<BusinessSetting> {
+  await initializeCsrf()
+  const response = await request('/business-settings', {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  })
+
+  return businessSettingSchema.parse(await response.json())
 }

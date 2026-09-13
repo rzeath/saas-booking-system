@@ -22,4 +22,9 @@ class Organization extends Model
     {
         return $this->hasOne(User::class);
     }
+
+    public function businessSetting(): HasOne
+    {
+        return $this->hasOne(BusinessSetting::class);
+    }
 }

@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\CurrentUserController;
 use App\Http\Controllers\Auth\RegisteredUserController;
+use App\Http\Controllers\BusinessSettingController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', fn () => response()->json([
@@ -23,4 +24,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', CurrentUserController::class)->name('auth.me');
     Route::post('/auth/logout', [AuthenticatedSessionController::class, 'destroy'])
         ->name('auth.logout');
+
+    Route::get('/business-settings', [BusinessSettingController::class, 'show'])
+        ->name('business-settings.show');
+    Route::put('/business-settings', [BusinessSettingController::class, 'update'])
+        ->name('business-settings.update');
 });

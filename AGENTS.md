@@ -480,6 +480,7 @@ Expected Booking-level information includes:
 - event type
 - event name / occasion
 - event date
+- timezone snapshot using an IANA timezone identifier
 - venue name
 - venue address
 - contact person
@@ -496,7 +497,8 @@ Booking
 └── Booking Services
     ├── Service
     ├── Package
-    ├── Start Time
+    ├── Start At UTC
+    ├── End At UTC
     ├── Duration
     ├── Quantity
     ├── Unit Price Snapshot
@@ -510,10 +512,23 @@ A Booking may contain multiple Booking Services.
 
 ## Booking Service Scheduling
 
+The approved scheduling persistence model is:
+
+```text
+Booking
+├── event_date (local business date)
+└── timezone (IANA timezone snapshot)
+
+Booking Service
+├── start_at_utc
+├── end_at_utc
+└── duration_minutes
+```
+
 Each Booking Service has its own:
 
-- start time
-- duration
+- UTC start and end timestamps
+- duration in minutes
 - quantity
 
 Different Booking Services within the same Booking may:
@@ -523,7 +538,7 @@ Different Booking Services within the same Booking may:
 
 Do not assume one shared duration or start time for all Booking Services.
 
-The Booking's event date provides the event day context.
+The Booking's event date provides the local event-day context. Local schedule presentation is derived using the Booking timezone snapshot.
 
 ---
 
@@ -531,10 +546,10 @@ The Booking's event date provides the event day context.
 
 For photobooth Services, capacity is based on pooled Service quantity.
 
-Availability must follow half-open interval semantics:
+Availability operates on UTC timestamps and must follow half-open interval semantics:
 
 ```text
-[start, end)
+[start_at_utc, end_at_utc)
 ```
 
 Therefore:
@@ -921,7 +936,7 @@ Each Organization has business settings used for system identity and generated d
 
 Likely settings include:
 
-- business name
+- display name
 - email
 - phone
 - address
@@ -943,6 +958,8 @@ billing prefix = INV
 ```
 
 Do not scatter these values as unrelated hardcoded constants throughout the application.
+
+`Organization.name` is the canonical tenant/business identity. `BusinessSetting.display_name` is the business/document presentation name. They may initially contain the same value, but changing `display_name` must not rename the Organization record.
 
 ---
 

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { LogOut } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 import { getCurrentAuth, logout } from '@/lib/api'
 import { authQueryKey } from '@/lib/auth-query'
@@ -32,6 +32,8 @@ export function HomeRoute() {
           <div className="p-4"><dt className="text-xs uppercase tracking-wide text-slate-500">Admin Name</dt><dd className="mt-1 font-medium">{authQuery.data.user.name}</dd></div>
           <div className="p-4"><dt className="text-xs uppercase tracking-wide text-slate-500">Admin Email</dt><dd className="mt-1 font-medium">{authQuery.data.user.email}</dd></div>
         </dl>
+
+        <Link to="/settings/business" className="mt-6 inline-flex rounded-lg bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400">Business settings</Link>
 
         {logoutMutation.isError ? <p role="alert" className="mt-4 text-sm text-rose-400">Logout failed. Please try again.</p> : null}
         <button
