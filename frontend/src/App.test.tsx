@@ -28,7 +28,7 @@ test('redirects an unauthenticated protected route to login without flashing pro
 
   expect(screen.getByRole('status')).toHaveTextContent('Checking your session')
   expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
-  expect(screen.queryByText('Authenticated tenant')).not.toBeInTheDocument()
+  expect(screen.queryByText('Business Name')).not.toBeInTheDocument()
 })
 
 test('renders login validation feedback before making an authentication request', async () => {
@@ -44,11 +44,11 @@ test('renders login validation feedback before making an authentication request'
 test('renders the authenticated user and only their organization context', async () => {
   renderApp('/', jsonResponse({
     user: { id: 7, name: 'Erica Admin', email: 'erica@example.com' },
-    organization: { id: 12, name: 'EA Creatives', status: 'active' },
+    organization: { id: 12, name: 'Rzeath Events', status: 'active' },
   }))
 
-  expect(await screen.findByText('Authenticated tenant')).toBeInTheDocument()
-  expect(screen.getAllByText('EA Creatives')).toHaveLength(2)
+  expect(await screen.findByText('TakdaOps')).toBeInTheDocument()
+  expect(screen.getAllByText('Rzeath Events')).toHaveLength(2)
   expect(screen.getByText('Erica Admin')).toBeInTheDocument()
   expect(screen.getByText('erica@example.com')).toBeInTheDocument()
 })

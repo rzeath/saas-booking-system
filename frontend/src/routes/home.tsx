@@ -22,8 +22,9 @@ export function HomeRoute() {
   return (
     <main className="grid min-h-screen place-items-center bg-slate-950 px-6 text-slate-100">
       <section className="w-full max-w-xl rounded-2xl border border-slate-800 bg-slate-900 p-8 shadow-2xl shadow-black/20">
-        <p className="text-sm font-medium uppercase tracking-[0.2em] text-cyan-400">Authenticated tenant</p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight">{authQuery.data.organization.name}</h1>
+        <p className="text-sm font-semibold tracking-[0.08em] text-cyan-400">TakdaOps</p>
+        <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-500">Event Booking Management</p>
+        <h1 className="mt-5 text-3xl font-semibold tracking-tight">{authQuery.data.organization.name}</h1>
         <p className="mt-3 text-slate-400">Your authentication and organization foundation is ready.</p>
 
         <dl className="mt-8 divide-y divide-slate-800 rounded-xl border border-slate-800 bg-slate-950/60">
@@ -42,6 +43,7 @@ export function HomeRoute() {
           <LogOut className="size-4" aria-hidden="true" />
           {logoutMutation.isPending ? 'Signing out…' : 'Sign out'}
         </button>
+        <p className="mt-6 text-xs text-slate-600">by Rzeath</p>
       </section>
     </main>
   )

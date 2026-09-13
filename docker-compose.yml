@@ -1,4 +1,4 @@
-name: event-booking-management
+name: takdaops
 
 services:
   nginx:
@@ -66,3 +66,7 @@ services:
 volumes:
   mysql_data:
   redis_data:
+
+networks:
+  default:
+    name: takdaops

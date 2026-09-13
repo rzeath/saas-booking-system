@@ -1,8 +1,8 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "event-booking-management/backend",
+    "name": "takdaops/backend",
     "type": "project",
-    "description": "API backend for the Event Booking Management System.",
+    "description": "API backend for TakdaOps Event Booking Management.",
     "keywords": ["laravel", "framework"],
     "license": "MIT",
     "require": {

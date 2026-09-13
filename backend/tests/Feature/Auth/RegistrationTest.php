@@ -17,7 +17,7 @@ class RegistrationTest extends TestCase
     public function test_registration_creates_and_authenticates_one_admin_for_a_new_organization(): void
     {
         $response = $this->postJson('/api/auth/register', [
-            'business_name' => 'EA Creatives',
+            'business_name' => 'Rzeath Events',
             'admin_name' => 'Erica Admin',
             'email' => 'ADMIN@example.com',
             'password' => 'StrongPass1',
@@ -31,7 +31,7 @@ class RegistrationTest extends TestCase
                     'email' => 'admin@example.com',
                 ],
                 'organization' => [
-                    'name' => 'EA Creatives',
+                    'name' => 'Rzeath Events',
                     'status' => Organization::STATUS_ACTIVE,
                 ],
             ])
@@ -115,7 +115,7 @@ class RegistrationTest extends TestCase
         $user = User::where('email', 'admin@example.com')->firstOrFail();
 
         $this->assertNotSame($existingOrganization->id, $user->organization_id);
-        $this->assertSame('EA Creatives', $user->organization->name);
+        $this->assertSame('Rzeath Events', $user->organization->name);
         $this->assertNull($existingOrganization->user);
     }
 
@@ -123,7 +123,7 @@ class RegistrationTest extends TestCase
     private function validPayload(): array
     {
         return [
-            'business_name' => 'EA Creatives',
+            'business_name' => 'Rzeath Events',
             'admin_name' => 'Erica Admin',
             'email' => 'admin@example.com',
             'password' => 'StrongPass1',

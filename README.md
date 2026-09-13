@@ -1,6 +1,10 @@
-# Event Booking Management System
+# TakdaOps
 
-Technical foundation for an internal, multi-tenant event booking management system. Phase 1 provides self-registration and session-based authentication for one admin user per organization; business domains remain deferred.
+Event Booking Management
+
+Developed by Rzeath
+
+TakdaOps is a multi-tenant internal event booking management system. It is initially focused on photobooth businesses while keeping the core architecture suitable for other event-service businesses. Phase 1 provides self-registration and session-based authentication for one admin user per organization; business domains remain deferred.
 
 ## Prerequisites
 

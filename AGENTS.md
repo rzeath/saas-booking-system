@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-This repository contains a new multi-tenant Event Booking Management System.
+This repository contains TakdaOps, a new multi-tenant Event Booking Management System.
 
 The product is initially focused on photobooth businesses, but the architecture should remain capable of supporting other event-service businesses in the future without redesigning the core booking model.
 
@@ -125,7 +125,7 @@ Do not create additional top-level applications or architectural layers without 
 
 ## Product Scope
 
-The system is an internal Event Booking Management System.
+TakdaOps is an internal Event Booking Management system.
 
 Core domains are expected to include:
 
