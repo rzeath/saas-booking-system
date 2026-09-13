@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Services\UpdateService;
 use App\Http\Requests\MasterDataIndexRequest;
 use App\Http\Requests\SaveServiceRequest;
 use App\Http\Resources\ServiceResource;
@@ -37,12 +38,17 @@ class ServiceController extends Controller
         return new ServiceResource($this->resolve($service, $tenant));
     }
 
-    public function update(SaveServiceRequest $request, int $service, TenantContext $tenant): ServiceResource
-    {
-        $resolved = $this->resolve($service, $tenant);
-        $resolved->update($request->validated());
-
-        return new ServiceResource($resolved->refresh());
+    public function update(
+        SaveServiceRequest $request,
+        int $service,
+        TenantContext $tenant,
+        UpdateService $updateService,
+    ): ServiceResource {
+        return new ServiceResource($updateService->handle(
+            $tenant->organization(),
+            $service,
+            $request->validated(),
+        ));
     }
 
     private function resolve(int $id, TenantContext $tenant): Service

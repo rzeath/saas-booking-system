@@ -34,4 +34,9 @@ class EventType extends Model
     {
         return $this->hasMany(ServiceRate::class);
     }
+
+    public function bookings(): HasMany
+    {
+        return $this->hasMany(Booking::class);
+    }
 }

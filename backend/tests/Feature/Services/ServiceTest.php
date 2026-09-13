@@ -2,7 +2,12 @@
 
 namespace Tests\Feature\Services;
 
+use App\Models\Booking;
+use App\Models\BookingService;
+use App\Models\Customer;
+use App\Models\EventType;
 use App\Models\Organization;
+use App\Models\Package;
 use App\Models\Service;
 use App\Models\User;
 use Illuminate\Database\QueryException;
@@ -102,6 +107,42 @@ class ServiceTest extends TestCase
 
         $this->expectException(QueryException::class);
         $organization->delete();
+    }
+
+    public function test_total_units_cannot_be_reduced_below_reserved_concurrent_quantity(): void
+    {
+        [$admin, $organization] = $this->admin();
+        $customer = Customer::factory()->for($organization)->create();
+        $eventType = EventType::factory()->for($organization)->create();
+        $service = Service::factory()->for($organization)->create([
+            'name' => 'Capacity Booth',
+            'total_units' => 3,
+        ]);
+        $package = Package::factory()->forService($service)->create();
+
+        foreach ([2, 1] as $quantity) {
+            $booking = Booking::factory()->create([
+                'organization_id' => $organization->id,
+                'created_by' => $admin->id,
+                'customer_id' => $customer->id,
+                'event_type_id' => $eventType->id,
+                'customer_name' => $customer->name,
+                'event_type_name' => $eventType->name,
+            ]);
+            BookingService::factory()->forBooking($booking)->forPackage($package)->create([
+                'quantity' => $quantity,
+                'line_total' => number_format(7500 * $quantity, 2, '.', ''),
+            ]);
+        }
+
+        $this->actingAs($admin)->putJson("/api/services/{$service->id}", [
+            'name' => 'Capacity Booth', 'total_units' => 2, 'is_active' => true,
+        ])->assertUnprocessable()->assertJsonValidationErrors('total_units');
+        $this->assertDatabaseHas('services', ['id' => $service->id, 'total_units' => 3]);
+
+        $this->actingAs($admin)->putJson("/api/services/{$service->id}", [
+            'name' => 'Capacity Booth', 'total_units' => 3, 'is_active' => true,
+        ])->assertOk()->assertJsonPath('total_units', 3);
     }
 
     /** @return array{User, Organization} */

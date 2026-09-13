@@ -53,4 +53,9 @@ class Organization extends Model
     {
         return $this->hasMany(Staff::class);
     }
+
+    public function bookings(): HasMany
+    {
+        return $this->hasMany(Booking::class);
+    }
 }

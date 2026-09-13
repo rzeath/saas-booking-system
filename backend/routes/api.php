@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\CurrentUserController;
 use App\Http\Controllers\Auth\RegisteredUserController;
+use App\Http\Controllers\BookingController;
 use App\Http\Controllers\BusinessSettingController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\EventTypeController;
@@ -54,6 +55,13 @@ Route::middleware('auth:sanctum')->group(function (): void {
         'index', 'store', 'show', 'update',
     ]);
     Route::apiResource('staff', StaffController::class)->only([
+        'index', 'store', 'show', 'update',
+    ]);
+    Route::post('/bookings/availability', [BookingController::class, 'availability'])
+        ->name('bookings.availability');
+    Route::post('/bookings/{booking}/cancel', [BookingController::class, 'cancel'])
+        ->name('bookings.cancel');
+    Route::apiResource('bookings', BookingController::class)->only([
         'index', 'store', 'show', 'update',
     ]);
 });

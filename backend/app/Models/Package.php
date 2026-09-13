@@ -34,4 +34,9 @@ class Package extends Model
     {
         return $this->hasMany(ServiceRate::class);
     }
+
+    public function bookingServices(): HasMany
+    {
+        return $this->hasMany(BookingService::class);
+    }
 }
