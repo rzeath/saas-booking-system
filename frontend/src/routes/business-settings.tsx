@@ -2,7 +2,6 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { Link } from 'react-router-dom'
 import { z } from 'zod'
 
 import { FormField, SelectField, TextAreaField } from '@/components/forms/form-field'
@@ -127,25 +126,23 @@ export function BusinessSettingsRoute() {
   )
 
   if (settingsQuery.isPending) {
-    return <main className="grid min-h-screen place-items-center bg-slate-950 text-slate-300"><p role="status">Loading business settings…</p></main>
+    return <div className="grid min-h-96 place-items-center text-slate-300"><p role="status">Loading business settings…</p></div>
   }
 
   if (settingsQuery.isError) {
     return (
-      <main className="grid min-h-screen place-items-center bg-slate-950 px-6 text-slate-100">
+      <div className="grid min-h-96 place-items-center text-slate-100">
         <div className="text-center">
           <p role="alert" className="text-rose-300">We could not load your business settings.</p>
           <button type="button" onClick={() => { void settingsQuery.refetch() }} className="mt-4 rounded-lg border border-slate-700 px-4 py-2 text-sm hover:bg-slate-800">Try again</button>
         </div>
-      </main>
+      </div>
     )
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 px-6 py-12 text-slate-100">
       <section className="mx-auto w-full max-w-3xl rounded-2xl border border-slate-800 bg-slate-900 p-8 shadow-2xl shadow-black/20">
-        <Link className="text-sm font-medium text-cyan-400 hover:text-cyan-300" to="/">← Back to overview</Link>
-        <p className="mt-6 text-sm font-semibold tracking-[0.08em] text-cyan-400">TakdaOps</p>
+        <p className="text-sm font-semibold tracking-[0.08em] text-cyan-400">Settings</p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight">Business settings</h1>
         <p className="mt-2 text-sm leading-6 text-slate-400">Control the identity and defaults used by future business documents. Your canonical Organization name is unchanged.</p>
 
@@ -197,6 +194,5 @@ export function BusinessSettingsRoute() {
           </button>
         </form>
       </section>
-    </main>
   )
 }

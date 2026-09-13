@@ -5,6 +5,7 @@ namespace App\Models;
 use Database\Factories\OrganizationFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Organization extends Model
@@ -26,5 +27,15 @@ class Organization extends Model
     public function businessSetting(): HasOne
     {
         return $this->hasOne(BusinessSetting::class);
+    }
+
+    public function customers(): HasMany
+    {
+        return $this->hasMany(Customer::class);
+    }
+
+    public function eventTypes(): HasMany
+    {
+        return $this->hasMany(EventType::class);
     }
 }
