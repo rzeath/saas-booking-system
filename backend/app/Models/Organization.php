@@ -38,4 +38,14 @@ class Organization extends Model
     {
         return $this->hasMany(EventType::class);
     }
+
+    public function services(): HasMany
+    {
+        return $this->hasMany(Service::class);
+    }
+
+    public function serviceRates(): HasMany
+    {
+        return $this->hasMany(ServiceRate::class);
+    }
 }

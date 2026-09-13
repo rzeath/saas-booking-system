@@ -2,27 +2,22 @@
 
 namespace App\Models;
 
-use Database\Factories\EventTypeFactory;
+use Database\Factories\ServiceFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class EventType extends Model
+class Service extends Model
 {
-    /** @use HasFactory<EventTypeFactory> */
+    /** @use HasFactory<ServiceFactory> */
     use HasFactory;
 
-    protected $fillable = [
-        'name',
-        'is_active',
-    ];
+    protected $fillable = ['name', 'total_units', 'is_active'];
 
     protected function casts(): array
     {
-        return [
-            'is_active' => 'boolean',
-        ];
+        return ['total_units' => 'integer', 'is_active' => 'boolean'];
     }
 
     public function organization(): BelongsTo
@@ -30,8 +25,8 @@ class EventType extends Model
         return $this->belongsTo(Organization::class);
     }
 
-    public function serviceRates(): HasMany
+    public function packages(): HasMany
     {
-        return $this->hasMany(ServiceRate::class);
+        return $this->hasMany(Package::class);
     }
 }

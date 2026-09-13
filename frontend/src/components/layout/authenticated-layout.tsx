@@ -10,6 +10,8 @@ const navigation = [
   { to: '/', label: 'Overview', end: true },
   { to: '/customers', label: 'Customers', end: false },
   { to: '/event-types', label: 'Event Types', end: false },
+  { to: '/services', label: 'Services', end: false },
+  { to: '/service-rates', label: 'Service Rates', end: false },
   { to: '/settings/business', label: 'Business Settings', end: false },
 ]
 
