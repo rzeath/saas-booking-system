@@ -1,6 +1,6 @@
 # Event Booking Management System
 
-Technical foundation for an internal, multi-tenant event booking management system. The current repository intentionally contains infrastructure and a health check only; business domains and authentication are deferred.
+Technical foundation for an internal, multi-tenant event booking management system. Phase 1 provides self-registration and session-based authentication for one admin user per organization; business domains remain deferred.
 
 ## Prerequisites
 
@@ -22,7 +22,9 @@ docker compose up -d
 docker compose exec php php artisan migrate
 ```
 
-Open <http://localhost:8080>. Nginx serves the Vite development application and forwards `/api/*` to Laravel over the internal Docker network. The page reports whether `GET /api/health` succeeds.
+Open <http://localhost:8080>. Nginx serves the Vite development application and forwards `/api/*` and Sanctum's CSRF endpoint to Laravel over the internal Docker network. Register an organization and its single admin at `/register`, or sign in at `/login`.
+
+Sanctum uses the first-party session cookie and CSRF flow; the frontend does not store bearer tokens. For the default local URL, keep `SANCTUM_STATEFUL_DOMAINS=localhost:8080`, `SESSION_SECURE_COOKIE=false`, and `SESSION_SAME_SITE=lax`. Use secure cookie settings appropriate to an HTTPS deployment.
 
 The example credentials are development-only. Replace them in the ignored `backend/.env` before using the environment beyond local development. If your Linux user does not use UID/GID `1000`, set `HOST_UID` and `HOST_GID` in your shell before building.
 
