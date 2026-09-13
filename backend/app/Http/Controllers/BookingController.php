@@ -110,7 +110,11 @@ class BookingController extends Controller
             $validated['booking_services'],
         );
 
-        return response()->json($availability->check($organization->id, $candidates));
+        return response()->json($availability->check(
+            $organization->id,
+            $candidates,
+            isset($validated['booking_id']) ? (int) $validated['booking_id'] : null,
+        ));
     }
 
     private function resolve(int $booking, TenantContext $tenant): Booking

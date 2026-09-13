@@ -13,6 +13,7 @@ const navigation = [
   { to: '/services', label: 'Services', end: false },
   { to: '/service-rates', label: 'Service Rates', end: false },
   { to: '/staff', label: 'Staff', end: false },
+  { to: '/bookings', label: 'Bookings', end: false },
   { to: '/settings/business', label: 'Business Settings', end: false },
 ]
 

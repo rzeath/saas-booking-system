@@ -88,6 +88,71 @@ const staffSchema = z.object({
   updated_at: z.string(),
 })
 
+const bookingStatusSchema = z.enum([
+  'PENDING',
+  'QUOTED',
+  'CONFIRMED',
+  'COMPLETED',
+  'CANCELLED',
+])
+
+const bookingServiceSchema = z.object({
+  id: z.number(),
+  service: z.object({ id: z.number(), name: z.string() }),
+  package: z.object({ id: z.number(), name: z.string() }),
+  start_at_utc: z.string(),
+  end_at_utc: z.string(),
+  local_start: z.string(),
+  local_end: z.string(),
+  duration_minutes: z.number(),
+  quantity: z.number(),
+  unit_rate: z.string(),
+  line_total: z.string(),
+  sort_order: z.number(),
+})
+
+const bookingSchema = z.object({
+  id: z.number(),
+  booking_number: z.string(),
+  status: bookingStatusSchema,
+  customer: relatedMasterDataSchema,
+  customer_snapshot: z.object({
+    name: z.string(),
+    email: z.string().nullable(),
+    phone: z.string().nullable(),
+    address: z.string().nullable(),
+  }),
+  event_type: relatedMasterDataSchema,
+  event_type_snapshot: z.object({ name: z.string() }),
+  event_name: z.string(),
+  event_date: z.string(),
+  timezone: z.string(),
+  venue_name: z.string(),
+  venue_address: z.string().nullable(),
+  contact_person: z.string(),
+  contact_number: z.string(),
+  internal_notes: z.string().nullable(),
+  booking_services: z.array(bookingServiceSchema),
+  cancelled_at: z.string().nullable(),
+  cancellation_reason: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+})
+
+const availabilityServiceSchema = z.object({
+  service_id: z.number(),
+  available: z.boolean(),
+  total_units: z.number(),
+  requested_quantity: z.number(),
+  required_quantity: z.number(),
+  over_capacity_by: z.number(),
+})
+
+const bookingAvailabilitySchema = z.object({
+  available: z.boolean(),
+  services: z.array(availabilityServiceSchema),
+})
+
 const paginationSchema = {
   links: z.object({
     prev: z.string().nullable(),
@@ -115,6 +180,7 @@ const servicePageSchema = z.object({ data: z.array(serviceSchema), ...pagination
 const packagePageSchema = z.object({ data: z.array(packageSchema), ...paginationSchema })
 const serviceRatePageSchema = z.object({ data: z.array(serviceRateSchema), ...paginationSchema })
 const staffPageSchema = z.object({ data: z.array(staffSchema), ...paginationSchema })
+const bookingPageSchema = z.object({ data: z.array(bookingSchema), ...paginationSchema })
 
 const errorResponseSchema = z.object({
   message: z.string().optional(),
@@ -148,6 +214,44 @@ export type SaveServiceRateInput = {
 export type Staff = z.infer<typeof staffSchema>
 export type StaffPage = z.infer<typeof staffPageSchema>
 export type SaveStaffInput = Omit<Staff, 'id' | 'created_at' | 'updated_at'>
+export type BookingStatus = z.infer<typeof bookingStatusSchema>
+export type BookingService = z.infer<typeof bookingServiceSchema>
+export type Booking = z.infer<typeof bookingSchema>
+export type BookingPage = z.infer<typeof bookingPageSchema>
+export type BookingAvailability = z.infer<typeof bookingAvailabilitySchema>
+export type SaveBookingServiceInput = {
+  id?: number
+  service_id: number
+  package_id: number
+  local_start_time: string
+  duration_minutes: number
+  quantity: number
+}
+export type SaveBookingInput = {
+  customer_id: number
+  event_type_id: number
+  event_name: string
+  event_date: string
+  venue_name: string
+  venue_address: string | null
+  contact_person: string
+  contact_number: string
+  internal_notes: string | null
+  booking_services: SaveBookingServiceInput[]
+}
+export type BookingAvailabilityInput = Pick<SaveBookingInput, 'event_date' | 'booking_services'> & {
+  booking_id?: number
+}
+export type BookingQuery = {
+  page: number
+  search: string
+  status: BookingStatus | ''
+  event_date_from: string
+  event_date_to: string
+  customer_id: number
+  event_type_id: number
+  per_page?: number
+}
 export type MasterDataStatus = 'active' | 'inactive' | 'all'
 export type MasterDataQuery = {
   page: number
@@ -286,6 +390,18 @@ function serviceRateQueryString(query: ServiceRateQuery): string {
   return params.toString()
 }
 
+function bookingQueryString(query: BookingQuery): string {
+  const params = new URLSearchParams({ page: String(query.page) })
+  if (query.search) params.set('search', query.search)
+  if (query.status) params.set('status', query.status)
+  if (query.event_date_from) params.set('event_date_from', query.event_date_from)
+  if (query.event_date_to) params.set('event_date_to', query.event_date_to)
+  if (query.customer_id) params.set('customer_id', String(query.customer_id))
+  if (query.event_type_id) params.set('event_type_id', String(query.event_type_id))
+  if (query.per_page) params.set('per_page', String(query.per_page))
+  return params.toString()
+}
+
 export async function getCustomers(query: MasterDataQuery): Promise<CustomerPage> {
   const response = await request(`/customers?${masterDataQueryString(query)}`)
   return customerPageSchema.parse(await response.json())
@@ -405,4 +521,46 @@ export async function updateStaff(id: number, input: SaveStaffInput): Promise<St
   await initializeCsrf()
   const response = await request(`/staff/${id}`, { method: 'PUT', body: JSON.stringify(input) })
   return staffSchema.parse(await response.json())
+}
+
+export async function getBookings(query: BookingQuery): Promise<BookingPage> {
+  const response = await request(`/bookings?${bookingQueryString(query)}`)
+  return bookingPageSchema.parse(await response.json())
+}
+
+export async function getBooking(id: number): Promise<Booking> {
+  const response = await request(`/bookings/${id}`)
+  return bookingSchema.parse(await response.json())
+}
+
+export async function createBooking(input: SaveBookingInput): Promise<Booking> {
+  await initializeCsrf()
+  const response = await request('/bookings', { method: 'POST', body: JSON.stringify(input) })
+  return bookingSchema.parse(await response.json())
+}
+
+export async function updateBooking(id: number, input: SaveBookingInput): Promise<Booking> {
+  await initializeCsrf()
+  const response = await request(`/bookings/${id}`, { method: 'PUT', body: JSON.stringify(input) })
+  return bookingSchema.parse(await response.json())
+}
+
+export async function cancelBooking(id: number, reason: string | null): Promise<Booking> {
+  await initializeCsrf()
+  const response = await request(`/bookings/${id}/cancel`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  })
+  return bookingSchema.parse(await response.json())
+}
+
+export async function checkBookingAvailability(
+  input: BookingAvailabilityInput,
+): Promise<BookingAvailability> {
+  await initializeCsrf()
+  const response = await request('/bookings/availability', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  return bookingAvailabilitySchema.parse(await response.json())
 }

@@ -241,6 +241,44 @@ class BookingAvailabilityTest extends TestCase
         $this->assertDatabaseHas('bookings', ['id' => $bookingId, 'event_name' => 'Availability Test']);
     }
 
+    public function test_edit_preview_excludes_own_booking_and_rejects_a_foreign_booking_id(): void
+    {
+        [$admin, $organization] = $this->admin();
+        [$otherAdmin, $otherOrganization] = $this->admin();
+        [$service, $package] = $this->catalog($organization, 1);
+        $booking = $this->reservation(
+            $admin,
+            $organization,
+            $service,
+            $package,
+            '2027-06-15 10:00:00',
+            '2027-06-15 13:00:00',
+            1,
+        );
+        $payload = $this->previewPayload($service, $package);
+        $payload['booking_id'] = $booking->id;
+
+        $this->actingAs($admin)->postJson('/api/bookings/availability', $payload)
+            ->assertOk()
+            ->assertJsonPath('available', true)
+            ->assertJsonPath('services.0.required_quantity', 1);
+
+        $foreignCustomer = Customer::factory()->for($otherOrganization)->create();
+        $foreignEventType = EventType::factory()->for($otherOrganization)->create();
+        $foreignBooking = Booking::factory()->create([
+            'organization_id' => $otherOrganization->id,
+            'created_by' => $otherAdmin->id,
+            'customer_id' => $foreignCustomer->id,
+            'event_type_id' => $foreignEventType->id,
+            'customer_name' => $foreignCustomer->name,
+            'event_type_name' => $foreignEventType->name,
+        ]);
+        $payload['booking_id'] = $foreignBooking->id;
+
+        $this->actingAs($admin)->postJson('/api/bookings/availability', $payload)
+            ->assertNotFound();
+    }
+
     public function test_cancellation_preserves_lines_frees_capacity_and_is_rejected_when_repeated_or_foreign(): void
     {
         [$admin, $organization] = $this->admin();
