@@ -77,6 +77,17 @@ const serviceRateSchema = z.object({
   updated_at: z.string(),
 })
 
+const staffSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  phone: z.string(),
+  email: z.string().nullable(),
+  notes: z.string().nullable(),
+  is_active: z.boolean(),
+  created_at: z.string(),
+  updated_at: z.string(),
+})
+
 const paginationSchema = {
   links: z.object({
     prev: z.string().nullable(),
@@ -103,6 +114,7 @@ const eventTypePageSchema = z.object({
 const servicePageSchema = z.object({ data: z.array(serviceSchema), ...paginationSchema })
 const packagePageSchema = z.object({ data: z.array(packageSchema), ...paginationSchema })
 const serviceRatePageSchema = z.object({ data: z.array(serviceRateSchema), ...paginationSchema })
+const staffPageSchema = z.object({ data: z.array(staffSchema), ...paginationSchema })
 
 const errorResponseSchema = z.object({
   message: z.string().optional(),
@@ -133,6 +145,9 @@ export type SaveServiceRateInput = {
   unit_rate: string
   is_active: boolean
 }
+export type Staff = z.infer<typeof staffSchema>
+export type StaffPage = z.infer<typeof staffPageSchema>
+export type SaveStaffInput = Omit<Staff, 'id' | 'created_at' | 'updated_at'>
 export type MasterDataStatus = 'active' | 'inactive' | 'all'
 export type MasterDataQuery = {
   page: number
@@ -373,4 +388,21 @@ export async function updateServiceRate(id: number, input: SaveServiceRateInput)
   await initializeCsrf()
   const response = await request(`/service-rates/${id}`, { method: 'PUT', body: JSON.stringify(input) })
   return serviceRateSchema.parse(await response.json())
+}
+
+export async function getStaff(query: MasterDataQuery): Promise<StaffPage> {
+  const response = await request(`/staff?${masterDataQueryString(query)}`)
+  return staffPageSchema.parse(await response.json())
+}
+
+export async function createStaff(input: SaveStaffInput): Promise<Staff> {
+  await initializeCsrf()
+  const response = await request('/staff', { method: 'POST', body: JSON.stringify(input) })
+  return staffSchema.parse(await response.json())
+}
+
+export async function updateStaff(id: number, input: SaveStaffInput): Promise<Staff> {
+  await initializeCsrf()
+  const response = await request(`/staff/${id}`, { method: 'PUT', body: JSON.stringify(input) })
+  return staffSchema.parse(await response.json())
 }

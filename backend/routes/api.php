@@ -9,6 +9,7 @@ use App\Http\Controllers\EventTypeController;
 use App\Http\Controllers\PackageController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\ServiceRateController;
+use App\Http\Controllers\StaffController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', fn () => response()->json([
@@ -50,6 +51,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->name('services.packages.store');
     Route::apiResource('packages', PackageController::class)->only(['show', 'update']);
     Route::apiResource('service-rates', ServiceRateController::class)->only([
+        'index', 'store', 'show', 'update',
+    ]);
+    Route::apiResource('staff', StaffController::class)->only([
         'index', 'store', 'show', 'update',
     ]);
 });

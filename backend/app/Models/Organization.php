@@ -48,4 +48,9 @@ class Organization extends Model
     {
         return $this->hasMany(ServiceRate::class);
     }
+
+    public function staff(): HasMany
+    {
+        return $this->hasMany(Staff::class);
+    }
 }

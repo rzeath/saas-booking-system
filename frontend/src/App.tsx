@@ -10,6 +10,7 @@ import { EventTypesRoute } from '@/routes/event-types'
 import { HomeRoute } from '@/routes/home'
 import { ServiceRatesRoute } from '@/routes/service-rates'
 import { ServicesRoute } from '@/routes/services'
+import { StaffRoute } from '@/routes/staff'
 
 export default function App() {
   return (
@@ -20,6 +21,7 @@ export default function App() {
         <Route path="/event-types" element={<EventTypesRoute />} />
         <Route path="/services" element={<ServicesRoute />} />
         <Route path="/service-rates" element={<ServiceRatesRoute />} />
+        <Route path="/staff" element={<StaffRoute />} />
         <Route path="/settings/business" element={<BusinessSettingsRoute />} />
       </Route>
       <Route path="/login" element={<GuestRoute><LoginRoute /></GuestRoute>} />
