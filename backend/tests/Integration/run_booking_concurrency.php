@@ -66,7 +66,7 @@ $payload = [
     'booking_services' => [[
         'service_id' => $service->id,
         'package_id' => $package->id,
-        'local_start_time' => '18:00',
+        'start_time' => '18:00',
         'duration_minutes' => 180,
         'quantity' => 2,
     ]],
@@ -171,10 +171,10 @@ $rejects = function (callable $operation): bool {
 $storedLine = (array) DB::table('booking_services')->where('organization_id', $organization->id)->first();
 unset($storedLine['id']);
 $invalidInterval = $storedLine;
-$invalidInterval['end_at_utc'] = $invalidInterval['start_at_utc'];
+$invalidInterval['end_at'] = $invalidInterval['start_at'];
 $invalidTotal = $storedLine;
-$invalidTotal['start_at_utc'] = '2027-06-16 10:00:00';
-$invalidTotal['end_at_utc'] = '2027-06-16 13:00:00';
+$invalidTotal['start_at'] = '2027-06-16 18:00:00';
+$invalidTotal['end_at'] = '2027-06-16 21:00:00';
 $invalidTotal['line_total'] = '0.01';
 $storedBooking = (array) DB::table('bookings')->where('organization_id', $organization->id)->first();
 unset($storedBooking['id']);

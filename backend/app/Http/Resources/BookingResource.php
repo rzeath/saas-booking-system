@@ -2,7 +2,6 @@
 
 namespace App\Http\Resources;
 
-use DateTimeZone;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -13,8 +12,6 @@ class BookingResource extends JsonResource
     /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
-        $timezone = new DateTimeZone($this->resource->timezone);
-
         return [
             'id' => $this->resource->id,
             'booking_number' => $this->resource->booking_number,
@@ -38,7 +35,6 @@ class BookingResource extends JsonResource
             'event_type_snapshot' => ['name' => $this->resource->event_type_name],
             'event_name' => $this->resource->event_name,
             'event_date' => $this->resource->event_date->format('Y-m-d'),
-            'timezone' => $this->resource->timezone,
             'venue_name' => $this->resource->venue_name,
             'venue_address' => $this->resource->venue_address,
             'contact_person' => $this->resource->contact_person,
@@ -54,10 +50,8 @@ class BookingResource extends JsonResource
                     'id' => $line->package_id,
                     'name' => $line->package_name,
                 ],
-                'start_at_utc' => $line->start_at_utc->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d\TH:i:s.u\Z'),
-                'end_at_utc' => $line->end_at_utc->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d\TH:i:s.u\Z'),
-                'local_start' => $line->start_at_utc->setTimezone($timezone)->format('Y-m-d H:i'),
-                'local_end' => $line->end_at_utc->setTimezone($timezone)->format('Y-m-d H:i'),
+                'start_at' => $line->start_at->format('Y-m-d H:i'),
+                'end_at' => $line->end_at->format('Y-m-d H:i'),
                 'duration_minutes' => $line->duration_minutes,
                 'quantity' => $line->quantity,
                 'unit_rate' => $line->unit_rate,

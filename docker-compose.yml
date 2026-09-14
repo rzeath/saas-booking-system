@@ -2,7 +2,7 @@ name: takdaops
 
 services:
   nginx:
-    image: nginx:stable-alpine
+    image: nginx:1.27-alpine
     ports:
       - "${APP_PORT:-8080}:80"
     volumes:
@@ -24,6 +24,7 @@ services:
       - ./backend/.env
     volumes:
       - ./backend:/var/www/backend
+      - /var/www/backend/vendor
     depends_on:
       mysql:
         condition: service_healthy
@@ -31,18 +32,25 @@ services:
         condition: service_healthy
 
   node:
-    image: node:24-alpine
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+      args:
+        HOST_UID: ${HOST_UID:-1000}
+        HOST_GID: ${HOST_GID:-1000}
     init: true
-    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
-    working_dir: /app
-    command: ["sh", "-lc", "npm install --no-audit --no-fund && npm run dev"]
+    working_dir: /var/www/frontend
     volumes:
-      - ./frontend:/app
+      - ./frontend:/var/www/frontend
+      - /var/www/frontend/node_modules
 
   mysql:
     image: mysql:8.4
     env_file:
       - ./backend/.env
+    ports:
+      - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
@@ -53,7 +61,7 @@ services:
       start_period: 20s
 
   redis:
-    image: redis:7-alpine
+    image: redis:7.4-alpine
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redis_data:/data

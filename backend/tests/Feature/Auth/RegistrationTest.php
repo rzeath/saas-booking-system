@@ -48,7 +48,6 @@ class RegistrationTest extends TestCase
         $this->assertSame(1, $organization->user()->count());
         $this->assertTrue($settings->organization->is($organization));
         $this->assertSame('Rzeath Events', $settings->display_name);
-        $this->assertSame(BusinessSetting::DEFAULT_TIMEZONE, $settings->timezone);
         $this->assertSame(BusinessSetting::DEFAULT_CURRENCY, $settings->currency);
         $this->assertSame(BusinessSetting::DEFAULT_BOOKING_PREFIX, $settings->booking_prefix);
         $this->assertSame(BusinessSetting::DEFAULT_QUOTATION_PREFIX, $settings->quotation_prefix);

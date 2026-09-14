@@ -21,7 +21,6 @@ return new class extends Migration
             $table->string('phone', 50)->nullable();
             $table->text('address')->nullable();
             $table->string('logo_path', 2048)->nullable();
-            $table->string('timezone', 64)->default('Asia/Manila');
             $table->char('currency', 3)->default('PHP');
             $table->string('booking_prefix', 10)->default('BK');
             $table->string('quotation_prefix', 10)->default('QT');
@@ -53,7 +52,6 @@ return new class extends Migration
                 $settings = $organizations->map(fn (object $organization): array => [
                     'organization_id' => $organization->id,
                     'display_name' => $organization->name,
-                    'timezone' => 'Asia/Manila',
                     'currency' => 'PHP',
                     'booking_prefix' => 'BK',
                     'quotation_prefix' => 'QT',

@@ -15,12 +15,24 @@ use App\Models\ServiceRate;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 use Tests\TestCase;
 
 class BookingTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_canonical_schema_uses_manila_native_booking_schedules(): void
+    {
+        $this->assertSame('Asia/Manila', config('app.timezone'));
+        $this->assertTrue(Schema::hasColumn('booking_services', 'start_at'));
+        $this->assertTrue(Schema::hasColumn('booking_services', 'end_at'));
+        $this->assertFalse(Schema::hasColumn('booking_services', 'start_at_utc'));
+        $this->assertFalse(Schema::hasColumn('booking_services', 'end_at_utc'));
+        $this->assertFalse(Schema::hasColumn('bookings', 'timezone'));
+        $this->assertFalse(Schema::hasColumn('business_settings', 'timezone'));
+    }
 
     public function test_booking_api_requires_authentication_and_has_no_delete_endpoint(): void
     {
@@ -33,7 +45,7 @@ class BookingTest extends TestCase
         $this->deleteJson('/api/bookings/1')->assertStatus(405);
     }
 
-    public function test_tenant_creates_pending_booking_with_number_snapshots_exact_prices_and_utc_schedule(): void
+    public function test_tenant_creates_pending_booking_with_number_snapshots_exact_prices_and_manila_schedule(): void
     {
         [$admin, $organization] = $this->admin();
         [$customer, $eventType, $service, $package] = $this->catalog($organization);
@@ -60,14 +72,12 @@ class BookingTest extends TestCase
         ])->assertCreated()
             ->assertJsonPath('booking_number', 'BK-2026-000001')
             ->assertJsonPath('status', 'PENDING')
-            ->assertJsonPath('timezone', 'Asia/Manila')
             ->assertJsonPath('customer_snapshot.name', 'Snapshot Customer')
             ->assertJsonPath('event_type_snapshot.name', 'Wedding')
             ->assertJsonPath('booking_services.0.service.name', 'Mirror Booth')
             ->assertJsonPath('booking_services.0.package.name', 'Premium')
-            ->assertJsonPath('booking_services.0.start_at_utc', '2027-06-15T10:00:00.000000Z')
-            ->assertJsonPath('booking_services.0.end_at_utc', '2027-06-15T13:00:00.000000Z')
-            ->assertJsonPath('booking_services.0.local_start', '2027-06-15 18:00')
+            ->assertJsonPath('booking_services.0.start_at', '2027-06-15 18:00')
+            ->assertJsonPath('booking_services.0.end_at', '2027-06-15 21:00')
             ->assertJsonPath('booking_services.0.unit_rate', '12345.67')
             ->assertJsonPath('booking_services.0.line_total', '37037.01')
             ->assertJsonMissingPath('organization_id');
@@ -112,7 +122,7 @@ class BookingTest extends TestCase
         $payload['booking_services'][] = [
             'service_id' => $otherService->id,
             'package_id' => $otherPackage->id,
-            'local_start_time' => '20:00',
+            'start_time' => '20:00',
             'duration_minutes' => 120,
             'quantity' => 2,
         ];
@@ -242,39 +252,22 @@ class BookingTest extends TestCase
         $this->assertDatabaseCount('document_sequences', 0);
     }
 
-    public function test_cross_midnight_and_another_iana_timezone_are_converted_deliberately(): void
+    public function test_manila_schedule_crossing_midnight_preserves_the_business_wall_clock(): void
     {
-        [$admin, $organization] = $this->admin('America/New_York');
+        [$admin, $organization] = $this->admin();
         [$customer, $eventType, $service, $package] = $this->catalog($organization);
         ServiceRate::factory()->forCombination($eventType, $package)->create(['duration_minutes' => 180]);
         $payload = $this->payload($customer, $eventType, $service, $package);
         $payload['event_date'] = '2027-12-20';
-        $payload['booking_services'][0]['local_start_time'] = '23:00';
+        $payload['booking_services'][0]['start_time'] = '23:00';
 
         $this->actingAs($admin)->postJson('/api/bookings', $payload)
             ->assertCreated()
-            ->assertJsonPath('booking_services.0.start_at_utc', '2027-12-21T04:00:00.000000Z')
-            ->assertJsonPath('booking_services.0.end_at_utc', '2027-12-21T07:00:00.000000Z')
-            ->assertJsonPath('booking_services.0.local_end', '2027-12-21 02:00');
+            ->assertJsonPath('booking_services.0.start_at', '2027-12-20 23:00')
+            ->assertJsonPath('booking_services.0.end_at', '2027-12-21 02:00');
     }
 
-    public function test_nonexistent_and_ambiguous_dst_local_times_are_rejected(): void
-    {
-        [$admin, $organization] = $this->admin('America/New_York');
-        [$customer, $eventType, $service, $package] = $this->catalog($organization);
-        ServiceRate::factory()->forCombination($eventType, $package)->create(['duration_minutes' => 180]);
-
-        foreach ([['2027-03-14', '02:30'], ['2027-11-07', '01:30']] as [$date, $time]) {
-            $payload = $this->payload($customer, $eventType, $service, $package);
-            $payload['event_date'] = $date;
-            $payload['booking_services'][0]['local_start_time'] = $time;
-            $this->actingAs($admin)->postJson('/api/bookings', $payload)
-                ->assertUnprocessable()
-                ->assertJsonValidationErrors('booking_services.0.local_start_time');
-        }
-    }
-
-    public function test_timezone_and_all_snapshots_remain_stable_after_master_data_changes(): void
+    public function test_all_snapshots_remain_stable_after_master_data_changes(): void
     {
         [$admin, $organization] = $this->admin();
         [$customer, $eventType, $service, $package] = $this->catalog($organization);
@@ -282,14 +275,12 @@ class BookingTest extends TestCase
         $id = $this->actingAs($admin)->postJson('/api/bookings', $this->payload($customer, $eventType, $service, $package))
             ->assertCreated()->json('id');
 
-        $organization->businessSetting->update(['timezone' => 'Europe/London']);
         $customer->update(['name' => 'Changed Customer']);
         $eventType->update(['name' => 'Changed Event']);
         $service->update(['name' => 'Changed Service']);
         $package->update(['name' => 'Changed Package']);
 
         $this->actingAs($admin)->getJson("/api/bookings/{$id}")->assertOk()
-            ->assertJsonPath('timezone', 'Asia/Manila')
             ->assertJsonPath('customer.name', 'Changed Customer')
             ->assertJsonPath('customer_snapshot.name', 'Snapshot Customer')
             ->assertJsonPath('event_type_snapshot.name', 'Wedding')
@@ -408,10 +399,9 @@ class BookingTest extends TestCase
     }
 
     /** @return array{User, Organization} */
-    private function admin(string $timezone = 'Asia/Manila'): array
+    private function admin(): array
     {
         $organization = Organization::factory()->withBusinessSettings()->create();
-        $organization->businessSetting->update(['timezone' => $timezone]);
 
         return [User::factory()->for($organization)->create(), $organization];
     }
@@ -448,10 +438,10 @@ class BookingTest extends TestCase
             'booking_services' => [[
                 'service_id' => $service->id,
                 'package_id' => $package->id,
-                'local_start_time' => '18:00',
+                'start_time' => '18:00',
                 'duration_minutes' => 180,
                 'quantity' => 3,
-                'end_at_utc' => '1900-01-01T00:00:00Z',
+                'end_at' => '1900-01-01 00:00',
                 'unit_rate' => '0.01',
                 'line_total' => '0.01',
             ]],

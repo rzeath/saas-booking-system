@@ -30,7 +30,7 @@ No additional authentication, membership, role, or tenant table is proposed.
 ## Shared persistence conventions
 
 - Primary and foreign keys are unsigned `BIGINT` values.
-- Application timestamps are stored in UTC using `DATETIME(6)` where domain precision matters. Date-only business values use `DATE`.
+- Audit and financial timestamps are stored as instants using `DATETIME(6)` where domain precision matters. Booking schedules use Asia/Manila wall-clock `DATETIME(6)` values. Date-only business values use `DATE`.
 - Money uses non-negative `DECIMAL(13,2)`. Backend code must use decimal strings or an exact-money abstraction, never binary floating point.
 - Currency is an ISO 4217 three-letter code. V1 uses one currency per organization, snapshotted onto commercial documents.
 - Statuses are uppercase string codes with database `CHECK` constraints and matching backend enums.
@@ -97,7 +97,6 @@ Important fields:
 - `id`; `organization_id` (unique).
 - `display_name` (required), initialized from `organizations.name`.
 - nullable `email`, `phone`, `address`, `logo_path`.
-- `timezone` (IANA zone; default `Asia/Manila`).
 - `currency` (`CHAR(3)`; default `PHP`).
 - `booking_prefix`, `quotation_prefix`, `billing_prefix` (`VARCHAR(10)`; defaults `BK`, `QT`, `INV`).
 - timestamps.
@@ -129,7 +128,7 @@ Constraints and indexes:
 - Checks: `year >= 2000`, `next_number >= 1`, and allowed document types.
 - Cascade with Organization is acceptable because this row is only a counter; generated document numbers remain stored on historical documents.
 
-Allocation occurs inside the same transaction as document creation. `INSERT IGNORE` first ensures the row exists, then `SELECT ... FOR UPDATE` locks it, the current value is allocated, and `next_number` is incremented. The year is the document-creation year in the Organization timezone, not the Booking's event year. The prefix is read from Business Settings, but is not part of the sequence key; changing a prefix does not reset the year's sequence. Numbers use `<prefix>-<YYYY>-<six-or-more-digit sequence>`. Rollbacks do not consume a number; gaps caused by later cancellation or retained historical documents are acceptable.
+Allocation occurs inside the same transaction as document creation. `INSERT IGNORE` first ensures the row exists, then `SELECT ... FOR UPDATE` locks it, the current value is allocated, and `next_number` is incremented. The year is the document-creation year in the globally configured Asia/Manila application timezone, not the Booking's event year. The prefix is read from Business Settings, but is not part of the sequence key; changing a prefix does not reset the year's sequence. Numbers use `<prefix>-<YYYY>-<six-or-more-digit sequence>`. Rollbacks do not consume a number; gaps caused by later cancellation or retained historical documents are acceptable.
 
 ## Master data
 
@@ -232,7 +231,7 @@ Purpose: tenant-owned aggregate root for one customer event.
 Important fields:
 
 - `id`, `organization_id`, `booking_number`, `customer_id`, `event_type_id`.
-- `event_name`, `event_date` (tenant-local `DATE`), `timezone` (IANA snapshot).
+- `event_name`, `event_date` (Philippine business `DATE`).
 - required `venue_name`, nullable `venue_address`.
 - required `contact_person`, `contact_number`.
 - Customer snapshots: `customer_name`, nullable `customer_email`, `customer_phone`, `customer_address`.
@@ -260,7 +259,7 @@ Purpose: one purchased Service/Package line with its own schedule, quantity, and
 Important fields:
 
 - `id`, `organization_id`, `booking_id`, `service_id`, `package_id`.
-- `start_at_utc`, `end_at_utc` (`DATETIME(6)`).
+- `start_at`, `end_at` (Asia/Manila wall-clock `DATETIME(6)`).
 - `duration_minutes` (`INT UNSIGNED`).
 - `quantity` (`INT UNSIGNED`).
 - `service_name`, `package_name` snapshots.
@@ -272,13 +271,13 @@ Constraints and indexes:
 - Composite tenant-safe foreign key to Booking.
 - Composite foreign key `(organization_id, service_id, package_id)` to the Package's `(organization_id, service_id, id)` proves that the selected Package belongs to the selected Service and tenant.
 - A tenant-safe Service foreign key is retained because Service is the capacity target.
-- Checks: `start_at_utc < end_at_utc`, `duration_minutes > 0`, `quantity > 0`, `unit_rate >= 0`, and `line_total = unit_rate * quantity`.
-- Backend validation additionally guarantees `end_at_utc = start_at_utc + duration_minutes`; that cross-column temporal calculation should not rely solely on database portability.
+- Checks: `start_at < end_at`, `duration_minutes > 0`, `quantity > 0`, `unit_rate >= 0`, and `line_total = unit_rate * quantity`.
+- Backend validation additionally guarantees `end_at = start_at + duration_minutes`; that cross-column temporal calculation should not rely solely on database portability.
 - Supporting unique `(booking_id, id)` and `(organization_id, id)` keys enable same-Booking and same-tenant child constraints.
-- Index `(organization_id, service_id, start_at_utc, end_at_utc, booking_id)` for overlap candidates; index `(organization_id, booking_id, sort_order)` for aggregate loading.
+- Index `(organization_id, service_id, start_at, end_at, booking_id)` for overlap candidates; index `(organization_id, booking_id, sort_order)` for aggregate loading.
 - Restrict Booking, Service, and Package deletion. A pre-acceptance line may be removed only through an aggregate action that first handles draft quotation items/assignments; accepted lines are immutable.
 
-`event_date` is not duplicated here. Full UTC endpoints safely represent cross-midnight schedules and support direct overlap predicates. The Booking's `event_date` and `timezone` retain the intended local calendar context. Input local date/time must be resolved in that snapshotted IANA timezone and converted server-side; JavaScript must not parse date-only values as UTC.
+`event_date` is not duplicated here. Full Asia/Manila start/end values safely represent cross-midnight schedules and support direct overlap predicates. The backend constructs them from the Booking's `event_date` and each line's start time without UTC conversion. JavaScript must treat these API values as business wall-clock strings rather than parsing them as UTC instants.
 
 ### Booking Service Staff Assignment (`booking_service_staff_assignments`, V1)
 
@@ -312,7 +311,7 @@ Constraints and indexes:
 
 Purpose: immutable per-line schedule delta belonging to a Booking Reschedule.
 
-Fields: `id`, `booking_id` (scope key), `booking_reschedule_id`, `booking_service_id`, `previous_start_at_utc`, `previous_end_at_utc`, `new_start_at_utc`, `new_end_at_utc`.
+Fields: `id`, `booking_id` (scope key), `booking_reschedule_id`, `booking_service_id`, `previous_start_at`, `previous_end_at`, `new_start_at`, `new_end_at`.
 
 Constraints and indexes:
 
@@ -336,7 +335,7 @@ Important fields:
 - nullable `valid_until`; nullable `sent_at`, `accepted_at`, `closed_at`.
 - Seller snapshots: `business_display_name`, nullable business email/phone/address/logo path. A snapshotted logo path must address an immutable/versioned asset; replacing bytes at the same path would break history.
 - Customer snapshots: name and nullable email/phone/address.
-- Event snapshots: Event Type name, event name/date/timezone, venue name/address, contact person/number.
+- Event snapshots: Event Type name, event name/date, venue name/address, contact person/number.
 - `currency`, `subtotal`, `transportation_fee`, `crew_meal_fee`, `discount_amount`, `total` (`DECIMAL(13,2)`).
 - generated nullable `active_slot`: `1` for `DRAFT`/`SENT`, otherwise `NULL`.
 - generated nullable `accepted_slot`: `1` for `ACCEPTED`, otherwise `NULL`.
@@ -359,7 +358,7 @@ The generated-slot constraints are real MySQL generated-column indexes, not cond
 
 Purpose: immutable commercial snapshot generated from exactly one Booking Service.
 
-Fields: `id`, `booking_id` (scope key), `quotation_id`, `booking_service_id`, `service_name`, `package_name`, `start_at_utc`, `end_at_utc`, `duration_minutes`, `quantity`, `unit_rate`, `line_total`, `sort_order`.
+Fields: `id`, `booking_id` (scope key), `quotation_id`, `booking_service_id`, `service_name`, `package_name`, `start_at`, `end_at`, `duration_minutes`, `quantity`, `unit_rate`, `line_total`, `sort_order`.
 
 Constraints and indexes:
 
@@ -423,7 +422,7 @@ They are not editable/stored columns.
 
 Purpose: immutable copy of one accepted Quotation Item at Billing creation.
 
-Fields: `id`, `quotation_id` (scope key), `billing_id`, `quotation_item_id`, service/package names, start/end UTC, duration, quantity, unit rate, line total, sort order.
+Fields: `id`, `quotation_id` (scope key), `billing_id`, `quotation_item_id`, service/package names, Asia/Manila start/end schedule, duration, quantity, unit rate, line total, sort order.
 
 Constraints and indexes:
 
@@ -455,7 +454,7 @@ Unless a field is explicitly described as nullable in its domain section, it is 
 
 | Table | Foreign keys and delete action | Uniques and key indexes | Checks / nullability notes |
 | --- | --- | --- | --- |
-| `business_settings` | Organization CASCADE | unique Organization | Contact/address/logo nullable; timezone/currency/prefixes required and non-empty. |
+| `business_settings` | Organization CASCADE | unique Organization | Contact/address/logo nullable; currency/prefixes required and non-empty. |
 | `document_sequences` | Organization CASCADE | unique `(organization_id, document_type, year)` | Type allow-list; `year >= 2000`; `next_number >= 1`. |
 | `customers` | Organization RESTRICT | `(organization_id, id)`; list index `(organization_id, is_active, name)` | Email/phone/address/notes nullable. |
 | `event_types` | Organization RESTRICT | unique `(organization_id, name)` and `(organization_id, id)`; active-name list index | Name required. |

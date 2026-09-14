@@ -1,0 +1,10 @@
+.git
+.gitignore
+backend/.env
+backend/vendor
+backend/storage/logs/*
+backend/storage/framework/cache/data/*
+backend/storage/framework/sessions/*
+backend/storage/framework/testing/*
+backend/storage/framework/views/*
+frontend

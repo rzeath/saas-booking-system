@@ -18,7 +18,6 @@ class BusinessSettingResource extends JsonResource
             'phone' => $this->resource->phone,
             'address' => $this->resource->address,
             'logo_path' => $this->resource->logo_path,
-            'timezone' => $this->resource->timezone,
             'currency' => $this->resource->currency,
             'booking_prefix' => $this->resource->booking_prefix,
             'quotation_prefix' => $this->resource->quotation_prefix,

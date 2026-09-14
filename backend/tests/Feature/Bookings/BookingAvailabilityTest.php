@@ -63,7 +63,7 @@ class BookingAvailabilityTest extends TestCase
     {
         [$admin, $organization] = $this->admin();
         [$service, $package] = $this->catalog($organization, 3);
-        $this->reservation($admin, $organization, $service, $package, '2027-06-15 10:00:00', '2027-06-15 13:00:00', 2);
+        $this->reservation($admin, $organization, $service, $package, '2027-06-15 18:00:00', '2027-06-15 21:00:00', 2);
 
         $this->actingAs($admin)->postJson('/api/bookings/availability', $this->previewPayload($service, $package, '19:00', 180, 1))
             ->assertOk()->assertJsonPath('available', true)->assertJsonPath('services.0.required_quantity', 3);
@@ -77,7 +77,7 @@ class BookingAvailabilityTest extends TestCase
     {
         [$admin, $organization] = $this->admin();
         [$service, $package] = $this->catalog($organization, 2);
-        $this->reservation($admin, $organization, $service, $package, '2027-06-15 10:00:00', '2027-06-15 13:00:00', 2);
+        $this->reservation($admin, $organization, $service, $package, '2027-06-15 18:00:00', '2027-06-15 21:00:00', 2);
 
         $this->actingAs($admin)->postJson('/api/bookings/availability', $this->previewPayload($service, $package, '21:00', 180, 2))
             ->assertOk()->assertJsonPath('available', true);
@@ -104,7 +104,7 @@ class BookingAvailabilityTest extends TestCase
         $payload['booking_services'][] = [
             'service_id' => $service->id,
             'package_id' => $package->id,
-            'local_start_time' => '19:00',
+            'start_time' => '19:00',
             'duration_minutes' => 180,
             'quantity' => 2,
         ];
@@ -124,7 +124,7 @@ class BookingAvailabilityTest extends TestCase
         $payload['booking_services'][] = [
             'service_id' => $service->id,
             'package_id' => $package->id,
-            'local_start_time' => '21:00',
+            'start_time' => '21:00',
             'duration_minutes' => 180,
             'quantity' => 2,
         ];
@@ -138,11 +138,11 @@ class BookingAvailabilityTest extends TestCase
     {
         [$admin, $organization] = $this->admin();
         [$service, $package] = $this->catalog($organization, 3);
-        $this->reservation($admin, $organization, $service, $package, '2027-06-15 10:00:00', '2027-06-15 13:00:00', 1);
+        $this->reservation($admin, $organization, $service, $package, '2027-06-15 18:00:00', '2027-06-15 21:00:00', 1);
         $payload = $this->previewPayload($service, $package, '18:00', 180, 1);
         $payload['booking_services'][] = [
             'service_id' => $service->id, 'package_id' => $package->id,
-            'local_start_time' => '19:00', 'duration_minutes' => 180, 'quantity' => 2,
+            'start_time' => '19:00', 'duration_minutes' => 180, 'quantity' => 2,
         ];
 
         $this->actingAs($admin)->postJson('/api/bookings/availability', $payload)
@@ -167,8 +167,8 @@ class BookingAvailabilityTest extends TestCase
                 $organization,
                 $service,
                 $package,
-                '2027-06-15 10:00:00',
-                '2027-06-15 13:00:00',
+                '2027-06-15 18:00:00',
+                '2027-06-15 21:00:00',
                 1,
                 BookingStatus::from($status),
             );
@@ -183,13 +183,13 @@ class BookingAvailabilityTest extends TestCase
         [$admin, $organization] = $this->admin();
         [$service, $package] = $this->catalog($organization, 1);
         [$otherService, $otherPackage] = $this->catalog($organization, 1, 'Other Booth');
-        $this->reservation($admin, $organization, $service, $package, '2027-06-15 15:00:00', '2027-06-15 19:00:00', 1);
+        $this->reservation($admin, $organization, $service, $package, '2027-06-15 23:00:00', '2027-06-16 03:00:00', 1);
 
         $this->actingAs($admin)->postJson('/api/bookings/availability', [
             'event_date' => '2027-06-15',
             'booking_services' => [[
                 'service_id' => $otherService->id, 'package_id' => $otherPackage->id,
-                'local_start_time' => '23:30', 'duration_minutes' => 120, 'quantity' => 1,
+                'start_time' => '23:30', 'duration_minutes' => 120, 'quantity' => 1,
             ]],
         ])->assertOk()->assertJsonPath('available', true);
 
@@ -197,7 +197,7 @@ class BookingAvailabilityTest extends TestCase
             'event_date' => '2027-06-16',
             'booking_services' => [[
                 'service_id' => $service->id, 'package_id' => $package->id,
-                'local_start_time' => '02:00', 'duration_minutes' => 120, 'quantity' => 1,
+                'start_time' => '02:00', 'duration_minutes' => 120, 'quantity' => 1,
             ]],
         ])->assertOk()->assertJsonPath('available', false);
     }
@@ -212,7 +212,7 @@ class BookingAvailabilityTest extends TestCase
 
         $this->actingAs($admin)->postJson('/api/bookings/availability', $this->previewPayload($service, $package, quantity: 2))
             ->assertOk()->assertJsonPath('available', true);
-        $this->reservation($admin, $organization, $service, $package, '2027-06-15 10:00:00', '2027-06-15 13:00:00', 1);
+        $this->reservation($admin, $organization, $service, $package, '2027-06-15 18:00:00', '2027-06-15 21:00:00', 1);
 
         $this->actingAs($admin)->postJson('/api/bookings', $this->bookingPayload($customer, $eventType, $service, $package, 2))
             ->assertUnprocessable()->assertJsonValidationErrors('booking_services');
@@ -233,9 +233,9 @@ class BookingAvailabilityTest extends TestCase
 
         $this->actingAs($admin)->putJson("/api/bookings/{$bookingId}", $payload)->assertOk();
 
-        $this->reservation($admin, $organization, $service, $package, '2027-06-15 13:00:00', '2027-06-15 16:00:00', 1);
+        $this->reservation($admin, $organization, $service, $package, '2027-06-15 21:00:00', '2027-06-16 00:00:00', 1);
         $payload['event_name'] = 'Should Not Persist';
-        $payload['booking_services'][0]['local_start_time'] = '21:00';
+        $payload['booking_services'][0]['start_time'] = '21:00';
         $this->actingAs($admin)->putJson("/api/bookings/{$bookingId}", $payload)
             ->assertUnprocessable()->assertJsonValidationErrors('booking_services');
         $this->assertDatabaseHas('bookings', ['id' => $bookingId, 'event_name' => 'Availability Test']);
@@ -251,8 +251,8 @@ class BookingAvailabilityTest extends TestCase
             $organization,
             $service,
             $package,
-            '2027-06-15 10:00:00',
-            '2027-06-15 13:00:00',
+            '2027-06-15 18:00:00',
+            '2027-06-15 21:00:00',
             1,
         );
         $payload = $this->previewPayload($service, $package);
@@ -364,9 +364,9 @@ class BookingAvailabilityTest extends TestCase
 
         $booking = Booking::factory()->create($attributes);
         BookingService::factory()->forBooking($booking)->forPackage($package)->create([
-            'start_at_utc' => $start,
-            'end_at_utc' => $end,
-            'duration_minutes' => (strtotime($end.' UTC') - strtotime($start.' UTC')) / 60,
+            'start_at' => $start,
+            'end_at' => $end,
+            'duration_minutes' => (strtotime($end) - strtotime($start)) / 60,
             'quantity' => $quantity,
             'line_total' => number_format(7500 * $quantity, 2, '.', ''),
         ]);
@@ -384,11 +384,10 @@ class BookingAvailabilityTest extends TestCase
     ): array {
         return [
             'event_date' => '2027-06-15',
-            'timezone' => 'UTC',
             'booking_services' => [[
                 'service_id' => $service->id,
                 'package_id' => $package->id,
-                'local_start_time' => $start,
+                'start_time' => $start,
                 'duration_minutes' => $duration,
                 'quantity' => $quantity,
             ]],
@@ -414,7 +413,7 @@ class BookingAvailabilityTest extends TestCase
             'booking_services' => [[
                 'service_id' => $service->id,
                 'package_id' => $package->id,
-                'local_start_time' => '18:00',
+                'start_time' => '18:00',
                 'duration_minutes' => 180,
                 'quantity' => $quantity,
             ]],

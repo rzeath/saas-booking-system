@@ -13,7 +13,7 @@ use Illuminate\Validation\ValidationException;
 class BookingServiceCandidateBuilder
 {
     public function __construct(
-        private readonly LocalScheduleConverter $scheduleConverter,
+        private readonly ManilaSchedule $schedule,
         private readonly ActiveServiceRateResolver $rateResolver,
         private readonly ExactMoney $money,
     ) {}
@@ -26,7 +26,6 @@ class BookingServiceCandidateBuilder
     public function build(
         Organization $organization,
         string $eventDate,
-        string $timezone,
         array $lines,
         ?int $eventTypeId = null,
         ?Collection $resolvedServices = null,
@@ -61,13 +60,12 @@ class BookingServiceCandidateBuilder
             }
 
             $durationMinutes = (int) $line['duration_minutes'];
-            $startAtUtc = $this->scheduleConverter->toUtc(
+            $startAt = $this->schedule->startAt(
                 $eventDate,
-                (string) $line['local_start_time'],
-                $timezone,
-                "booking_services.{$index}.local_start_time",
+                (string) $line['start_time'],
+                "booking_services.{$index}.start_time",
             );
-            $endAtUtc = $startAtUtc->add(new DateInterval("PT{$durationMinutes}M"));
+            $endAt = $startAt->add(new DateInterval("PT{$durationMinutes}M"));
             $unitRate = null;
             $lineTotal = null;
 
@@ -97,8 +95,8 @@ class BookingServiceCandidateBuilder
                 isset($line['id']) ? (int) $line['id'] : null,
                 $service,
                 $package,
-                $startAtUtc,
-                $endAtUtc,
+                $startAt,
+                $endAt,
                 $durationMinutes,
                 (int) $line['quantity'],
                 $unitRate,

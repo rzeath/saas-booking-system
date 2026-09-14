@@ -27,7 +27,7 @@ class DocumentNumberAllocator
 
         $settings = $this->lockedSettings($connection, $organization);
         $year = (int) DateTimeImmutable::createFromInterface($createdAt)
-            ->setTimezone(new DateTimeZone($settings->timezone))
+            ->setTimezone(new DateTimeZone((string) config('app.timezone')))
             ->format('Y');
         $now = now();
 

@@ -12,8 +12,6 @@ class BusinessSetting extends Model
     /** @use HasFactory<BusinessSettingFactory> */
     use HasFactory;
 
-    public const DEFAULT_TIMEZONE = 'Asia/Manila';
-
     public const DEFAULT_CURRENCY = 'PHP';
 
     public const DEFAULT_BOOKING_PREFIX = 'BK';
@@ -27,7 +25,6 @@ class BusinessSetting extends Model
         'email',
         'phone',
         'address',
-        'timezone',
         'currency',
         'booking_prefix',
         'quotation_prefix',
@@ -39,7 +36,6 @@ class BusinessSetting extends Model
     {
         return [
             'display_name' => $displayName,
-            'timezone' => self::DEFAULT_TIMEZONE,
             'currency' => self::DEFAULT_CURRENCY,
             'booking_prefix' => self::DEFAULT_BOOKING_PREFIX,
             'quotation_prefix' => self::DEFAULT_QUOTATION_PREFIX,

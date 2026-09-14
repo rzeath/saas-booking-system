@@ -25,8 +25,8 @@ This is the concise implementation checklist for the approved V1 invariants. Det
 
 ## Scheduling and availability
 
-1. Booking stores the tenant-local `event_date` and an IANA `timezone` snapshot. Each Booking Service stores full UTC `start_at_utc`/`end_at_utc` plus positive `duration_minutes`.
-2. Backend input conversion combines explicit local date/time with the Booking timezone. Date-only frontend values must not be parsed as UTC.
+1. Booking stores the Philippine `event_date`. Each Booking Service stores Asia/Manila `start_at`/`end_at` wall-clock date-times plus positive `duration_minutes`.
+2. Backend schedule construction combines the explicit event date and start time directly in the globally configured `Asia/Manila` application timezone. There is no tenant timezone or UTC conversion for business schedules.
 3. Full endpoints support cross-midnight services. The backend enforces `end = start + duration`.
 4. Intervals are half-open: `[start, end)`. They overlap only when `existing.start < requested.end AND existing.end > requested.start`; back-to-back intervals do not overlap.
 5. `PENDING`, `QUOTED`, and `CONFIRMED` Bookings reserve capacity. `COMPLETED` and `CANCELLED` do not.
@@ -92,6 +92,6 @@ This is the concise implementation checklist for the approved V1 invariants. Det
 ## Document numbering
 
 1. Booking, Quotation, and Billing numbers are allocated under a locked `(organization_id, document_type, year)` sequence row; `MAX(...) + 1` is forbidden.
-2. The year is determined at document creation in the Organization timezone, not from the Booking event date.
+2. The year is determined at document creation in the application timezone, not from the Booking event date.
 3. Allocation and document insert share one transaction. Existing numbers and snapshots never change when prefixes change.
 4. Rollbacks do not consume numbers. Gaps from retained cancelled/voided business history are acceptable; numbers are never reused.

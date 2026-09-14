@@ -22,7 +22,6 @@ erDiagram
         bigint id PK
         bigint organization_id FK
         varchar display_name
-        varchar timezone
         char currency
         varchar booking_prefix
         varchar quotation_prefix
@@ -86,7 +85,6 @@ erDiagram
         bigint event_type_id FK
         varchar booking_number UK
         date event_date
-        varchar timezone
         varchar status
         bigint created_by FK
     }
@@ -96,8 +94,8 @@ erDiagram
         bigint booking_id FK
         bigint service_id FK
         bigint package_id FK
-        datetime start_at_utc
-        datetime end_at_utc
+        datetime start_at
+        datetime end_at
         int duration_minutes
         int quantity
         decimal unit_rate
@@ -125,10 +123,10 @@ erDiagram
         bigint booking_id FK
         bigint booking_reschedule_id FK
         bigint booking_service_id FK
-        datetime previous_start_at_utc
-        datetime previous_end_at_utc
-        datetime new_start_at_utc
-        datetime new_end_at_utc
+        datetime previous_start_at
+        datetime previous_end_at
+        datetime new_start_at
+        datetime new_end_at
     }
 
     QUOTATIONS {
@@ -150,8 +148,8 @@ erDiagram
         bigint booking_id FK
         bigint quotation_id FK
         bigint booking_service_id FK
-        datetime start_at_utc
-        datetime end_at_utc
+        datetime start_at
+        datetime end_at
         int duration_minutes
         int quantity
         decimal unit_rate

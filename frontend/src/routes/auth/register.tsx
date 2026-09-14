@@ -54,7 +54,7 @@ export function RegisterRoute() {
     <AuthLayout
       title="Create your account"
       description="Set up your business and its single administrator account."
-      alternate={<>Already registered? <Link className="text-cyan-400 hover:text-cyan-300" to="/login">Sign in</Link></>}
+      alternate={<>Already registered? <Link className="font-medium text-primary hover:text-primary-hover" to="/login">Sign in</Link></>}
     >
       <form
         className="space-y-5"
@@ -64,13 +64,13 @@ export function RegisterRoute() {
         })}
         noValidate
       >
-        {formError ? <p role="alert" className="rounded-lg bg-rose-950/50 p-3 text-sm text-rose-300">{formError}</p> : null}
+        {formError ? <p role="alert" className="rounded-lg bg-danger-soft p-3 text-sm text-danger">{formError}</p> : null}
         <FormField label="Business Name" id="business-name" autoComplete="organization" error={form.formState.errors.business_name?.message} {...form.register('business_name')} />
         <FormField label="Admin Name" id="admin-name" autoComplete="name" error={form.formState.errors.admin_name?.message} {...form.register('admin_name')} />
         <FormField label="Email" id="email" type="email" autoComplete="email" error={form.formState.errors.email?.message} {...form.register('email')} />
         <FormField label="Password" id="password" type="password" autoComplete="new-password" error={form.formState.errors.password?.message} {...form.register('password')} />
         <FormField label="Confirm Password" id="password-confirmation" type="password" autoComplete="new-password" error={form.formState.errors.password_confirmation?.message} {...form.register('password_confirmation')} />
-        <button type="submit" disabled={mutation.isPending} className="w-full rounded-lg bg-cyan-500 px-4 py-2.5 font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60">
+        <button type="submit" disabled={mutation.isPending} className="w-full rounded-lg bg-primary px-4 py-2.5 font-semibold text-primary-foreground transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60">
           {mutation.isPending ? 'Creating account…' : 'Create account'}
         </button>
       </form>

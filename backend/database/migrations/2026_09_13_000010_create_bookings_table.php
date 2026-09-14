@@ -26,7 +26,6 @@ return new class extends Migration
             $table->string('event_type_name');
             $table->string('event_name');
             $table->date('event_date');
-            $table->string('timezone', 64);
             $table->string('venue_name');
             $table->text('venue_address')->nullable();
             $table->string('contact_person');

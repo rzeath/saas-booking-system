@@ -39,7 +39,7 @@ const serviceLineSchema = z.object({
   id: z.number().optional(),
   service_id: z.number().int().min(1, 'Select a service.'),
   package_id: z.number().int().min(1, 'Select a package.'),
-  local_start_time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Enter a valid start time.'),
+  start_time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Enter a valid start time.'),
   duration_minutes: z.number().int().min(1, 'Select a duration.'),
   quantity: z.number().int('Quantity must be a whole number.').min(1, 'Quantity must be at least 1.'),
 })
@@ -62,7 +62,7 @@ const selectorQuery = { page: 1, search: '', status: 'active' as const, per_page
 const blankService = (): BookingFormValues['booking_services'][number] => ({
   service_id: 0,
   package_id: 0,
-  local_start_time: '',
+  start_time: '',
   duration_minutes: 0,
   quantity: 1,
 })
@@ -82,7 +82,7 @@ function valuesFromBooking(booking?: Booking): BookingFormValues {
       id: line.id,
       service_id: line.service.id,
       package_id: line.package.id,
-      local_start_time: line.local_start.slice(11, 16),
+      start_time: line.start_at.slice(11, 16),
       duration_minutes: line.duration_minutes,
       quantity: line.quantity,
     })) ?? [blankService()],
@@ -101,7 +101,7 @@ function availabilityInput(values: BookingFormValues, bookingId?: number) {
       ...(line.id ? { id: line.id } : {}),
       service_id: line.service_id,
       package_id: line.package_id,
-      local_start_time: line.local_start_time,
+      start_time: line.start_time,
       duration_minutes: line.duration_minutes,
       quantity: line.quantity,
     })),
@@ -162,7 +162,7 @@ function BookingServiceFields({
   }
   const selectedService = services.find((service) => service.id === serviceId)
   const errors = form.formState.errors.booking_services?.[index]
-  const startRegistration = form.register(`booking_services.${index}.local_start_time`)
+  const startRegistration = form.register(`booking_services.${index}.start_time`)
   const quantityRegistration = form.register(`booking_services.${index}.quantity`, { valueAsNumber: true })
 
   return (
@@ -196,7 +196,7 @@ function BookingServiceFields({
             {durations.map((minutes) => <option key={minutes} value={minutes}>{durationLabel(minutes)}{availableRates.some((rate) => rate.duration_minutes === minutes) ? '' : ' (saved; unavailable)'}</option>)}
           </SelectField>
         )} />
-        <FormField label="Local start time" id={`booking-start-${fieldKey}`} type="time" error={errors?.local_start_time?.message} {...startRegistration} onChange={(event) => { onScheduleChange(); void startRegistration.onChange(event) }} />
+        <FormField label="Start time" id={`booking-start-${fieldKey}`} type="time" error={errors?.start_time?.message} {...startRegistration} onChange={(event) => { onScheduleChange(); void startRegistration.onChange(event) }} />
         <FormField label="Quantity" id={`booking-quantity-${fieldKey}`} type="number" min="1" max={selectedService?.total_units} error={errors?.quantity?.message} {...quantityRegistration} onChange={(event) => { onScheduleChange(); void quantityRegistration.onChange(event) }} />
         <div className="rounded-lg border border-slate-800 p-3 text-sm">
           <span className="block text-slate-400">Current configured price</span>
@@ -313,7 +313,6 @@ export function BookingForm({ booking }: { booking?: Booking }) {
           <FormField label="Venue name" id="booking-venue-name" error={form.formState.errors.venue_name?.message} {...form.register('venue_name')} />
           <FormField label="Contact person" id="booking-contact-person" error={form.formState.errors.contact_person?.message} {...form.register('contact_person')} />
           <FormField label="Contact number" id="booking-contact-number" error={form.formState.errors.contact_number?.message} {...form.register('contact_number')} />
-          <div className="rounded-lg border border-slate-800 p-3 text-sm text-slate-400"><span className="block">Schedule timezone</span><strong className="mt-1 block text-slate-200">{settings.data?.timezone ?? 'Loading…'}</strong><span className="mt-1 block text-xs">Enter the event date and times in this business timezone.</span></div>
           <div className="md:col-span-2"><TextAreaField label="Venue address" id="booking-venue-address" error={form.formState.errors.venue_address?.message} {...form.register('venue_address')} /></div>
           <div className="md:col-span-2"><TextAreaField label="Internal notes" id="booking-internal-notes" error={form.formState.errors.internal_notes?.message} {...form.register('internal_notes')} /></div>
         </div>

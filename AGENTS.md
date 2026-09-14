@@ -480,7 +480,6 @@ Expected Booking-level information includes:
 - event type
 - event name / occasion
 - event date
-- timezone snapshot using an IANA timezone identifier
 - venue name
 - venue address
 - contact person
@@ -497,8 +496,8 @@ Booking
 └── Booking Services
     ├── Service
     ├── Package
-    ├── Start At UTC
-    ├── End At UTC
+    ├── Start At
+    ├── End At
     ├── Duration
     ├── Quantity
     ├── Unit Price Snapshot
@@ -516,18 +515,17 @@ The approved scheduling persistence model is:
 
 ```text
 Booking
-├── event_date (local business date)
-└── timezone (IANA timezone snapshot)
+└── event_date (Philippine business date)
 
 Booking Service
-├── start_at_utc
-├── end_at_utc
+├── start_at
+├── end_at
 └── duration_minutes
 ```
 
 Each Booking Service has its own:
 
-- UTC start and end timestamps
+- Asia/Manila start and end date-times
 - duration in minutes
 - quantity
 
@@ -538,7 +536,7 @@ Different Booking Services within the same Booking may:
 
 Do not assume one shared duration or start time for all Booking Services.
 
-The Booking's event date provides the local event-day context. Local schedule presentation is derived using the Booking timezone snapshot.
+The Booking's event date provides the Philippine event-day context. Scheduling is stored and presented directly in Asia/Manila without tenant timezone conversion.
 
 ---
 
@@ -546,10 +544,10 @@ The Booking's event date provides the local event-day context. Local schedule pr
 
 For photobooth Services, capacity is based on pooled Service quantity.
 
-Availability operates on UTC timestamps and must follow half-open interval semantics:
+Availability operates directly on Asia/Manila date-times and must follow half-open interval semantics:
 
 ```text
-[start_at_utc, end_at_utc)
+[start_at, end_at)
 ```
 
 Therefore:
@@ -941,7 +939,6 @@ Likely settings include:
 - phone
 - address
 - logo
-- timezone
 - currency
 - booking number prefix
 - quotation number prefix
@@ -950,7 +947,6 @@ Likely settings include:
 Initial expected defaults may include:
 
 ```text
-timezone = Asia/Manila
 currency = PHP
 booking prefix = BK
 quotation prefix = QT
@@ -989,11 +985,9 @@ The exact implementation should be decided during database design.
 
 ### Time
 
-The application's initial business timezone is expected to be Asia/Manila.
+The application timezone is Asia/Manila. It is configured globally through `APP_TIMEZONE` and is not tenant-selectable.
 
-However, tenant/business timezone should be represented as a business setting instead of scattering timezone assumptions throughout domain code.
-
-Scheduling calculations must be explicit about timezone.
+Business and event schedules are stored, calculated, and presented directly as Asia/Manila wall-clock date-times. Do not convert booking schedules to UTC and do not add tenant timezone snapshots.
 
 Avoid unsafe JavaScript Date parsing/formatting behavior that can shift calendar dates unintentionally.
 

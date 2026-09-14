@@ -2,17 +2,122 @@
 
 @theme inline {
   --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-subtle: var(--surface-subtle);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-muted: var(--muted);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-ring: var(--ring);
 }
 
 :root {
+  --background: #f5f7fb;
+  --foreground: #172033;
+  --surface: #ffffff;
+  --surface-subtle: #f8fafc;
+  --border: #e2e8f0;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-soft: #eff6ff;
+  --primary-foreground: #ffffff;
+  --muted: #64748b;
+  --success: #15803d;
+  --success-soft: #f0fdf4;
+  --warning: #a16207;
+  --warning-soft: #fffbeb;
+  --danger: #b91c1c;
+  --danger-soft: #fef2f2;
+  --info: #0369a1;
+  --info-soft: #f0f9ff;
+  --ring: #93c5fd;
   font-family: var(--font-sans);
-  color-scheme: dark;
+  color-scheme: light;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--background);
 }
 
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  outline-color: var(--ring);
+}
+
+button:not(:disabled),
+a {
+  cursor: pointer;
+}
+
+/*
+ * Transitional compatibility for feature screens scheduled for later UI phases.
+ * It keeps their current markup readable in the light application shell while
+ * shared primitives and page-by-page redesigns are introduced incrementally.
+ */
+.app-workspace .bg-slate-900 { background-color: var(--surface); }
+.app-workspace .bg-slate-950,
+.app-workspace .bg-slate-950\/60 { background-color: var(--surface-subtle); }
+.app-workspace .border-slate-700,
+.app-workspace .border-slate-800 { border-color: var(--border); }
+.app-workspace .divide-slate-800 > :not(:last-child) { border-color: var(--border); }
+.app-workspace .text-slate-100,
+.app-workspace .text-slate-200 { color: var(--foreground); }
+.app-workspace .text-slate-300 { color: #334155; }
+.app-workspace .text-slate-400,
+.app-workspace .text-slate-500,
+.app-workspace .text-slate-600 { color: var(--muted); }
+.app-workspace .text-cyan-300,
+.app-workspace .text-cyan-400 { color: var(--primary); }
+.app-workspace .bg-cyan-500 { background-color: var(--primary); }
+.app-workspace .text-slate-950 { color: var(--primary-foreground); }
+.app-workspace .text-emerald-300,
+.app-workspace .text-emerald-400 { color: var(--success); }
+.app-workspace .text-amber-300,
+.app-workspace .text-amber-400 { color: var(--warning); }
+.app-workspace .text-rose-300,
+.app-workspace .text-rose-400 { color: var(--danger); }
+.app-workspace .bg-rose-950\/50 { background-color: var(--danger-soft); }
+.app-workspace .hover\:bg-slate-800:hover { background-color: var(--surface-subtle); }
+.app-workspace .hover\:bg-cyan-400:hover { background-color: var(--primary-hover); }
+.app-workspace .focus\:border-cyan-500:focus { border-color: var(--primary); }
+.app-workspace .focus\:ring-cyan-500\/20:focus { --tw-ring-color: color-mix(in srgb, var(--ring) 45%, transparent); }
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }

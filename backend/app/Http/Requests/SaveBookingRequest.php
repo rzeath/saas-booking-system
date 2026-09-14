@@ -21,8 +21,8 @@ class SaveBookingRequest extends FormRequest
                 return $line;
             }
 
-            if (array_key_exists('local_start_time', $line)) {
-                $line['local_start_time'] = trim((string) $line['local_start_time']);
+            if (array_key_exists('start_time', $line)) {
+                $line['start_time'] = trim((string) $line['start_time']);
             }
 
             return $line;
@@ -71,7 +71,7 @@ class SaveBookingRequest extends FormRequest
             ],
             'booking_services.*.service_id' => ['required', 'integer'],
             'booking_services.*.package_id' => ['required', 'integer'],
-            'booking_services.*.local_start_time' => ['required', 'date_format:H:i'],
+            'booking_services.*.start_time' => ['required', 'date_format:H:i'],
             'booking_services.*.duration_minutes' => ['required', 'integer', 'min:1', 'max:4294967295'],
             'booking_services.*.quantity' => ['required', 'integer', 'min:1', 'max:4294967295'],
         ];

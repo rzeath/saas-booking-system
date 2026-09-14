@@ -29,7 +29,6 @@ class Booking extends Model
         'event_type_name',
         'event_name',
         'event_date',
-        'timezone',
         'venue_name',
         'venue_address',
         'contact_person',

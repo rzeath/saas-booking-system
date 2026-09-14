@@ -63,9 +63,9 @@ class DocumentNumberAllocatorTest extends TestCase
         );
     }
 
-    public function test_business_timezone_determines_the_sequence_year(): void
+    public function test_application_timezone_determines_the_sequence_year(): void
     {
-        $organization = $this->organizationWithSettings(['timezone' => 'Asia/Manila']);
+        $organization = $this->organizationWithSettings();
 
         $number = $this->allocate(
             $organization,

@@ -16,8 +16,8 @@ class BookingService extends Model
         'organization_id',
         'service_id',
         'package_id',
-        'start_at_utc',
-        'end_at_utc',
+        'start_at',
+        'end_at',
         'duration_minutes',
         'quantity',
         'service_name',
@@ -30,8 +30,8 @@ class BookingService extends Model
     protected function casts(): array
     {
         return [
-            'start_at_utc' => 'immutable_datetime',
-            'end_at_utc' => 'immutable_datetime',
+            'start_at' => 'immutable_datetime',
+            'end_at' => 'immutable_datetime',
             'duration_minutes' => 'integer',
             'quantity' => 'integer',
             'unit_rate' => 'decimal:2',

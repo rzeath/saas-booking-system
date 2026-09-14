@@ -35,12 +35,9 @@ class CreateBooking
                 $data['booking_services'],
             );
             $services = $this->serviceLocker->lock($organization, $serviceIds);
-            $timezone = $organization->businessSetting()->value('timezone');
-
             $candidates = $this->candidateBuilder->build(
                 $organization,
                 $data['event_date'],
-                $timezone,
                 $data['booking_services'],
                 $eventType->id,
                 $services,
@@ -60,7 +57,6 @@ class CreateBooking
                     $createdAt,
                 ),
                 ...$this->bookingAttributes($data, $customer, $eventType),
-                'timezone' => $timezone,
                 'status' => BookingStatus::Pending,
                 'created_by' => $user->id,
                 'created_at' => $createdAt,

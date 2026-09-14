@@ -9,7 +9,7 @@ Phase 2A defines architecture only. The following phases should each start with 
 - Scope route binding and queries by authenticated Organization.
 - Use backend enums/validation plus database checks for statuses and structural invariants.
 - Use API Resources and typed frontend API contracts; never make frontend validation authoritative.
-- Use deterministic dates/timezones in tests and exact decimal strings for money.
+- Use deterministic Asia/Manila dates and times in tests and exact decimal strings for money.
 - Do not add Calendar/Dashboard persistence merely for presentation.
 
 ## Phase 2B — Business Settings and Document Sequences
@@ -23,14 +23,14 @@ Tables:
 Backend scope:
 
 - Provision one Business Settings row with an Organization/Admin registration without changing one-admin semantics.
-- Tenant-scoped settings read/update action with timezone, currency, and prefix validation.
+- Tenant-scoped settings read/update action with currency and prefix validation.
 - Transaction-safe, year-aware number allocator for Booking/Quotation/Billing types.
 
 Tests:
 
 - Registration atomically creates one settings row with defaults.
 - Tenant isolation and ignored caller tenant IDs.
-- Prefix/timezone/currency validation.
+- Prefix/currency validation.
 - Concurrent allocation uniqueness, year/type/tenant separation, formatting, rollback behavior, and acceptable gaps.
 
 Frontend scope:
@@ -130,7 +130,7 @@ Tables:
 Backend scope:
 
 - Create/update Booking aggregate with customer/event/service/package snapshots.
-- Convert tenant-local inputs to explicit UTC endpoints using the Booking timezone snapshot.
+- Combine the Philippine event date and per-line start time into explicit Asia/Manila `start_at`/`end_at` values.
 - Resolve prices server-side and calculate exact line totals.
 - Allocate Booking numbers transactionally.
 - Implement pooled Service capacity with ordered Service-row locks and in-transaction re-checks.
@@ -141,7 +141,7 @@ Tests:
 
 - Tenant isolation and cross-tenant foreign-key attempts.
 - Price/snapshot correctness and ignored submitted prices/tenant IDs.
-- Same-day, cross-midnight, DST/timezone conversion, and date-only handling.
+- Same-day, cross-midnight, half-open interval, and date-only handling.
 - Half-open back-to-back intervals, partial/full overlap, quantity summation, self-exclusion, multiple proposed lines, and status-based reservation.
 - Concurrent capacity attempts and deterministic lock ordering.
 - Optional Staff, duplicate assignment prevention, conflicts, and inactive Staff behavior.
@@ -257,7 +257,7 @@ Backend scope:
 
 Tests:
 
-- Tenant isolation, date-range/timezone boundaries, status filters, exact totals, and query performance.
+- Tenant isolation, Philippine date-range boundaries, status filters, exact totals, and query performance.
 - Verify no stale denormalized source of truth is introduced.
 
 Frontend scope:

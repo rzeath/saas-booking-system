@@ -5,7 +5,7 @@ import App from '@/App'
 import { AppProviders } from '@/app/providers'
 
 const auth = { user: { id: 7, name: 'Admin', email: 'admin@example.com' }, organization: { id: 1, name: 'Studio', status: 'active' } }
-const settings = { display_name: 'Studio', email: null, phone: null, address: null, logo_path: null, timezone: 'Asia/Manila', currency: 'PHP', booking_prefix: 'BK', quotation_prefix: 'QT', billing_prefix: 'INV' }
+const settings = { display_name: 'Studio', email: null, phone: null, address: null, logo_path: null, currency: 'PHP', booking_prefix: 'BK', quotation_prefix: 'QT', billing_prefix: 'INV' }
 const customer = { id: 2, name: 'Ana Cruz', email: 'ana@example.com', phone: '09171234567', address: 'Makati', notes: null, is_active: true, created_at: '2026-01-01', updated_at: '2026-01-01' }
 const eventType = { id: 3, name: 'Wedding', is_active: true, created_at: '2026-01-01', updated_at: '2026-01-01' }
 const service = { id: 4, name: 'Mirror Booth', total_units: 2, is_active: true, created_at: '2026-01-01', updated_at: '2026-01-01' }
@@ -14,8 +14,8 @@ const rate = { id: 6, event_type: { id: 3, name: 'Wedding', is_active: true }, s
 const booking = {
   id: 8, booking_number: 'BK-2027-000001', status: 'PENDING',
   customer: { id: 2, name: 'Ana Cruz', is_active: true }, customer_snapshot: { name: 'Ana Cruz', email: 'ana@example.com', phone: '09171234567', address: 'Makati' },
-  event_type: { id: 3, name: 'Wedding', is_active: true }, event_type_snapshot: { name: 'Wedding' }, event_name: 'Ana & Leo', event_date: '2027-06-15', timezone: 'Asia/Manila', venue_name: 'The Glass House', venue_address: 'Makati', contact_person: 'Ana Cruz', contact_number: '09171234567', internal_notes: 'Load in early.',
-  booking_services: [{ id: 9, service: { id: 4, name: 'Mirror Booth' }, package: { id: 5, name: 'Premium' }, start_at_utc: '2027-06-15T10:00:00.000000Z', end_at_utc: '2027-06-15T13:00:00.000000Z', local_start: '2027-06-15 18:00', local_end: '2027-06-15 21:00', duration_minutes: 180, quantity: 1, unit_rate: '8000.00', line_total: '8000.00', sort_order: 0 }],
+  event_type: { id: 3, name: 'Wedding', is_active: true }, event_type_snapshot: { name: 'Wedding' }, event_name: 'Ana & Leo', event_date: '2027-06-15', venue_name: 'The Glass House', venue_address: 'Makati', contact_person: 'Ana Cruz', contact_number: '09171234567', internal_notes: 'Load in early.',
+  booking_services: [{ id: 9, service: { id: 4, name: 'Mirror Booth' }, package: { id: 5, name: 'Premium' }, start_at: '2027-06-15 18:00', end_at: '2027-06-15 21:00', duration_minutes: 180, quantity: 1, unit_rate: '8000.00', line_total: '8000.00', sort_order: 0 }],
   cancelled_at: null, cancellation_reason: null, created_at: '2026-01-01', updated_at: '2026-01-01',
 }
 
@@ -112,7 +112,7 @@ test('creates a booking with backend-authoritative pricing and availability prev
   fireEvent.change(screen.getByLabelText('Package'), { target: { value: '5' } })
   await screen.findByRole('option', { name: '3 hours' })
   fireEvent.change(screen.getByLabelText('Duration'), { target: { value: '180' } })
-  fireEvent.change(screen.getByLabelText('Local start time'), { target: { value: '18:00' } })
+  fireEvent.change(screen.getByLabelText('Start time'), { target: { value: '18:00' } })
   expect(await screen.findByText(/Estimated line total:/)).toHaveTextContent('₱8,000.00')
   fireEvent.click(screen.getByRole('button', { name: 'Check availability' }))
   expect(await screen.findByText('All requested services are available.')).toBeInTheDocument()
@@ -123,7 +123,7 @@ test('creates a booking with backend-authoritative pricing and availability prev
 
   await waitFor(() => expect(submitted).toBeDefined())
   const payload = submitted as { booking_services: Record<string, unknown>[] }
-  expect(payload.booking_services[0]).toEqual({ service_id: 4, package_id: 5, local_start_time: '18:00', duration_minutes: 180, quantity: 1 })
+  expect(payload.booking_services[0]).toEqual({ service_id: 4, package_id: 5, start_time: '18:00', duration_minutes: 180, quantity: 1 })
   expect(payload.booking_services[0]).not.toHaveProperty('unit_rate')
   expect(payload.booking_services[0]).not.toHaveProperty('line_total')
 })
@@ -170,7 +170,7 @@ test('shows a capacity conflict from the availability preview', async () => {
   })
   renderRoute('/bookings/8/edit', fetchMock)
   await screen.findByRole('option', { name: '3 hours' })
-  expect(screen.getByLabelText('Local start time')).toHaveValue('18:00')
+  expect(screen.getByLabelText('Start time')).toHaveValue('18:00')
   expect(screen.getByText(/Saved snapshot:/)).toHaveTextContent('₱8,000.00')
   fireEvent.click(screen.getByRole('button', { name: 'Check availability' }))
   expect(await screen.findByText('One or more services exceed capacity.')).toBeInTheDocument()
@@ -194,7 +194,7 @@ test('shows an authoritative capacity conflict when create is submitted', async 
   fireEvent.change(screen.getByLabelText('Package'), { target: { value: '5' } })
   await screen.findByRole('option', { name: '3 hours' })
   fireEvent.change(screen.getByLabelText('Duration'), { target: { value: '180' } })
-  fireEvent.change(screen.getByLabelText('Local start time'), { target: { value: '18:00' } })
+  fireEvent.change(screen.getByLabelText('Start time'), { target: { value: '18:00' } })
   fireEvent.click(screen.getByRole('button', { name: 'Create booking' }))
   expect(await screen.findByText('The requested schedule exceeds available service capacity.')).toBeInTheDocument()
 })

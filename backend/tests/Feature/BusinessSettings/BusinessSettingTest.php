@@ -33,7 +33,6 @@ class BusinessSettingTest extends TestCase
                 'phone' => null,
                 'address' => null,
                 'logo_path' => null,
-                'timezone' => BusinessSetting::DEFAULT_TIMEZONE,
                 'currency' => BusinessSetting::DEFAULT_CURRENCY,
                 'booking_prefix' => BusinessSetting::DEFAULT_BOOKING_PREFIX,
                 'quotation_prefix' => BusinessSetting::DEFAULT_QUOTATION_PREFIX,
@@ -51,6 +50,7 @@ class BusinessSettingTest extends TestCase
             ->putJson('/api/business-settings', [
                 ...$this->validPayload(),
                 'display_name' => '  Public Brand  ',
+                'timezone' => 'Asia/Singapore',
                 'currency' => 'usd',
                 'booking_prefix' => 'book',
                 'quotation_prefix' => 'quote2',
@@ -63,6 +63,10 @@ class BusinessSettingTest extends TestCase
             ->assertJsonPath('quotation_prefix', 'QUOTE2')
             ->assertJsonPath('billing_prefix', 'INVOICE');
 
+        $this->actingAs($admin)->getJson('/api/business-settings')
+            ->assertOk()
+            ->assertJsonMissingPath('timezone');
+
         $this->assertSame('Canonical Tenant', $admin->organization->fresh()->name);
         $this->assertDatabaseHas('business_settings', [
             'organization_id' => $admin->organization_id,
@@ -70,7 +74,6 @@ class BusinessSettingTest extends TestCase
             'email' => 'bookings@example.com',
             'phone' => '+63 917 123 4567',
             'address' => 'Makati City',
-            'timezone' => 'Asia/Singapore',
             'currency' => 'USD',
             'booking_prefix' => 'BOOK',
             'quotation_prefix' => 'QUOTE2',
@@ -78,14 +81,13 @@ class BusinessSettingTest extends TestCase
         ]);
     }
 
-    public function test_invalid_timezone_and_prefixes_are_rejected(): void
+    public function test_invalid_currency_and_prefixes_are_rejected(): void
     {
         $admin = $this->adminWithSettings('Tenant');
 
         $this->actingAs($admin)
             ->putJson('/api/business-settings', [
                 ...$this->validPayload(),
-                'timezone' => 'Not/A_Timezone',
                 'currency' => 'US1',
                 'booking_prefix' => '   ',
                 'quotation_prefix' => 'QUOTE-WITH-DASH',
@@ -93,7 +95,6 @@ class BusinessSettingTest extends TestCase
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors([
-                'timezone',
                 'currency',
                 'booking_prefix',
                 'quotation_prefix',
@@ -155,7 +156,6 @@ class BusinessSettingTest extends TestCase
             'email' => 'bookings@example.com',
             'phone' => '+63 917 123 4567',
             'address' => 'Makati City',
-            'timezone' => 'Asia/Singapore',
             'currency' => 'PHP',
             'booking_prefix' => 'BK',
             'quotation_prefix' => 'QT',

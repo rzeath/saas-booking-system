@@ -15,7 +15,6 @@ const settings = {
   phone: '+63 917 123 4567',
   address: 'Makati City',
   logo_path: null,
-  timezone: 'Asia/Manila',
   currency: 'PHP',
   booking_prefix: 'BK',
   quotation_prefix: 'QT',
@@ -58,7 +57,7 @@ test('loads and renders the current tenant business settings', async () => {
   expect(await screen.findByRole('heading', { name: 'Business settings' })).toBeInTheDocument()
   expect(screen.getByLabelText('Display Name')).toHaveValue('Rzeath Events')
   expect(screen.getByLabelText('Business Email')).toHaveValue('bookings@example.com')
-  expect(screen.getByLabelText('Timezone')).toHaveValue('Asia/Manila')
+  expect(screen.queryByLabelText('Timezone')).not.toBeInTheDocument()
   expect(screen.getByLabelText('Currency')).toHaveValue('PHP')
   expect(screen.getByLabelText('Billing Prefix')).toHaveValue('INV')
 })

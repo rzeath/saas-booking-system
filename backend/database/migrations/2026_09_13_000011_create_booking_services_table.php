@@ -15,8 +15,8 @@ return new class extends Migration
             $table->unsignedBigInteger('booking_id');
             $table->unsignedBigInteger('service_id');
             $table->unsignedBigInteger('package_id');
-            $table->dateTime('start_at_utc', 6);
-            $table->dateTime('end_at_utc', 6);
+            $table->dateTime('start_at', 6);
+            $table->dateTime('end_at', 6);
             $table->unsignedInteger('duration_minutes');
             $table->unsignedInteger('quantity');
             $table->string('service_name');
@@ -43,7 +43,7 @@ return new class extends Migration
             $table->unique(['organization_id', 'id'], 'booking_services_tenant_id_unique');
             $table->unique(['booking_id', 'id'], 'booking_services_booking_id_unique');
             $table->index(
-                ['organization_id', 'service_id', 'start_at_utc', 'end_at_utc', 'booking_id'],
+                ['organization_id', 'service_id', 'start_at', 'end_at', 'booking_id'],
                 'booking_services_availability_index',
             );
             $table->index(
@@ -55,7 +55,7 @@ return new class extends Migration
         if (DB::connection()->getDriverName() === 'mysql') {
             DB::statement(<<<'SQL'
                 ALTER TABLE booking_services
-                    ADD CONSTRAINT booking_services_interval_valid CHECK (start_at_utc < end_at_utc),
+                    ADD CONSTRAINT booking_services_interval_valid CHECK (start_at < end_at),
                     ADD CONSTRAINT booking_services_duration_positive CHECK (duration_minutes > 0),
                     ADD CONSTRAINT booking_services_quantity_positive CHECK (quantity > 0),
                     ADD CONSTRAINT booking_services_unit_rate_non_negative CHECK (unit_rate >= 0),

@@ -18,11 +18,9 @@ PHP, Composer, Node, MySQL, and Redis run in containers, so matching host instal
 ```sh
 cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
-docker compose build php
-docker compose run --rm php composer install
-docker compose run --rm php php artisan key:generate
-docker compose run --rm node npm ci
+docker compose build
 docker compose up -d
+docker compose exec php php artisan key:generate
 docker compose exec php php artisan migrate
 ```
 
@@ -55,6 +53,13 @@ docker compose exec node npm run build
 ```
 
 The frontend API base path is configured by `VITE_API_BASE_URL` in `frontend/.env`; `/api` is the same-origin development default.
+
+Composer and npm dependencies are installed into the development images and exposed through container-only volumes, so host `vendor` and `node_modules` directories are not used. After changing either lockfile, rebuild the affected image and recreate its anonymous dependency volume. For example:
+
+```sh
+docker compose build php node
+docker compose up -d --force-recreate --renew-anon-volumes php node nginx
+```
 
 ## Stop the environment
 

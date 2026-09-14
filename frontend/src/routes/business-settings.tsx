@@ -20,7 +20,6 @@ const settingsSchema = z.object({
   email: z.union([z.literal(''), z.string().trim().email('Enter a valid email address.').max(255)]),
   phone: z.string().trim().max(50, 'Use at most 50 characters.'),
   address: z.string().trim().max(2000, 'Use at most 2,000 characters.'),
-  timezone: z.string().min(1, 'Select a timezone.'),
   currency: z.string().regex(/^[A-Z]{3}$/, 'Select a currency.'),
   booking_prefix: prefixSchema,
   quotation_prefix: prefixSchema,
@@ -33,14 +32,13 @@ const settingsFields = new Set<keyof SettingsValues>([
   'email',
   'phone',
   'address',
-  'timezone',
   'currency',
   'booking_prefix',
   'quotation_prefix',
   'billing_prefix',
 ])
 
-function runtimeValues(key: 'timeZone' | 'currency', fallback: string[]): string[] {
+function runtimeValues(key: 'currency', fallback: string[]): string[] {
   try {
     return Intl.supportedValuesOf(key)
   } catch {
@@ -48,7 +46,6 @@ function runtimeValues(key: 'timeZone' | 'currency', fallback: string[]): string
   }
 }
 
-const runtimeTimezones = runtimeValues('timeZone', ['Asia/Manila', 'UTC'])
 const runtimeCurrencies = runtimeValues('currency', ['PHP', 'USD'])
 
 function choices(values: string[], current?: string): string[] {
@@ -61,7 +58,6 @@ function formValues(settings: BusinessSetting): SettingsValues {
     email: settings.email ?? '',
     phone: settings.phone ?? '',
     address: settings.address ?? '',
-    timezone: settings.timezone,
     currency: settings.currency,
     booking_prefix: settings.booking_prefix,
     quotation_prefix: settings.quotation_prefix,
@@ -83,7 +79,6 @@ export function BusinessSettingsRoute() {
       email: '',
       phone: '',
       address: '',
-      timezone: 'Asia/Manila',
       currency: 'PHP',
       booking_prefix: 'BK',
       quotation_prefix: 'QT',
@@ -116,10 +111,6 @@ export function BusinessSettingsRoute() {
     if (settingsQuery.data) form.reset(formValues(settingsQuery.data))
   }, [form, settingsQuery.data])
 
-  const timezoneOptions = useMemo(
-    () => choices(runtimeTimezones, settingsQuery.data?.timezone),
-    [settingsQuery.data?.timezone],
-  )
   const currencyOptions = useMemo(
     () => choices(runtimeCurrencies, settingsQuery.data?.currency),
     [settingsQuery.data?.currency],
@@ -171,11 +162,8 @@ export function BusinessSettingsRoute() {
             <div className="md:col-span-2"><TextAreaField label="Business Address" id="business-address" error={form.formState.errors.address?.message} {...form.register('address')} /></div>
           </fieldset>
 
-          <fieldset className="grid gap-5 md:grid-cols-2">
+          <fieldset>
             <legend className="mb-4 text-lg font-semibold">Regional defaults</legend>
-            <SelectField label="Timezone" id="timezone" error={form.formState.errors.timezone?.message} {...form.register('timezone')}>
-              {timezoneOptions.map((timezone) => <option key={timezone} value={timezone}>{timezone}</option>)}
-            </SelectField>
             <SelectField label="Currency" id="currency" error={form.formState.errors.currency?.message} {...form.register('currency')}>
               {currencyOptions.map((currency) => <option key={currency} value={currency}>{currency}</option>)}
             </SelectField>

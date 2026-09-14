@@ -13,7 +13,6 @@ const businessSettingSchema = z.object({
   phone: z.string().nullable(),
   address: z.string().nullable(),
   logo_path: z.string().nullable(),
-  timezone: z.string(),
   currency: z.string(),
   booking_prefix: z.string(),
   quotation_prefix: z.string(),
@@ -100,10 +99,8 @@ const bookingServiceSchema = z.object({
   id: z.number(),
   service: z.object({ id: z.number(), name: z.string() }),
   package: z.object({ id: z.number(), name: z.string() }),
-  start_at_utc: z.string(),
-  end_at_utc: z.string(),
-  local_start: z.string(),
-  local_end: z.string(),
+  start_at: z.string(),
+  end_at: z.string(),
   duration_minutes: z.number(),
   quantity: z.number(),
   unit_rate: z.string(),
@@ -126,7 +123,6 @@ const bookingSchema = z.object({
   event_type_snapshot: z.object({ name: z.string() }),
   event_name: z.string(),
   event_date: z.string(),
-  timezone: z.string(),
   venue_name: z.string(),
   venue_address: z.string().nullable(),
   contact_person: z.string(),
@@ -223,7 +219,7 @@ export type SaveBookingServiceInput = {
   id?: number
   service_id: number
   package_id: number
-  local_start_time: string
+  start_time: string
   duration_minutes: number
   quantity: number
 }

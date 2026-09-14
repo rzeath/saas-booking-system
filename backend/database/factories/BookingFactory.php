@@ -36,7 +36,6 @@ class BookingFactory extends Factory
             'event_type_name' => $eventTypeName,
             'event_name' => fake()->words(3, true),
             'event_date' => '2027-06-15',
-            'timezone' => 'Asia/Manila',
             'venue_name' => fake()->company(),
             'venue_address' => fake()->address(),
             'contact_person' => fake()->name(),

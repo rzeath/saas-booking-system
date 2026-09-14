@@ -106,7 +106,6 @@ class BookingController extends Controller
         $candidates = $candidateBuilder->build(
             $organization,
             $validated['event_date'],
-            $organization->businessSetting()->value('timezone'),
             $validated['booking_services'],
         );
 

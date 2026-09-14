@@ -43,7 +43,7 @@ export function LoginRoute() {
     <AuthLayout
       title="Sign in"
       description="Use your organization administrator account."
-      alternate={<>New here? <Link className="text-cyan-400 hover:text-cyan-300" to="/register">Create an account</Link></>}
+      alternate={<>New here? <Link className="font-medium text-primary hover:text-primary-hover" to="/register">Create an account</Link></>}
     >
       <form
         className="space-y-5"
@@ -53,10 +53,10 @@ export function LoginRoute() {
         })}
         noValidate
       >
-        {formError ? <p role="alert" className="rounded-lg bg-rose-950/50 p-3 text-sm text-rose-300">{formError}</p> : null}
+        {formError ? <p role="alert" className="rounded-lg bg-danger-soft p-3 text-sm text-danger">{formError}</p> : null}
         <FormField label="Email" id="email" type="email" autoComplete="email" error={form.formState.errors.email?.message} {...form.register('email')} />
         <FormField label="Password" id="password" type="password" autoComplete="current-password" error={form.formState.errors.password?.message} {...form.register('password')} />
-        <button type="submit" disabled={mutation.isPending} className="w-full rounded-lg bg-cyan-500 px-4 py-2.5 font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60">
+        <button type="submit" disabled={mutation.isPending} className="w-full rounded-lg bg-primary px-4 py-2.5 font-semibold text-primary-foreground transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60">
           {mutation.isPending ? 'Signing in…' : 'Sign in'}
         </button>
       </form>

@@ -5,6 +5,10 @@ import type {
   TextareaHTMLAttributes,
 } from 'react'
 
+const labelClassName = 'block text-sm font-medium text-foreground'
+const controlClassName = 'mt-2 w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-foreground shadow-sm outline-none transition placeholder:text-muted/70 focus:border-primary focus:ring-2 focus:ring-ring/40 disabled:cursor-not-allowed disabled:bg-surface-subtle disabled:text-muted'
+const errorClassName = 'mt-1.5 block text-sm text-danger'
+
 type FormFieldProps = InputHTMLAttributes<HTMLInputElement> & { label: string; error?: string }
 
 export function FormField({ label, error, id, ...inputProps }: FormFieldProps) {
@@ -12,15 +16,15 @@ export function FormField({ label, error, id, ...inputProps }: FormFieldProps) {
 
   return (
     <div>
-      <label className="block text-sm font-medium text-slate-200" htmlFor={id}>{label}</label>
+      <label className={labelClassName} htmlFor={id}>{label}</label>
       <input
         {...inputProps}
         id={id}
         aria-invalid={Boolean(error)}
         aria-describedby={errorId}
-        className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-slate-100 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20"
+        className={controlClassName}
       />
-      {error ? <span id={errorId} className="mt-1.5 block text-sm text-rose-400">{error}</span> : null}
+      {error ? <span id={errorId} className={errorClassName}>{error}</span> : null}
     </div>
   )
 }
@@ -32,15 +36,15 @@ export function TextAreaField({ label, error, id, ...textareaProps }: TextAreaFi
 
   return (
     <div>
-      <label className="block text-sm font-medium text-slate-200" htmlFor={id}>{label}</label>
+      <label className={labelClassName} htmlFor={id}>{label}</label>
       <textarea
         {...textareaProps}
         id={id}
         aria-invalid={Boolean(error)}
         aria-describedby={errorId}
-        className="mt-2 min-h-24 w-full resize-y rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-slate-100 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20"
+        className={`${controlClassName} min-h-24 resize-y`}
       />
-      {error ? <span id={errorId} className="mt-1.5 block text-sm text-rose-400">{error}</span> : null}
+      {error ? <span id={errorId} className={errorClassName}>{error}</span> : null}
     </div>
   )
 }
@@ -52,17 +56,17 @@ export function SelectField({ label, error, id, children, ...selectProps }: Sele
 
   return (
     <div>
-      <label className="block text-sm font-medium text-slate-200" htmlFor={id}>{label}</label>
+      <label className={labelClassName} htmlFor={id}>{label}</label>
       <select
         {...selectProps}
         id={id}
         aria-invalid={Boolean(error)}
         aria-describedby={errorId}
-        className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-slate-100 outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20"
+        className={controlClassName}
       >
         {children}
       </select>
-      {error ? <span id={errorId} className="mt-1.5 block text-sm text-rose-400">{error}</span> : null}
+      {error ? <span id={errorId} className={errorClassName}>{error}</span> : null}
     </div>
   )
 }

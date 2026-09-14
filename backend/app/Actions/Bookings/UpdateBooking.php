@@ -59,7 +59,6 @@ class UpdateBooking
             $candidates = $this->candidateBuilder->build(
                 $organization,
                 $data['event_date'],
-                $booking->timezone,
                 $data['booking_services'],
                 $eventType->id,
                 $services,

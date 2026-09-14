@@ -33,8 +33,8 @@ class ServiceAvailabilityChecker
         foreach ($query->get() as $reservation) {
             $this->addInterval(
                 $events,
-                $reservation->start_at_utc,
-                $reservation->end_at_utc,
+                $reservation->start_at,
+                $reservation->end_at,
                 $reservation->quantity,
                 'existing',
             );
@@ -69,11 +69,11 @@ class ServiceAvailabilityChecker
         sort($serviceIds, SORT_NUMERIC);
 
         $minimumStart = min(array_map(
-            fn (BookingServiceCandidate $candidate): DateTimeInterface => $candidate->startAtUtc,
+            fn (BookingServiceCandidate $candidate): DateTimeInterface => $candidate->startAt,
             $candidates,
         ));
         $maximumEnd = max(array_map(
-            fn (BookingServiceCandidate $candidate): DateTimeInterface => $candidate->endAtUtc,
+            fn (BookingServiceCandidate $candidate): DateTimeInterface => $candidate->endAt,
             $candidates,
         ));
 
@@ -86,8 +86,8 @@ class ServiceAvailabilityChecker
             ->where('booking_services.organization_id', $organizationId)
             ->whereIn('booking_services.service_id', $serviceIds)
             ->whereIn('bookings.status', BookingStatus::capacityReservingValues())
-            ->where('booking_services.start_at_utc', '<', $maximumEnd)
-            ->where('booking_services.end_at_utc', '>', $minimumStart)
+            ->where('booking_services.start_at', '<', $maximumEnd)
+            ->where('booking_services.end_at', '>', $minimumStart)
             ->when($excludeBookingId !== null, fn (Builder $query) => $query->where('booking_services.booking_id', '!=', $excludeBookingId));
 
         if ($lockReservations) {
@@ -109,8 +109,8 @@ class ServiceAvailabilityChecker
             foreach ($existing->get($serviceId, collect()) as $reservation) {
                 $this->addInterval(
                     $events,
-                    $reservation->start_at_utc,
-                    $reservation->end_at_utc,
+                    $reservation->start_at,
+                    $reservation->end_at,
                     $reservation->quantity,
                     'existing',
                 );
@@ -119,8 +119,8 @@ class ServiceAvailabilityChecker
             foreach ($serviceCandidates as $candidate) {
                 $this->addInterval(
                     $events,
-                    $candidate->startAtUtc,
-                    $candidate->endAtUtc,
+                    $candidate->startAt,
+                    $candidate->endAt,
                     $candidate->quantity,
                     'candidate',
                 );
@@ -188,8 +188,8 @@ class ServiceAvailabilityChecker
         int $quantity,
         string $kind,
     ): void {
-        $startKey = $start->format('U.u');
-        $endKey = $end->format('U.u');
+        $startKey = $start->format('Y-m-d H:i:s.u');
+        $endKey = $end->format('Y-m-d H:i:s.u');
         $empty = ['existing_start' => 0, 'existing_end' => 0, 'candidate_start' => 0, 'candidate_end' => 0];
         $events[$startKey] ??= $empty;
         $events[$endKey] ??= $empty;
