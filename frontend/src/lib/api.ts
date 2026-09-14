@@ -56,7 +56,7 @@ const relatedMasterDataSchema = z.object({
 
 const packageSchema = z.object({
   id: z.number(),
-  service: relatedMasterDataSchema,
+  services: z.array(relatedMasterDataSchema),
   name: z.string(),
   is_active: z.boolean(),
   created_at: z.string(),
@@ -202,6 +202,7 @@ export type ServiceRate = z.infer<typeof serviceRateSchema>
 export type ServiceRatePage = z.infer<typeof serviceRatePageSchema>
 export type SaveServiceRateInput = {
   event_type_id: number
+  service_id: number
   package_id: number
   duration_minutes: number
   unit_rate: string
@@ -468,14 +469,45 @@ export async function updateService(id: number, input: SaveServiceInput): Promis
   return serviceSchema.parse(await response.json())
 }
 
-export async function getPackages(serviceId: number, query: MasterDataQuery): Promise<PackagePage> {
+export async function getPackages(query: MasterDataQuery): Promise<PackagePage> {
+  const response = await request(`/packages?${masterDataQueryString(query)}`)
+  return packagePageSchema.parse(await response.json())
+}
+
+export async function getServicePackages(serviceId: number, query: MasterDataQuery): Promise<PackagePage> {
   const response = await request(`/services/${serviceId}/packages?${masterDataQueryString(query)}`)
   return packagePageSchema.parse(await response.json())
 }
 
-export async function createPackage(serviceId: number, input: SavePackageInput): Promise<Package> {
+async function collectPackagePages(
+  query: MasterDataQuery,
+  loadPage: (pageQuery: MasterDataQuery) => Promise<PackagePage>,
+): Promise<Package[]> {
+  const packages: Package[] = []
+  let page = 1
+  let lastPage = 1
+
+  do {
+    const result = await loadPage({ ...query, page, per_page: 100 })
+    packages.push(...result.data)
+    lastPage = result.meta.last_page
+    page += 1
+  } while (page <= lastPage)
+
+  return packages
+}
+
+export function getPackageOptions(query: MasterDataQuery): Promise<Package[]> {
+  return collectPackagePages(query, getPackages)
+}
+
+export function getServicePackageOptions(serviceId: number, query: MasterDataQuery): Promise<Package[]> {
+  return collectPackagePages(query, (pageQuery) => getServicePackages(serviceId, pageQuery))
+}
+
+export async function createPackage(input: SavePackageInput): Promise<Package> {
   await initializeCsrf()
-  const response = await request(`/services/${serviceId}/packages`, { method: 'POST', body: JSON.stringify(input) })
+  const response = await request('/packages', { method: 'POST', body: JSON.stringify(input) })
   return packageSchema.parse(await response.json())
 }
 
@@ -483,6 +515,16 @@ export async function updatePackage(id: number, input: SavePackageInput): Promis
   await initializeCsrf()
   const response = await request(`/packages/${id}`, { method: 'PUT', body: JSON.stringify(input) })
   return packageSchema.parse(await response.json())
+}
+
+export async function updateServicePackages(serviceId: number, packageIds: number[]): Promise<Package[]> {
+  await initializeCsrf()
+  const response = await request(`/services/${serviceId}/packages`, {
+    method: 'PUT',
+    body: JSON.stringify({ package_ids: packageIds }),
+  })
+  const body = z.object({ data: z.array(packageSchema) }).parse(await response.json())
+  return body.data
 }
 
 export async function getServiceRates(query: ServiceRateQuery): Promise<ServiceRatePage> {

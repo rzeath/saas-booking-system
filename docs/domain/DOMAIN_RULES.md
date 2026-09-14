@@ -16,8 +16,8 @@ This is the concise implementation checklist for the approved V1 invariants. Det
 2. Customers have no generated customer code. Duplicate names/contact values are allowed.
 3. A Booking has exactly one Event Type; Booking Services do not select another.
 4. Service capacity is `total_units` pooled across interchangeable units. There are no equipment/unit records or exact unit assignments.
-5. A Package belongs to exactly one Service. Package names are unique only within a Service.
-6. A Rate is identified by Organization + Event Type + Package + duration minutes. Service is derived from Package and is not duplicated on Rate.
+5. Packages are independent tenant-owned records. Services and Packages are many-to-many through tenant-safe mappings; an unmapped combination is invalid for rates and bookings.
+6. A Rate is identified by Organization + Event Type + Service + Package + duration minutes. The Service/Package pair must be mapped.
 7. One configuration row exists per Rate combination. Missing or inactive means unavailable, never zero.
 8. The backend resolves Rate and computes `line_total = unit_rate * quantity`. The frontend cannot submit authoritative prices or direct Booking Service price overrides.
 9. Booking Service quantity is a positive integer. V1 has no quantity discount/bulk-pricing engine.

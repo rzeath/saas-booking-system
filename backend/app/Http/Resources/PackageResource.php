@@ -16,11 +16,11 @@ class PackageResource extends JsonResource
             'id' => $this->resource->id,
             'name' => $this->resource->name,
             'is_active' => $this->resource->is_active,
-            'service' => [
-                'id' => $this->resource->service->id,
-                'name' => $this->resource->service->name,
-                'is_active' => $this->resource->service->is_active,
-            ],
+            'services' => $this->resource->services->map(fn ($service): array => [
+                'id' => $service->id,
+                'name' => $service->name,
+                'is_active' => $service->is_active,
+            ])->values(),
             'created_at' => $this->resource->created_at?->toISOString(),
             'updated_at' => $this->resource->updated_at?->toISOString(),
         ];

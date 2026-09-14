@@ -14,9 +14,6 @@ class PackageFactory extends Factory
     {
         return [
             'organization_id' => Organization::factory(),
-            'service_id' => fn (array $attributes) => Service::factory()->create([
-                'organization_id' => $attributes['organization_id'],
-            ])->id,
             'name' => fake()->unique()->words(2, true),
             'is_active' => true,
         ];
@@ -24,10 +21,11 @@ class PackageFactory extends Factory
 
     public function forService(Service $service): static
     {
-        return $this->state(fn (): array => [
-            'organization_id' => $service->organization_id,
-            'service_id' => $service->id,
-        ]);
+        return $this
+            ->state(fn (): array => ['organization_id' => $service->organization_id])
+            ->afterCreating(fn (Package $package) => $package->services()->attach($service->id, [
+                'organization_id' => $service->organization_id,
+            ]));
     }
 
     public function inactive(): static

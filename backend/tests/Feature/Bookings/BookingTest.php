@@ -49,7 +49,7 @@ class BookingTest extends TestCase
     {
         [$admin, $organization] = $this->admin();
         [$customer, $eventType, $service, $package] = $this->catalog($organization);
-        ServiceRate::factory()->forCombination($eventType, $package)->create([
+        ServiceRate::factory()->forCombination($eventType, $service, $package)->create([
             'duration_minutes' => 180,
             'unit_rate' => '12345.67',
         ]);
@@ -106,10 +106,10 @@ class BookingTest extends TestCase
         [$customer, $eventType, $service, $package] = $this->catalog($organization);
         $otherService = Service::factory()->for($organization)->create(['name' => '360 Booth', 'total_units' => 5]);
         $otherPackage = Package::factory()->forService($otherService)->create(['name' => 'Deluxe']);
-        ServiceRate::factory()->forCombination($eventType, $package)->create([
+        ServiceRate::factory()->forCombination($eventType, $service, $package)->create([
             'duration_minutes' => 180, 'unit_rate' => '7500.00',
         ]);
-        ServiceRate::factory()->forCombination($eventType, $otherPackage)->create([
+        ServiceRate::factory()->forCombination($eventType, $otherService, $otherPackage)->create([
             'duration_minutes' => 120, 'unit_rate' => '4000.00',
         ]);
 
@@ -140,7 +140,7 @@ class BookingTest extends TestCase
         [$otherAdmin, $otherOrganization] = $this->admin();
         [$customer, $eventType, $service, $package] = $this->catalog($organization);
         [$foreignCustomer, $foreignEventType] = $this->catalog($otherOrganization);
-        ServiceRate::factory()->forCombination($eventType, $package)->create(['duration_minutes' => 180]);
+        ServiceRate::factory()->forCombination($eventType, $service, $package)->create(['duration_minutes' => 180]);
 
         foreach ([
             ['customer_id', $foreignCustomer->id],
@@ -169,7 +169,7 @@ class BookingTest extends TestCase
         [, , $foreignService, $foreignPackage] = $this->catalog($otherOrganization);
         $otherService = Service::factory()->for($organization)->create();
         $otherPackage = Package::factory()->forService($otherService)->create();
-        ServiceRate::factory()->forCombination($eventType, $package)->create(['duration_minutes' => 180]);
+        ServiceRate::factory()->forCombination($eventType, $service, $package)->create(['duration_minutes' => 180]);
 
         foreach ([
             [$foreignService->id, $package->id, 'service_id'],
@@ -205,7 +205,7 @@ class BookingTest extends TestCase
         $this->assertDatabaseCount('bookings', 0);
         $this->assertDatabaseCount('document_sequences', 0);
 
-        ServiceRate::factory()->inactive()->forCombination($eventType, $package)->create(['duration_minutes' => 180]);
+        ServiceRate::factory()->inactive()->forCombination($eventType, $service, $package)->create(['duration_minutes' => 180]);
         $this->actingAs($admin)->postJson('/api/bookings', $this->payload($customer, $eventType, $service, $package))
             ->assertUnprocessable()->assertJsonValidationErrors('booking_services.0.duration_minutes');
         $this->assertDatabaseCount('bookings', 0);
@@ -231,7 +231,7 @@ class BookingTest extends TestCase
     {
         [$admin, $organization] = $this->admin();
         [$customer, $eventType, $service, $package] = $this->catalog($organization);
-        ServiceRate::factory()->forCombination($eventType, $package)->create(['duration_minutes' => 180]);
+        ServiceRate::factory()->forCombination($eventType, $service, $package)->create(['duration_minutes' => 180]);
         Event::listen('eloquent.creating: '.BookingService::class, function (): never {
             throw new RuntimeException('Simulated child persistence failure.');
         });
@@ -256,7 +256,7 @@ class BookingTest extends TestCase
     {
         [$admin, $organization] = $this->admin();
         [$customer, $eventType, $service, $package] = $this->catalog($organization);
-        ServiceRate::factory()->forCombination($eventType, $package)->create(['duration_minutes' => 180]);
+        ServiceRate::factory()->forCombination($eventType, $service, $package)->create(['duration_minutes' => 180]);
         $payload = $this->payload($customer, $eventType, $service, $package);
         $payload['event_date'] = '2027-12-20';
         $payload['booking_services'][0]['start_time'] = '23:00';
@@ -271,7 +271,7 @@ class BookingTest extends TestCase
     {
         [$admin, $organization] = $this->admin();
         [$customer, $eventType, $service, $package] = $this->catalog($organization);
-        ServiceRate::factory()->forCombination($eventType, $package)->create(['duration_minutes' => 180]);
+        ServiceRate::factory()->forCombination($eventType, $service, $package)->create(['duration_minutes' => 180]);
         $id = $this->actingAs($admin)->postJson('/api/bookings', $this->payload($customer, $eventType, $service, $package))
             ->assertCreated()->json('id');
 
@@ -292,7 +292,7 @@ class BookingTest extends TestCase
     {
         [$admin, $organization] = $this->admin();
         [$customer, $eventType, $service, $package] = $this->catalog($organization);
-        $rate = ServiceRate::factory()->forCombination($eventType, $package)->create([
+        $rate = ServiceRate::factory()->forCombination($eventType, $service, $package)->create([
             'duration_minutes' => 180, 'unit_rate' => '7500.00',
         ]);
         $created = $this->actingAs($admin)->postJson('/api/bookings', $this->payload($customer, $eventType, $service, $package))
@@ -322,8 +322,8 @@ class BookingTest extends TestCase
         [$otherAdmin, $otherOrganization] = $this->admin();
         [$customer, $eventType, $service, $package] = $this->catalog($organization);
         [$otherCustomer, $otherEventType, $otherService, $otherPackage] = $this->catalog($otherOrganization);
-        ServiceRate::factory()->forCombination($eventType, $package)->create(['duration_minutes' => 180]);
-        ServiceRate::factory()->forCombination($otherEventType, $otherPackage)->create(['duration_minutes' => 180]);
+        ServiceRate::factory()->forCombination($eventType, $service, $package)->create(['duration_minutes' => 180]);
+        ServiceRate::factory()->forCombination($otherEventType, $otherService, $otherPackage)->create(['duration_minutes' => 180]);
         $id = $this->actingAs($admin)->postJson('/api/bookings', $this->payload($customer, $eventType, $service, $package))->json('id');
 
         $payload = $this->payload($customer, $eventType, $service, $package);
@@ -350,7 +350,7 @@ class BookingTest extends TestCase
     {
         [$admin, $organization] = $this->admin();
         [$customer, $eventType, $service, $package] = $this->catalog($organization);
-        ServiceRate::factory()->forCombination($eventType, $package)->create(['duration_minutes' => 180]);
+        ServiceRate::factory()->forCombination($eventType, $service, $package)->create(['duration_minutes' => 180]);
         $created = $this->actingAs($admin)->postJson('/api/bookings', $this->payload($customer, $eventType, $service, $package));
         $bookingId = $created->json('id');
         $lineId = $created->json('booking_services.0.id');

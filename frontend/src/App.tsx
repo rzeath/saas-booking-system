@@ -12,6 +12,7 @@ import { BookingsRoute } from '@/routes/bookings'
 import { CustomersRoute } from '@/routes/customers'
 import { EventTypesRoute } from '@/routes/event-types'
 import { HomeRoute } from '@/routes/home'
+import { PackagesRoute } from '@/routes/packages'
 import { ServiceRatesRoute } from '@/routes/service-rates'
 import { ServicesRoute } from '@/routes/services'
 import { StaffRoute } from '@/routes/staff'
@@ -24,6 +25,7 @@ export default function App() {
         <Route path="/customers" element={<CustomersRoute />} />
         <Route path="/event-types" element={<EventTypesRoute />} />
         <Route path="/services" element={<ServicesRoute />} />
+        <Route path="/packages" element={<PackagesRoute />} />
         <Route path="/service-rates" element={<ServiceRatesRoute />} />
         <Route path="/staff" element={<StaffRoute />} />
         <Route path="/bookings" element={<BookingsRoute />} />

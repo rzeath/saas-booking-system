@@ -208,7 +208,7 @@ class BookingAvailabilityTest extends TestCase
         [$service, $package] = $this->catalog($organization, 2);
         $customer = Customer::factory()->for($organization)->create();
         $eventType = EventType::factory()->for($organization)->create();
-        ServiceRate::factory()->forCombination($eventType, $package)->create(['duration_minutes' => 180]);
+        ServiceRate::factory()->forCombination($eventType, $service, $package)->create(['duration_minutes' => 180]);
 
         $this->actingAs($admin)->postJson('/api/bookings/availability', $this->previewPayload($service, $package, quantity: 2))
             ->assertOk()->assertJsonPath('available', true);
@@ -224,7 +224,7 @@ class BookingAvailabilityTest extends TestCase
         [$service, $package] = $this->catalog($organization, 2);
         $customer = Customer::factory()->for($organization)->create();
         $eventType = EventType::factory()->for($organization)->create();
-        ServiceRate::factory()->forCombination($eventType, $package)->create(['duration_minutes' => 180]);
+        ServiceRate::factory()->forCombination($eventType, $service, $package)->create(['duration_minutes' => 180]);
         $created = $this->actingAs($admin)->postJson('/api/bookings', $this->bookingPayload($customer, $eventType, $service, $package, 2))
             ->assertCreated();
         $bookingId = $created->json('id');
@@ -286,7 +286,7 @@ class BookingAvailabilityTest extends TestCase
         [$service, $package] = $this->catalog($organization, 1);
         $customer = Customer::factory()->for($organization)->create();
         $eventType = EventType::factory()->for($organization)->create();
-        ServiceRate::factory()->forCombination($eventType, $package)->create(['duration_minutes' => 180]);
+        ServiceRate::factory()->forCombination($eventType, $service, $package)->create(['duration_minutes' => 180]);
         $created = $this->actingAs($admin)->postJson('/api/bookings', $this->bookingPayload($customer, $eventType, $service, $package))
             ->assertCreated();
         $bookingId = $created->json('id');
@@ -328,7 +328,14 @@ class BookingAvailabilityTest extends TestCase
         $service = Service::factory()->for($organization)->create([
             'name' => $name, 'total_units' => $totalUnits,
         ]);
-        $package = Package::factory()->forService($service)->create(['name' => 'Premium']);
+        $package = Package::query()
+            ->where('organization_id', $organization->id)
+            ->where('name', 'Premium')
+            ->first()
+            ?? Package::factory()->for($organization)->create(['name' => 'Premium']);
+        $package->services()->syncWithoutDetaching([
+            $service->id => ['organization_id' => $organization->id],
+        ]);
 
         return [$service, $package];
     }
@@ -363,7 +370,7 @@ class BookingAvailabilityTest extends TestCase
         }
 
         $booking = Booking::factory()->create($attributes);
-        BookingService::factory()->forBooking($booking)->forPackage($package)->create([
+        BookingService::factory()->forBooking($booking)->forPackage($package, $service)->create([
             'start_at' => $start,
             'end_at' => $end,
             'duration_minutes' => (strtotime($end) - strtotime($start)) / 60,

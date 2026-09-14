@@ -13,6 +13,7 @@ class ServiceRateResource extends JsonResource
     public function toArray(Request $request): array
     {
         $package = $this->resource->package;
+        $service = $this->resource->service;
 
         return [
             'id' => $this->resource->id,
@@ -22,9 +23,9 @@ class ServiceRateResource extends JsonResource
                 'is_active' => $this->resource->eventType->is_active,
             ],
             'service' => [
-                'id' => $package->service->id,
-                'name' => $package->service->name,
-                'is_active' => $package->service->is_active,
+                'id' => $service->id,
+                'name' => $service->name,
+                'is_active' => $service->is_active,
             ],
             'package' => [
                 'id' => $package->id,
@@ -37,7 +38,7 @@ class ServiceRateResource extends JsonResource
             'is_available' => $this->resource->is_active
                 && $this->resource->eventType->is_active
                 && $package->is_active
-                && $package->service->is_active,
+                && $service->is_active,
             'created_at' => $this->resource->created_at?->toISOString(),
             'updated_at' => $this->resource->updated_at?->toISOString(),
         ];

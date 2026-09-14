@@ -19,12 +19,14 @@ class ServiceRateFactory extends Factory
             'event_type_id' => fn (array $attributes) => EventType::factory()->create([
                 'organization_id' => $attributes['organization_id'],
             ])->id,
+            'service_id' => fn (array $attributes) => Service::factory()->create([
+                'organization_id' => $attributes['organization_id'],
+            ])->id,
             'package_id' => function (array $attributes): int {
-                $service = Service::factory()->create([
-                    'organization_id' => $attributes['organization_id'],
-                ]);
-
-                return Package::factory()->forService($service)->create()->id;
+                return Package::factory()
+                    ->forService(Service::query()->findOrFail($attributes['service_id']))
+                    ->create(['organization_id' => $attributes['organization_id']])
+                    ->id;
             },
             'duration_minutes' => fake()->randomElement([120, 180, 240]),
             'unit_rate' => fake()->randomElement(['5000.00', '7500.00', '10000.00']),
@@ -32,11 +34,12 @@ class ServiceRateFactory extends Factory
         ];
     }
 
-    public function forCombination(EventType $eventType, Package $package): static
+    public function forCombination(EventType $eventType, Service $service, Package $package): static
     {
         return $this->state(fn (): array => [
             'organization_id' => $eventType->organization_id,
             'event_type_id' => $eventType->id,
+            'service_id' => $service->id,
             'package_id' => $package->id,
         ]);
     }

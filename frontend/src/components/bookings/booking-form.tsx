@@ -14,7 +14,7 @@ import {
   getBusinessSettings,
   getCustomers,
   getEventTypes,
-  getPackages,
+  getServicePackageOptions,
   getServiceRates,
   getServices,
   type Booking,
@@ -31,7 +31,7 @@ import { bookingListsQueryKey } from '@/lib/bookings-query'
 import { businessSettingsQueryKey } from '@/lib/business-settings-query'
 import { customerListQueryKey } from '@/lib/customers-query'
 import { eventTypeListQueryKey } from '@/lib/event-types-query'
-import { packageListQueryKey } from '@/lib/packages-query'
+import { servicePackageListQueryKey } from '@/lib/packages-query'
 import { serviceRateListQueryKey } from '@/lib/service-rates-query'
 import { serviceListQueryKey } from '@/lib/services-query'
 
@@ -134,8 +134,8 @@ function BookingServiceFields({
   const duration = useWatch({ control: form.control, name: `booking_services.${index}.duration_minutes` })
   const quantity = useWatch({ control: form.control, name: `booking_services.${index}.quantity` })
   const packages = useQuery({
-    queryKey: packageListQueryKey(serviceId, selectorQuery),
-    queryFn: () => getPackages(serviceId, selectorQuery),
+    queryKey: servicePackageListQueryKey(serviceId, selectorQuery),
+    queryFn: () => getServicePackageOptions(serviceId, selectorQuery),
     enabled: serviceId > 0,
   })
   const rateQuery = { ...selectorQuery, event_type_id: eventTypeId, service_id: serviceId, package_id: packageId }
@@ -146,13 +146,13 @@ function BookingServiceFields({
   })
   const currentPackage = savedLine && savedLine.service.id === serviceId ? {
     id: savedLine.package.id,
-    service: { id: savedLine.service.id, name: savedLine.service.name, is_active: false },
+    services: [{ id: savedLine.service.id, name: savedLine.service.name, is_active: false }],
     name: savedLine.package.name,
     is_active: false,
     created_at: '',
     updated_at: '',
   } : undefined
-  const packageOptions = appendCurrent(packages.data?.data ?? [], currentPackage)
+  const packageOptions = appendCurrent(packages.data ?? [], currentPackage)
   const availableRates = rates.data?.data.filter((rate) => rate.is_available) ?? []
   const selectedRate = availableRates.find((rate) => rate.duration_minutes === duration)
   const durations = [...new Set(availableRates.map((rate) => rate.duration_minutes))].sort((a, b) => a - b)

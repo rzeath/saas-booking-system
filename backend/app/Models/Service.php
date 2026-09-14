@@ -6,6 +6,7 @@ use Database\Factories\ServiceFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Service extends Model
@@ -25,9 +26,16 @@ class Service extends Model
         return $this->belongsTo(Organization::class);
     }
 
-    public function packages(): HasMany
+    public function packages(): BelongsToMany
     {
-        return $this->hasMany(Package::class);
+        return $this->belongsToMany(Package::class, 'service_package')
+            ->withPivot('organization_id')
+            ->withTimestamps();
+    }
+
+    public function serviceRates(): HasMany
+    {
+        return $this->hasMany(ServiceRate::class);
     }
 
     public function bookingServices(): HasMany

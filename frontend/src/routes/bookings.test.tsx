@@ -9,7 +9,7 @@ const settings = { display_name: 'Studio', email: null, phone: null, address: nu
 const customer = { id: 2, name: 'Ana Cruz', email: 'ana@example.com', phone: '09171234567', address: 'Makati', notes: null, is_active: true, created_at: '2026-01-01', updated_at: '2026-01-01' }
 const eventType = { id: 3, name: 'Wedding', is_active: true, created_at: '2026-01-01', updated_at: '2026-01-01' }
 const service = { id: 4, name: 'Mirror Booth', total_units: 2, is_active: true, created_at: '2026-01-01', updated_at: '2026-01-01' }
-const packageItem = { id: 5, service: { id: 4, name: 'Mirror Booth', is_active: true }, name: 'Premium', is_active: true, created_at: '2026-01-01', updated_at: '2026-01-01' }
+const packageItem = { id: 5, services: [{ id: 4, name: 'Mirror Booth', is_active: true }], name: 'Premium', is_active: true, created_at: '2026-01-01', updated_at: '2026-01-01' }
 const rate = { id: 6, event_type: { id: 3, name: 'Wedding', is_active: true }, service: { id: 4, name: 'Mirror Booth', is_active: true }, package: { id: 5, name: 'Premium', is_active: true }, duration_minutes: 180, unit_rate: '8000.00', is_active: true, is_available: true, created_at: '2026-01-01', updated_at: '2026-01-01' }
 const booking = {
   id: 8, booking_number: 'BK-2027-000001', status: 'PENDING',

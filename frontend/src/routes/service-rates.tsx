@@ -12,7 +12,7 @@ import {
   ApiError,
   createServiceRate,
   getEventTypes,
-  getPackages,
+  getServicePackageOptions,
   getServiceRates,
   getServices,
   type MasterDataStatus,
@@ -20,7 +20,7 @@ import {
   type ServiceRateQuery,
   updateServiceRate,
 } from '@/lib/api'
-import { packageListQueryKey } from '@/lib/packages-query'
+import { servicePackageListQueryKey } from '@/lib/packages-query'
 import { serviceRateListQueryKey, serviceRatesQueryKey } from '@/lib/service-rates-query'
 
 const formSchema = z.object({
@@ -56,14 +56,15 @@ function RateForm({ rate, onSaved, onCancel }: {
   const eventTypes = useQuery({ queryKey: ['event-types', 'rate-selector'], queryFn: () => getEventTypes(selectorQuery) })
   const services = useQuery({ queryKey: ['services', 'rate-selector'], queryFn: () => getServices(selectorQuery) })
   const packages = useQuery({
-    queryKey: packageListQueryKey(serviceId, selectorQuery),
-    queryFn: () => getPackages(serviceId, selectorQuery),
+    queryKey: servicePackageListQueryKey(serviceId, selectorQuery),
+    queryFn: () => getServicePackageOptions(serviceId, selectorQuery),
     enabled: serviceId > 0,
   })
   const mutation = useMutation({
     mutationFn: (values: FormValues) => {
       const input = {
         event_type_id: values.event_type_id,
+        service_id: values.service_id,
         package_id: values.package_id,
         duration_minutes: values.duration_minutes,
         unit_rate: values.unit_rate,
@@ -88,7 +89,7 @@ function RateForm({ rate, onSaved, onCancel }: {
   })
   const visibleEventTypes = eventTypes.data?.data.filter((item) => item.is_active || item.id === rate?.event_type.id) ?? []
   const visibleServices = services.data?.data.filter((item) => item.is_active || item.id === rate?.service.id) ?? []
-  const visiblePackages = packages.data?.data.filter((item) => item.is_active || item.id === rate?.package.id) ?? []
+  const visiblePackages = packages.data?.filter((item) => item.is_active || item.id === rate?.package.id) ?? []
 
   return <form className="grid gap-5 md:grid-cols-2" noValidate onSubmit={form.handleSubmit((values) => { setMessage(undefined); mutation.mutate(values) })}>
     <Controller name="event_type_id" control={form.control} render={({ field }) => <SelectField label="Event type" id="rate-event-type" error={form.formState.errors.event_type_id?.message} {...field} onChange={(event) => field.onChange(Number(event.target.value))}><option value="0">Select event type</option>{visibleEventTypes.map((item) => <option key={item.id} value={item.id}>{item.name}{item.is_active ? '' : ' (inactive)'}</option>)}</SelectField>} />
@@ -111,11 +112,11 @@ export function ServiceRatesRoute() {
   const services = useQuery({ queryKey: ['services', 'rate-filter'], queryFn: () => getServices(selectorQuery) })
   const eventTypes = useQuery({ queryKey: ['event-types', 'rate-filter'], queryFn: () => getEventTypes(selectorQuery) })
   const statusMutation = useMutation({
-    mutationFn: (rate: ServiceRate) => updateServiceRate(rate.id, { event_type_id: rate.event_type.id, package_id: rate.package.id, duration_minutes: rate.duration_minutes, unit_rate: rate.unit_rate, is_active: !rate.is_active }),
+    mutationFn: (rate: ServiceRate) => updateServiceRate(rate.id, { event_type_id: rate.event_type.id, service_id: rate.service.id, package_id: rate.package.id, duration_minutes: rate.duration_minutes, unit_rate: rate.unit_rate, is_active: !rate.is_active }),
     onSuccess: () => { void queryClient.invalidateQueries({ queryKey: serviceRatesQueryKey }) },
   })
   return <section>
-    <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-sm font-semibold tracking-[0.08em] text-cyan-400">Pricing</p><h1 className="mt-2 text-3xl font-semibold">Service Rates</h1><p className="mt-2 text-sm text-slate-400">Configure authoritative prices by event type, package, and duration.</p></div><button type="button" onClick={() => setEditing(null)} className="inline-flex items-center gap-2 rounded-lg bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-slate-950"><Plus className="size-4" /> New service rate</button></div>
+    <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-sm font-semibold tracking-[0.08em] text-cyan-400">Pricing</p><h1 className="mt-2 text-3xl font-semibold">Service Rates</h1><p className="mt-2 text-sm text-slate-400">Configure authoritative prices by event type, service, package, and duration.</p></div><button type="button" onClick={() => setEditing(null)} className="inline-flex items-center gap-2 rounded-lg bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-slate-950"><Plus className="size-4" /> New service rate</button></div>
     <div className="mt-8 rounded-2xl border border-slate-800 bg-slate-900">
       <div className="grid gap-4 border-b border-slate-800 p-5 md:grid-cols-3"><SelectField label="Service filter" id="rate-service-filter" value={query.service_id ?? ''} onChange={(event) => setQuery({ ...query, page: 1, service_id: Number(event.target.value) || undefined, package_id: undefined })}><option value="">All services</option>{services.data?.data.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</SelectField><SelectField label="Event type filter" id="rate-event-type-filter" value={query.event_type_id ?? ''} onChange={(event) => setQuery({ ...query, page: 1, event_type_id: Number(event.target.value) || undefined })}><option value="">All event types</option>{eventTypes.data?.data.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</SelectField><SelectField label="Status filter" id="rate-status-filter" value={query.status} onChange={(event) => setQuery({ ...query, page: 1, status: event.target.value as MasterDataStatus })}><option value="all">All</option><option value="active">Active</option><option value="inactive">Inactive</option></SelectField></div>
       {message ? <p role="status" className="px-5 pt-4 text-sm text-emerald-300">{message}</p> : null}

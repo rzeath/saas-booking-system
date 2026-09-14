@@ -9,6 +9,7 @@ use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\EventTypeController;
 use App\Http\Controllers\PackageController;
 use App\Http\Controllers\ServiceController;
+use App\Http\Controllers\ServicePackageController;
 use App\Http\Controllers\ServiceRateController;
 use App\Http\Controllers\StaffController;
 use Illuminate\Support\Facades\Route;
@@ -46,11 +47,13 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::apiResource('services', ServiceController::class)->only([
         'index', 'store', 'show', 'update',
     ]);
-    Route::get('/services/{service}/packages', [PackageController::class, 'index'])
+    Route::get('/services/{service}/packages', [ServicePackageController::class, 'index'])
         ->name('services.packages.index');
-    Route::post('/services/{service}/packages', [PackageController::class, 'store'])
-        ->name('services.packages.store');
-    Route::apiResource('packages', PackageController::class)->only(['show', 'update']);
+    Route::put('/services/{service}/packages', [ServicePackageController::class, 'update'])
+        ->name('services.packages.update');
+    Route::apiResource('packages', PackageController::class)->only([
+        'index', 'store', 'show', 'update',
+    ]);
     Route::apiResource('service-rates', ServiceRateController::class)->only([
         'index', 'store', 'show', 'update',
     ]);

@@ -358,29 +358,17 @@ Booking Service quantity consumes the Service's pooled capacity.
 
 ## Packages
 
-A Package belongs to exactly one Service.
+Packages are tenant-owned master data independent from Services. Services and Packages have a many-to-many relationship through tenant-safe mappings.
 
 ```text
-Service
-    ↓
+Services
+    ↕
+Service Package mappings
+    ↕
 Packages
 ```
 
-The same Package name may exist under different Services.
-
-Example:
-
-```text
-360 Booth
-└── Premium
-
-Mirror Booth
-└── Premium
-```
-
-This is valid.
-
-Do not model Services and Packages as many-to-many in V1.
+One Package may be offered for multiple Services, and one Service may offer multiple Packages. Do not duplicate a Package record merely to make it available for another Service. A Service/Package combination is valid for rates and bookings only while that mapping exists.
 
 ---
 

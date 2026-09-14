@@ -57,14 +57,19 @@ erDiagram
     PACKAGES {
         bigint id PK
         bigint organization_id FK
-        bigint service_id FK
         varchar name
         boolean is_active
+    }
+    SERVICE_PACKAGE {
+        bigint organization_id FK
+        bigint service_id FK
+        bigint package_id FK
     }
     SERVICE_RATES {
         bigint id PK
         bigint organization_id FK
         bigint event_type_id FK
+        bigint service_id FK
         bigint package_id FK
         int duration_minutes
         decimal unit_rate
@@ -201,8 +206,10 @@ erDiagram
     ORGANIZATIONS ||--o{ PACKAGES : "owns"
     ORGANIZATIONS ||--o{ SERVICE_RATES : "owns"
     ORGANIZATIONS ||--o{ STAFF : "owns"
-    SERVICES ||--o{ PACKAGES : "defines"
+    SERVICES ||--o{ SERVICE_PACKAGE : "offers"
+    PACKAGES ||--o{ SERVICE_PACKAGE : "is mapped through"
     EVENT_TYPES ||--o{ SERVICE_RATES : "prices"
+    SERVICES ||--o{ SERVICE_RATES : "prices"
     PACKAGES ||--o{ SERVICE_RATES : "has rates"
 
     ORGANIZATIONS ||--o{ BOOKINGS : "owns"
@@ -252,13 +259,13 @@ The Mermaid attributes are intentionally concise. Snapshot columns, audit column
 ### Master data
 
 - Organization owns Customers, Event Types, Services, Packages, Service Rates, and Staff.
-- Service has many Packages; each Package belongs to exactly one Service.
-- Event Type plus Package plus duration identifies one Service Rate. Service is derived from Package.
+- Services and Packages are many-to-many through tenant-qualified `service_package` mappings.
+- Event Type plus Service plus Package plus duration identifies one Service Rate; the Service/Package pair must be mapped.
 
 ### Booking, scheduling, and audit
 
 - Booking belongs to one Customer and one Event Type and contains one or more Booking Services.
-- Booking Service belongs to one Service and one Package; the database must ensure that Package belongs to that Service.
+- Booking Service belongs to one Service and one Package; the database must ensure that pair has a tenant-safe mapping.
 - Booking Service has zero or more optional Staff assignments.
 - A confirmed Booking has zero or more immutable Reschedule headers, each with one or more per-Booking-Service schedule deltas.
 

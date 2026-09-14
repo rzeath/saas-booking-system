@@ -5,6 +5,7 @@ import {
   Gauge,
   LogOut,
   Menu,
+  PackageOpen,
   Settings,
   Tags,
   Users,
@@ -32,6 +33,7 @@ const navigation = [
     label: 'Catalog',
     items: [
       { to: '/services', label: 'Services', icon: BriefcaseBusiness, end: false },
+      { to: '/packages', label: 'Packages', icon: PackageOpen, end: false },
       { to: '/event-types', label: 'Event Types', icon: Tags, end: false },
       { to: '/service-rates', label: 'Service Rates', icon: BookOpen, end: false },
     ],

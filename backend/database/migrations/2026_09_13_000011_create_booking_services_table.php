@@ -37,8 +37,8 @@ return new class extends Migration
             $table->foreign(
                 ['organization_id', 'service_id', 'package_id'],
                 'booking_services_tenant_service_package_foreign',
-            )->references(['organization_id', 'service_id', 'id'])
-                ->on('packages')
+            )->references(['organization_id', 'service_id', 'package_id'])
+                ->on('service_package')
                 ->restrictOnDelete();
             $table->unique(['organization_id', 'id'], 'booking_services_tenant_id_unique');
             $table->unique(['booking_id', 'id'], 'booking_services_booking_id_unique');

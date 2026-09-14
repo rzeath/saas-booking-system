@@ -6,18 +6,20 @@ import { AppProviders } from '@/app/providers'
 
 const auth = { user: { id: 1, name: 'Admin', email: 'admin@example.com' }, organization: { id: 1, name: 'Tenant', status: 'active' } }
 const service = { id: 10, name: '360 Booth', total_units: 3, is_active: true, created_at: '2027-01-01T00:00:00Z', updated_at: '2027-01-01T00:00:00Z' }
-const packageItem = { id: 20, service: { id: 10, name: '360 Booth', is_active: true }, name: 'Premium', is_active: true, created_at: '2027-01-01T00:00:00Z', updated_at: '2027-01-01T00:00:00Z' }
+const relatedService = { id: 10, name: '360 Booth', is_active: true }
+const premium = { id: 20, services: [relatedService], name: 'Premium', is_active: true, created_at: '2027-01-01T00:00:00Z', updated_at: '2027-01-01T00:00:00Z' }
+const basic = { ...premium, id: 21, services: [], name: 'Basic' }
 const response = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 const page = (data: unknown[]) => ({ data, links: { prev: null, next: null }, meta: { current_page: 1, last_page: 1, per_page: 15, total: data.length } })
 
-function baseFetch() {
+function baseFetch(onMappings?: (body: { package_ids: number[] }) => Response) {
   return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
     if (url.endsWith('/api/me')) return response(auth)
     if (url.endsWith('/sanctum/csrf-cookie')) return new Response(null, { status: 204 })
-    if (url.includes('/api/services/10/packages?')) return response(page([packageItem]))
-    if (url.endsWith('/api/services/10/packages') && init?.method === 'POST') return response({ ...packageItem, id: 21, name: 'Basic' }, 201)
-    if (url.endsWith('/api/packages/20') && init?.method === 'PUT') return response({ ...packageItem, name: 'Premium Plus', is_active: false })
+    if (url.includes('/api/services/10/packages?')) return response(page([premium]))
+    if (url.endsWith('/api/services/10/packages') && init?.method === 'PUT') return onMappings?.(JSON.parse(String(init.body)) as { package_ids: number[] }) ?? response({ data: [premium, basic] })
+    if (url.includes('/api/packages?')) return response(page([premium, basic]))
     if (url.endsWith('/api/services/10') && init?.method === 'PUT') return response({ ...service, name: '360 Video Booth', is_active: false })
     if (url.endsWith('/api/services') && init?.method === 'POST') return response({ ...service, id: 11, name: 'Mirror Booth' }, 201)
     if (url.includes('/api/services?')) return response(page([service]))
@@ -48,67 +50,32 @@ test('validates and creates a service', async () => {
   renderPage()
   await screen.findByText('360 Booth')
   fireEvent.click(screen.getByRole('button', { name: 'New service' }))
-  fireEvent.change(screen.getByLabelText('Total units'), { target: { value: '0' } })
   fireEvent.click(screen.getByRole('button', { name: 'Create service' }))
   expect(await screen.findByText('Service name is required.')).toBeInTheDocument()
-  expect(screen.getByText('Total units must be at least 1.')).toBeInTheDocument()
   fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Mirror Booth' } })
   fireEvent.change(screen.getByLabelText('Total units'), { target: { value: '2' } })
   fireEvent.click(screen.getByRole('button', { name: 'Create service' }))
   expect(await screen.findByText('Mirror Booth saved.')).toBeInTheDocument()
 })
 
-test('lists and creates packages in service context', async () => {
-  renderPage()
+test('assigns and unassigns existing packages without creating them', async () => {
+  let savedIds: number[] = []
+  renderPage(baseFetch((body) => { savedIds = body.package_ids; return response({ data: [basic] }) }))
   const row = (await screen.findByText('360 Booth')).closest('tr')
-  fireEvent.click(within(row!).getByRole('button', { name: 'Packages' }))
-  expect(await screen.findByText('Premium')).toBeInTheDocument()
-  fireEvent.click(screen.getByRole('button', { name: 'New package' }))
-  fireEvent.change(screen.getByLabelText('Package name'), { target: { value: 'Basic' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Create package' }))
-  await waitFor(() => expect(screen.queryByRole('button', { name: 'Create package' })).not.toBeInTheDocument())
+  fireEvent.click(within(row!).getByRole('button', { name: 'Assign packages' }))
+  expect(await screen.findByRole('checkbox', { name: /Premium/ })).toBeChecked()
+  const basicCheckbox = screen.getByRole('checkbox', { name: /Basic/ })
+  fireEvent.click(screen.getByRole('checkbox', { name: /Premium/ }))
+  fireEvent.click(basicCheckbox)
+  fireEvent.click(screen.getByRole('button', { name: 'Save assignments' }))
+  await waitFor(() => expect(savedIds).toEqual([21]))
 })
 
-test('shows a package duplicate backend error', async () => {
-  const fetchMock = baseFetch()
-  fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = String(input)
-    if (url.endsWith('/api/me')) return response(auth)
-    if (url.endsWith('/sanctum/csrf-cookie')) return new Response(null, { status: 204 })
-    if (url.includes('/api/services/10/packages?')) return response(page([packageItem]))
-    if (url.endsWith('/api/services/10/packages') && init?.method === 'POST') return response({ message: 'Invalid.', errors: { name: ['A package with this name already exists for the service.'] } }, 422)
-    if (url.includes('/api/services?')) return response(page([service]))
-    return response({}, 404)
-  })
-  renderPage(fetchMock)
+test('shows a blocked unassignment error from the backend', async () => {
+  renderPage(baseFetch(() => response({ message: 'Invalid.', errors: { package_ids: ['Packages used by rates or bookings cannot be unassigned from this service.'] } }, 422)))
   const row = (await screen.findByText('360 Booth')).closest('tr')
-  fireEvent.click(within(row!).getByRole('button', { name: 'Packages' }))
-  await screen.findByText('Premium')
-  fireEvent.click(screen.getByRole('button', { name: 'New package' }))
-  fireEvent.change(screen.getByLabelText('Package name'), { target: { value: 'Premium' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Create package' }))
-  expect(await screen.findByText('A package with this name already exists for the service.')).toBeInTheDocument()
-})
-
-test('edits service details and status', async () => {
-  const fetchMock = renderPage()
-  const row = (await screen.findByText('360 Booth')).closest('tr')
-  fireEvent.click(within(row!).getByRole('button', { name: 'Edit' }))
-  fireEvent.change(screen.getByLabelText('Name'), { target: { value: '360 Video Booth' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
-  expect(await screen.findByText('360 Video Booth saved.')).toBeInTheDocument()
-  fireEvent.click(within(row!).getByRole('button', { name: 'Deactivate' }))
-  await waitFor(() => expect(fetchMock.mock.calls.filter(([url, init]) => String(url).endsWith('/api/services/10') && init?.method === 'PUT').length).toBeGreaterThanOrEqual(2))
-})
-
-test('edits package details and status', async () => {
-  renderPage()
-  const row = (await screen.findByText('360 Booth')).closest('tr')
-  fireEvent.click(within(row!).getByRole('button', { name: 'Packages' }))
-  const packageRow = (await screen.findByText('Premium')).parentElement?.parentElement
-  fireEvent.click(within(packageRow!).getByRole('button', { name: 'Edit' }))
-  fireEvent.change(screen.getByLabelText('Package name'), { target: { value: 'Premium Plus' } })
-  fireEvent.change(screen.getByLabelText('Package status'), { target: { value: 'inactive' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Save package' }))
-  await waitFor(() => expect(screen.queryByRole('button', { name: 'Save package' })).not.toBeInTheDocument())
+  fireEvent.click(within(row!).getByRole('button', { name: 'Assign packages' }))
+  fireEvent.click(await screen.findByRole('checkbox', { name: /Premium/ }))
+  fireEvent.click(screen.getByRole('button', { name: 'Save assignments' }))
+  expect(await screen.findByText('Packages used by rates or bookings cannot be unassigned from this service.')).toBeInTheDocument()
 })

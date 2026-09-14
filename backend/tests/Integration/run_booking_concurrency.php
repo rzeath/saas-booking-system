@@ -6,7 +6,6 @@ use App\Actions\Bookings\CreateBooking;
 use App\Actions\Services\UpdateService;
 use App\Models\BusinessSetting;
 use App\Models\Organization;
-use App\Models\Package;
 use App\Models\ServiceRate;
 use App\Models\User;
 use Illuminate\Contracts\Console\Kernel;
@@ -42,16 +41,15 @@ $service = $organization->services()->create([
     'name' => 'Concurrency Booth',
     'total_units' => 3,
 ]);
-$package = new Package(['name' => 'Concurrency Package']);
-$package->organization()->associate($organization);
-$package->service()->associate($service);
-$package->save();
+$package = $organization->packages()->create(['name' => 'Concurrency Package']);
+$package->services()->attach($service->id, ['organization_id' => $organization->id]);
 $rate = new ServiceRate([
     'duration_minutes' => 180,
     'unit_rate' => '7500.00',
 ]);
 $rate->organization()->associate($organization);
 $rate->eventType()->associate($eventType);
+$rate->service()->associate($service);
 $rate->package()->associate($package);
 $rate->save();
 

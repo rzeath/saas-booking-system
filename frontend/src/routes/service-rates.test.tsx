@@ -11,7 +11,7 @@ const services = [
   { id: 11, name: 'Mirror Booth', total_units: 2, is_active: true, created_at: '2027-01-01T00:00:00Z', updated_at: '2027-01-01T00:00:00Z' },
 ]
 const relatedService = { id: 10, name: '360 Booth', is_active: true }
-const packageItem = { id: 20, service: relatedService, name: 'Premium', is_active: true, created_at: '2027-01-01T00:00:00Z', updated_at: '2027-01-01T00:00:00Z' }
+const packageItem = { id: 20, services: [relatedService], name: 'Premium', is_active: true, created_at: '2027-01-01T00:00:00Z', updated_at: '2027-01-01T00:00:00Z' }
 const rate = { id: 40, event_type: { id: 30, name: 'Wedding', is_active: true }, service: relatedService, package: { id: 20, name: 'Premium', is_active: true }, duration_minutes: 180, unit_rate: '7500.00', is_active: true, is_available: true, created_at: '2027-01-01T00:00:00Z', updated_at: '2027-01-01T00:00:00Z' }
 const response = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 const page = (data: unknown[]) => ({ data, links: { prev: null, next: null }, meta: { current_page: 1, last_page: 1, per_page: 15, total: data.length } })
@@ -81,7 +81,7 @@ test('creates a service rate', async () => {
 })
 
 test('shows duplicate combination backend validation', async () => {
-  renderPage(baseFetch(() => response({ message: 'Invalid.', errors: { duration_minutes: ['A rate already exists for this event type, package, and duration.'] } }, 422)))
+  renderPage(baseFetch(() => response({ message: 'Invalid.', errors: { duration_minutes: ['A rate already exists for this event type, service, package, and duration.'] } }, 422)))
   await screen.findByText('7500.00')
   fireEvent.click(screen.getByRole('button', { name: 'New service rate' }))
   await waitFor(() => expect(within(screen.getByLabelText('Service')).getByRole('option', { name: '360 Booth' })).toBeInTheDocument())
@@ -91,7 +91,7 @@ test('shows duplicate combination backend validation', async () => {
   fireEvent.change(screen.getByLabelText('Package'), { target: { value: '20' } })
   fireEvent.change(screen.getByLabelText('Price'), { target: { value: '7500.00' } })
   fireEvent.click(screen.getByRole('button', { name: 'Create service rate' }))
-  expect(await screen.findByText('A rate already exists for this event type, package, and duration.')).toBeInTheDocument()
+  expect(await screen.findByText('A rate already exists for this event type, service, package, and duration.')).toBeInTheDocument()
 })
 
 test('edits and deactivates a service rate', async () => {

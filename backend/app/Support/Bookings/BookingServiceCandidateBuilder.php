@@ -48,14 +48,16 @@ class BookingServiceCandidateBuilder
 
             $package = Package::query()
                 ->where('organization_id', $organization->id)
-                ->where('service_id', $service->id)
                 ->whereKey((int) $line['package_id'])
                 ->where('is_active', true)
+                ->whereHas('services', fn ($query) => $query
+                    ->where('services.organization_id', $organization->id)
+                    ->whereKey($service->id))
                 ->first();
 
             if (! $package instanceof Package) {
                 throw ValidationException::withMessages([
-                    "booking_services.{$index}.package_id" => 'The selected package is invalid, inactive, or does not belong to the service.',
+                    "booking_services.{$index}.package_id" => 'The selected package is invalid, inactive, or is not assigned to the service.',
                 ]);
             }
 
@@ -73,13 +75,14 @@ class BookingServiceCandidateBuilder
                 $rate = $this->rateResolver->resolve(
                     $organization,
                     $eventTypeId,
+                    $service->id,
                     $package->id,
                     $durationMinutes,
                 );
 
                 if ($rate === null) {
                     throw ValidationException::withMessages([
-                        "booking_services.{$index}.duration_minutes" => 'No active rate exists for this event type, package, and duration.',
+                        "booking_services.{$index}.duration_minutes" => 'No active rate exists for this event type, service, package, and duration.',
                     ]);
                 }
 

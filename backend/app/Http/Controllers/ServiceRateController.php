@@ -17,7 +17,7 @@ class ServiceRateController extends Controller
 
         $rates = ServiceRate::query()
             ->select('service_rates.*')
-            ->with(['eventType', 'package.service'])
+            ->with(['eventType', 'service', 'package'])
             ->join('event_types', function ($join): void {
                 $join->on('event_types.id', '=', 'service_rates.event_type_id')
                     ->on('event_types.organization_id', '=', 'service_rates.organization_id');
@@ -27,14 +27,14 @@ class ServiceRateController extends Controller
                     ->on('packages.organization_id', '=', 'service_rates.organization_id');
             })
             ->join('services', function ($join): void {
-                $join->on('services.id', '=', 'packages.service_id')
+                $join->on('services.id', '=', 'service_rates.service_id')
                     ->on('services.organization_id', '=', 'service_rates.organization_id');
             })
             ->where('service_rates.organization_id', $tenant->organizationId())
             ->when($validated['status'] !== 'all', fn ($query) => $query->where('service_rates.is_active', $validated['status'] === 'active'))
             ->when($validated['event_type_id'] ?? null, fn ($query, int $id) => $query->where('service_rates.event_type_id', $id))
             ->when($validated['package_id'] ?? null, fn ($query, int $id) => $query->where('service_rates.package_id', $id))
-            ->when($validated['service_id'] ?? null, fn ($query, int $id) => $query->where('packages.service_id', $id))
+            ->when($validated['service_id'] ?? null, fn ($query, int $id) => $query->where('service_rates.service_id', $id))
             ->when($validated['duration_minutes'] ?? null, fn ($query, int $duration) => $query->where('service_rates.duration_minutes', $duration))
             ->when($validated['search'] ?? null, fn ($query, string $term) => $query->where(function ($query) use ($term): void {
                 $query->where('services.name', 'like', "%{$term}%")
@@ -56,7 +56,7 @@ class ServiceRateController extends Controller
     {
         $rate = $tenant->organization()->serviceRates()->create($request->validated());
 
-        return new ServiceRateResource($rate->load(['eventType', 'package.service']));
+        return new ServiceRateResource($rate->load(['eventType', 'service', 'package']));
     }
 
     public function show(int $serviceRate, TenantContext $tenant): ServiceRateResource
@@ -69,13 +69,13 @@ class ServiceRateController extends Controller
         $resolved = $this->resolve($serviceRate, $tenant);
         $resolved->update($request->validated());
 
-        return new ServiceRateResource($resolved->refresh()->load(['eventType', 'package.service']));
+        return new ServiceRateResource($resolved->refresh()->load(['eventType', 'service', 'package']));
     }
 
     private function resolve(int $id, TenantContext $tenant): ServiceRate
     {
         return ServiceRate::query()
-            ->with(['eventType', 'package.service'])
+            ->with(['eventType', 'service', 'package'])
             ->where('organization_id', $tenant->organizationId())
             ->whereKey($id)
             ->firstOrFail();

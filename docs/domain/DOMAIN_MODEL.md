@@ -52,8 +52,9 @@ Supporting composite unique indexes such as `(organization_id, id)` are intentio
 | `customers` | Direct | Tenant master data and common list boundary. |
 | `event_types` | Direct | Tenant master data and one side of a cross-parent pricing rule. |
 | `services` | Direct | Tenant master data and the capacity-locking target. |
-| `packages` | Direct | Redundancy is justified by a composite foreign key proving that the parent Service belongs to the same tenant. |
-| `service_rates` | Direct | Required to prove that Event Type and Package share a tenant and to support the hot pricing lookup. |
+| `packages` | Direct | Independent tenant-owned package master data. |
+| `service_package` | Direct | Tenant-qualified many-to-many mapping that proves both parents belong to the same tenant. |
+| `service_rates` | Direct | Required to prove that Event Type and the mapped Service/Package combination share a tenant and to support the hot pricing lookup. |
 | `staff` | Direct | Tenant master data and staff-conflict query boundary. |
 | `bookings` | Direct | Aggregate root, document number scope, and primary tenant query boundary. |
 | `booking_services` | Direct | Required to enforce same-tenant Booking, Service, and Package relationships and support availability queries. |
@@ -173,41 +174,39 @@ Constraints and indexes:
 - Unique `(organization_id, name)` and composite unique `(organization_id, id)`.
 - Check `total_units > 0`.
 - Index `(organization_id, is_active, name)`.
-- Restrict deletion when Packages or Booking Services reference it; use deactivation.
+- Restrict deletion when package mappings or Booking Services reference it; use deactivation.
 
 The Service row is also the serialization/locking target for capacity-affecting writes. No named unit, equipment, or resource table exists.
 
 ### Package (`packages`, V1)
 
-Purpose: a named commercial package belonging to exactly one Service.
+Purpose: independent tenant-owned commercial package master data that may be offered for multiple Services.
 
-Fields: `id`, `organization_id`, `service_id`, `name`, `is_active` default true, timestamps.
+Fields: `id`, `organization_id`, `name`, `is_active` default true, timestamps.
 
 Constraints and indexes:
 
-- Composite foreign key `(organization_id, service_id)` to `services(organization_id, id)`.
-- Unique `(organization_id, service_id, name)`; the same name may exist under different Services.
-- Composite unique `(organization_id, id)` and `(organization_id, service_id, id)` support tenant/pair-safe child references.
-- Index `(organization_id, service_id, is_active, name)`.
-- Restrict Service/Package deletion once referenced; use deactivation.
+- Unique `(organization_id, name)` and composite unique `(organization_id, id)`.
+- Index `(organization_id, is_active, name)`.
+- Restrict Package deletion once mapped or referenced; use deactivation.
 
-There is no Service/Package many-to-many pivot.
+`service_package` maps Services and Packages many-to-many. It stores `organization_id`, `service_id`, `package_id`, and timestamps; composite tenant-safe foreign keys prove both parents belong to the tenant. Unique `(organization_id, service_id, package_id)` prevents duplicate mappings, and the reverse-order index supports Package-to-Service traversal.
 
 ### Service Rate (`service_rates`, V1)
 
-Purpose: the single configured price for an Event Type, Package, and duration.
+Purpose: the single configured price for an Event Type, mapped Service/Package pair, and duration.
 
-Fields: `id`, `organization_id`, `event_type_id`, `package_id`, `duration_minutes` (`INT UNSIGNED`), `unit_rate` (`DECIMAL(13,2)`), `is_active` default true, timestamps.
+Fields: `id`, `organization_id`, `event_type_id`, `service_id`, `package_id`, `duration_minutes` (`INT UNSIGNED`), `unit_rate` (`DECIMAL(13,2)`), `is_active` default true, timestamps.
 
 Constraints and indexes:
 
-- Composite tenant-safe foreign keys to Event Type and Package.
-- Unique `(organization_id, event_type_id, package_id, duration_minutes)`.
+- Composite tenant-safe foreign keys to Event Type and `service_package`.
+- Unique `(organization_id, event_type_id, service_id, package_id, duration_minutes)`.
 - Checks `duration_minutes > 0` and `unit_rate >= 0`.
-- Pricing lookup index `(organization_id, event_type_id, package_id, duration_minutes, is_active)`; the unique index may cover most of this lookup, with activity filtered afterward.
+- Pricing lookup index `(organization_id, event_type_id, service_id, package_id, duration_minutes, is_active)`.
 - Restrict referenced master deletion.
 
-`service_id` is not stored: Package already determines exactly one Service. V1 keeps one mutable configuration row per combination. Price changes update that row; active toggling disables/re-enables it. Historical prices are preserved by Booking Service, Quotation Item, and Billing Item snapshots, so duplicate replacement Rate rows are unnecessary. Missing or inactive Rates make the combination unavailable; they never imply a zero price.
+`service_id` is explicit because the same Package may have different rates for different Services. V1 keeps one mutable configuration row per exact combination. Price changes update that row; active toggling disables/re-enables it. Historical prices are preserved by Booking Service, Quotation Item, and Billing Item snapshots, so duplicate replacement Rate rows are unnecessary. Missing or inactive Rates make the combination unavailable; they never imply a zero price.
 
 ### Staff (`staff`, V1)
 
@@ -269,7 +268,7 @@ Important fields:
 Constraints and indexes:
 
 - Composite tenant-safe foreign key to Booking.
-- Composite foreign key `(organization_id, service_id, package_id)` to the Package's `(organization_id, service_id, id)` proves that the selected Package belongs to the selected Service and tenant.
+- Composite foreign key `(organization_id, service_id, package_id)` to `service_package` proves that the selected pair is mapped for the tenant.
 - A tenant-safe Service foreign key is retained because Service is the capacity target.
 - Checks: `start_at < end_at`, `duration_minutes > 0`, `quantity > 0`, `unit_rate >= 0`, and `line_total = unit_rate * quantity`.
 - Backend validation additionally guarantees `end_at = start_at + duration_minutes`; that cross-column temporal calculation should not rely solely on database portability.
@@ -459,8 +458,9 @@ Unless a field is explicitly described as nullable in its domain section, it is 
 | `customers` | Organization RESTRICT | `(organization_id, id)`; list index `(organization_id, is_active, name)` | Email/phone/address/notes nullable. |
 | `event_types` | Organization RESTRICT | unique `(organization_id, name)` and `(organization_id, id)`; active-name list index | Name required. |
 | `services` | Organization RESTRICT | unique `(organization_id, name)` and `(organization_id, id)`; active-name list index | `total_units > 0`. |
-| `packages` | Organization RESTRICT; tenant-safe Service RESTRICT | unique `(organization_id, service_id, name)`, `(organization_id, id)`, `(organization_id, service_id, id)`; active Service list index | All domain fields required. |
-| `service_rates` | Organization, tenant-safe Event Type, and tenant-safe Package all RESTRICT | unique Rate tuple; pricing lookup index | `duration_minutes > 0`; `unit_rate >= 0`. |
+| `packages` | Organization RESTRICT | unique `(organization_id, name)`, `(organization_id, id)`; active-name list index | All domain fields required. |
+| `service_package` | Organization and tenant-safe Service/Package both RESTRICT | unique `(organization_id, service_id, package_id)`; reverse package index | All fields required. |
+| `service_rates` | Organization, tenant-safe Event Type, and tenant-safe Service/Package mapping all RESTRICT | unique explicit Rate tuple; pricing lookup index | `duration_minutes > 0`; `unit_rate >= 0`. |
 | `staff` | Organization RESTRICT | `(organization_id, id)`; active-name list index | Email/notes nullable; name/phone required. |
 | `bookings` | Organization, tenant-safe Customer/Event Type/Admin references all RESTRICT | unique tenant booking number; tenant/scope keys; status-date, customer-date, Event Type indexes | Customer contact snapshots, venue address, notes, and lifecycle audit fields nullable; status allow-list and lifecycle consistency. |
 | `booking_services` | Organization, tenant-safe Booking/Service/Package pair all RESTRICT | `(organization_id, id)`, `(booking_id, id)`; Booking-order and Service-overlap indexes | Positive duration/quantity; ordered endpoints; non-negative money; exact line total. |

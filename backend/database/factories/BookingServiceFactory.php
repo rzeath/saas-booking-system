@@ -26,11 +26,17 @@ class BookingServiceFactory extends Factory
                 'organization_id' => $attributes['organization_id'],
                 'name' => $serviceName,
             ])->id,
-            'package_id' => fn (array $attributes) => Package::factory()->create([
-                'organization_id' => $attributes['organization_id'],
-                'service_id' => $attributes['service_id'],
-                'name' => $packageName,
-            ])->id,
+            'package_id' => function (array $attributes) use ($packageName): int {
+                $package = Package::factory()->create([
+                    'organization_id' => $attributes['organization_id'],
+                    'name' => $packageName,
+                ]);
+                $package->services()->attach($attributes['service_id'], [
+                    'organization_id' => $attributes['organization_id'],
+                ]);
+
+                return $package->id;
+            },
             'start_at' => '2027-06-15 18:00:00',
             'end_at' => '2027-06-15 21:00:00',
             'duration_minutes' => 180,
@@ -51,13 +57,15 @@ class BookingServiceFactory extends Factory
         ]);
     }
 
-    public function forPackage(Package $package): static
+    public function forPackage(Package $package, ?Service $service = null): static
     {
+        $service ??= $package->services()->firstOrFail();
+
         return $this->state(fn (): array => [
             'organization_id' => $package->organization_id,
-            'service_id' => $package->service_id,
+            'service_id' => $service->id,
             'package_id' => $package->id,
-            'service_name' => $package->service->name,
+            'service_name' => $service->name,
             'package_name' => $package->name,
         ]);
     }

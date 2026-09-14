@@ -13,6 +13,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('organization_id')->constrained()->restrictOnDelete();
             $table->unsignedBigInteger('event_type_id');
+            $table->unsignedBigInteger('service_id');
             $table->unsignedBigInteger('package_id');
             $table->unsignedInteger('duration_minutes');
             $table->decimal('unit_rate', 13, 2);
@@ -23,16 +24,18 @@ return new class extends Migration
                 ->references(['organization_id', 'id'])
                 ->on('event_types')
                 ->restrictOnDelete();
-            $table->foreign(['organization_id', 'package_id'], 'service_rates_tenant_package_foreign')
-                ->references(['organization_id', 'id'])
-                ->on('packages')
+            $table->foreign(
+                ['organization_id', 'service_id', 'package_id'],
+                'service_rates_tenant_service_package_foreign',
+            )->references(['organization_id', 'service_id', 'package_id'])
+                ->on('service_package')
                 ->restrictOnDelete();
             $table->unique(
-                ['organization_id', 'event_type_id', 'package_id', 'duration_minutes'],
+                ['organization_id', 'event_type_id', 'service_id', 'package_id', 'duration_minutes'],
                 'service_rates_combination_unique',
             );
             $table->index(
-                ['organization_id', 'event_type_id', 'package_id', 'duration_minutes', 'is_active'],
+                ['organization_id', 'event_type_id', 'service_id', 'package_id', 'duration_minutes', 'is_active'],
                 'service_rates_pricing_lookup_index',
             );
         });

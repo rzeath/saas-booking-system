@@ -12,7 +12,7 @@ class ServiceRate extends Model
     /** @use HasFactory<ServiceRateFactory> */
     use HasFactory;
 
-    protected $fillable = ['event_type_id', 'package_id', 'duration_minutes', 'unit_rate', 'is_active'];
+    protected $fillable = ['event_type_id', 'service_id', 'package_id', 'duration_minutes', 'unit_rate', 'is_active'];
 
     protected function casts(): array
     {
@@ -31,6 +31,11 @@ class ServiceRate extends Model
     public function eventType(): BelongsTo
     {
         return $this->belongsTo(EventType::class);
+    }
+
+    public function service(): BelongsTo
+    {
+        return $this->belongsTo(Service::class);
     }
 
     public function package(): BelongsTo
