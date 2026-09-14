@@ -11,11 +11,12 @@ const eventType = { id: 3, name: 'Wedding', is_active: true, created_at: '2026-0
 const service = { id: 4, name: 'Mirror Booth', total_units: 2, is_active: true, created_at: '2026-01-01', updated_at: '2026-01-01' }
 const packageItem = { id: 5, services: [{ id: 4, name: 'Mirror Booth', is_active: true }], name: 'Premium', is_active: true, created_at: '2026-01-01', updated_at: '2026-01-01' }
 const rate = { id: 6, event_type: { id: 3, name: 'Wedding', is_active: true }, service: { id: 4, name: 'Mirror Booth', is_active: true }, package: { id: 5, name: 'Premium', is_active: true }, duration_minutes: 180, unit_rate: '8000.00', is_active: true, is_available: true, created_at: '2026-01-01', updated_at: '2026-01-01' }
+const staffAvailability = { staff: [{ id: 10, name: 'Mia Santos', available: true }, { id: 11, name: 'Carlo Reyes', available: false }] }
 const booking = {
   id: 8, booking_number: 'BK-2027-000001', status: 'PENDING',
   customer: { id: 2, name: 'Ana Cruz', is_active: true }, customer_snapshot: { name: 'Ana Cruz', email: 'ana@example.com', phone: '09171234567', address: 'Makati' },
   event_type: { id: 3, name: 'Wedding', is_active: true }, event_type_snapshot: { name: 'Wedding' }, event_name: 'Ana & Leo', event_date: '2027-06-15', venue_name: 'The Glass House', venue_address: 'Makati', contact_person: 'Ana Cruz', contact_number: '09171234567', internal_notes: 'Load in early.',
-  booking_services: [{ id: 9, service: { id: 4, name: 'Mirror Booth' }, package: { id: 5, name: 'Premium' }, start_at: '2027-06-15 18:00', end_at: '2027-06-15 21:00', duration_minutes: 180, quantity: 1, unit_rate: '8000.00', line_total: '8000.00', sort_order: 0 }],
+  booking_services: [{ id: 9, service: { id: 4, name: 'Mirror Booth' }, package: { id: 5, name: 'Premium' }, start_at: '2027-06-15 18:00', end_at: '2027-06-15 21:00', duration_minutes: 180, quantity: 1, unit_rate: '8000.00', line_total: '8000.00', sort_order: 0, staff: [{ id: 10, name: 'Mia Santos', is_active: true }] }],
   cancelled_at: null, cancellation_reason: null, created_at: '2026-01-01', updated_at: '2026-01-01',
 }
 
@@ -35,6 +36,7 @@ function fetchApi(overrides?: (url: string, init?: RequestInit) => Response | Pr
     if (url.includes('/api/services/4/packages?')) return response(page([packageItem]))
     if (url.includes('/api/service-rates?')) return response(page([rate]))
     if (url.includes('/api/services?')) return response(page([service]))
+    if (url.endsWith('/api/bookings/staff-availability')) return response(staffAvailability)
     if (url.endsWith('/api/bookings/8')) return response(booking)
     if (url.includes('/api/bookings?')) return response(page([booking]))
     return response({ message: 'Not found.' }, 404)
@@ -113,6 +115,9 @@ test('creates a booking with backend-authoritative pricing and availability prev
   await screen.findByRole('option', { name: '3 hours' })
   fireEvent.change(screen.getByLabelText('Duration'), { target: { value: '180' } })
   fireEvent.change(screen.getByLabelText('Start time'), { target: { value: '18:00' } })
+  const availableStaff = await screen.findByRole('checkbox', { name: 'Mia Santos' })
+  expect(screen.getByRole('checkbox', { name: /Carlo Reyes.*Unavailable/ })).toBeDisabled()
+  fireEvent.click(availableStaff)
   expect(await screen.findByText(/Estimated line total:/)).toHaveTextContent('₱8,000.00')
   fireEvent.click(screen.getByRole('button', { name: 'Check availability' }))
   expect(await screen.findByText('All requested services are available.')).toBeInTheDocument()
@@ -123,7 +128,7 @@ test('creates a booking with backend-authoritative pricing and availability prev
 
   await waitFor(() => expect(submitted).toBeDefined())
   const payload = submitted as { booking_services: Record<string, unknown>[] }
-  expect(payload.booking_services[0]).toEqual({ service_id: 4, package_id: 5, start_time: '18:00', duration_minutes: 180, quantity: 1 })
+  expect(payload.booking_services[0]).toEqual({ service_id: 4, package_id: 5, start_time: '18:00', duration_minutes: 180, quantity: 1, staff_ids: [10] })
   expect(payload.booking_services[0]).not.toHaveProperty('unit_rate')
   expect(payload.booking_services[0]).not.toHaveProperty('line_total')
 })
@@ -238,6 +243,7 @@ test('renders snapshots, total, and pending actions on booking detail', async ()
   expect(await screen.findByRole('heading', { name: 'BK-2027-000001' })).toBeInTheDocument()
   expect(screen.getByText('Customer snapshot')).toBeInTheDocument()
   expect(screen.getByText('Saved service, package, schedule, and price snapshots.')).toBeInTheDocument()
+  expect(screen.getByText('Mia Santos')).toBeInTheDocument()
   expect(screen.getAllByText('₱8,000.00')).toHaveLength(3)
   expect(screen.getByRole('link', { name: /Edit/ })).toHaveAttribute('href', '/bookings/8/edit')
   expect(screen.getByRole('button', { name: /Cancel booking/ })).toBeInTheDocument()

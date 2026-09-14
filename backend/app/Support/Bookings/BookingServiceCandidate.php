@@ -16,6 +16,8 @@ final readonly class BookingServiceCandidate
         public DateTimeImmutable $endAt,
         public int $durationMinutes,
         public int $quantity,
+        /** @var list<int> */
+        public array $staffIds,
         public ?string $unitRate,
         public ?string $lineTotal,
         public int $sortOrder,

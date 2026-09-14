@@ -8,9 +8,14 @@ use App\Models\Booking;
 use App\Models\Organization;
 use App\Models\User;
 use App\Support\Bookings\BookingMasterDataResolver;
+use App\Support\Bookings\BookingServiceCandidate;
 use App\Support\Bookings\BookingServiceCandidateBuilder;
 use App\Support\Bookings\ServiceAvailabilityChecker;
 use App\Support\Bookings\ServiceRowLocker;
+use App\Support\Bookings\StaffAssignmentSynchronizer;
+use App\Support\Bookings\StaffAssignmentValidator;
+use App\Support\Bookings\StaffAvailabilityChecker;
+use App\Support\Bookings\StaffRowLocker;
 use App\Support\DocumentNumbers\DocumentNumberAllocator;
 use Illuminate\Support\Facades\DB;
 
@@ -21,6 +26,10 @@ class CreateBooking
         private readonly ServiceRowLocker $serviceLocker,
         private readonly BookingServiceCandidateBuilder $candidateBuilder,
         private readonly ServiceAvailabilityChecker $availability,
+        private readonly StaffRowLocker $staffLocker,
+        private readonly StaffAssignmentValidator $staffValidator,
+        private readonly StaffAvailabilityChecker $staffAvailability,
+        private readonly StaffAssignmentSynchronizer $staffAssignments,
         private readonly DocumentNumberAllocator $numberAllocator,
     ) {}
 
@@ -42,8 +51,18 @@ class CreateBooking
                 $eventType->id,
                 $services,
             );
+            $staff = $this->staffLocker->lock(
+                $organization,
+                $this->staffIds($candidates),
+            );
+            $this->staffValidator->validate($candidates, $staff);
 
             $this->availability->ensureAvailable(
+                $organization->id,
+                $candidates,
+                lockReservations: true,
+            );
+            $this->staffAvailability->ensureAvailable(
                 $organization->id,
                 $candidates,
                 lockReservations: true,
@@ -64,13 +83,26 @@ class CreateBooking
             ]);
 
             foreach ($candidates as $candidate) {
-                $booking->bookingServices()->create(
+                $line = $booking->bookingServices()->create(
                     $candidate->persistenceAttributes($organization->id),
                 );
+                $this->staffAssignments->sync($line, $candidate->staffIds, $user);
             }
 
-            return $booking->load(['customer', 'eventType', 'bookingServices']);
+            return $booking->load(['customer', 'eventType', 'bookingServices.assignedStaff']);
         }, 3);
+    }
+
+    /**
+     * @param  list<BookingServiceCandidate>  $candidates
+     * @return list<int>
+     */
+    private function staffIds(array $candidates): array
+    {
+        return array_values(array_unique(array_merge(...array_map(
+            fn ($candidate): array => $candidate->staffIds,
+            $candidates,
+        ))));
     }
 
     /** @return array<string, mixed> */

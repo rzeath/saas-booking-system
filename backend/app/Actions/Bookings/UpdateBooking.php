@@ -6,11 +6,16 @@ use App\Enums\BookingStatus;
 use App\Models\Booking;
 use App\Models\BookingService;
 use App\Models\Organization;
+use App\Models\User;
 use App\Support\Bookings\BookingMasterDataResolver;
 use App\Support\Bookings\BookingServiceCandidate;
 use App\Support\Bookings\BookingServiceCandidateBuilder;
 use App\Support\Bookings\ServiceAvailabilityChecker;
 use App\Support\Bookings\ServiceRowLocker;
+use App\Support\Bookings\StaffAssignmentSynchronizer;
+use App\Support\Bookings\StaffAssignmentValidator;
+use App\Support\Bookings\StaffAvailabilityChecker;
+use App\Support\Bookings\StaffRowLocker;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -22,12 +27,16 @@ class UpdateBooking
         private readonly ServiceRowLocker $serviceLocker,
         private readonly BookingServiceCandidateBuilder $candidateBuilder,
         private readonly ServiceAvailabilityChecker $availability,
+        private readonly StaffRowLocker $staffLocker,
+        private readonly StaffAssignmentValidator $staffValidator,
+        private readonly StaffAvailabilityChecker $staffAvailability,
+        private readonly StaffAssignmentSynchronizer $staffAssignments,
     ) {}
 
     /** @param array<string, mixed> $data */
-    public function handle(Organization $organization, int $bookingId, array $data): Booking
+    public function handle(Organization $organization, User $user, int $bookingId, array $data): Booking
     {
-        return DB::transaction(function () use ($organization, $bookingId, $data): Booking {
+        return DB::transaction(function () use ($organization, $user, $bookingId, $data): Booking {
             $booking = Booking::query()
                 ->where('organization_id', $organization->id)
                 ->whereKey($bookingId)
@@ -41,6 +50,7 @@ class UpdateBooking
             }
 
             $existingLines = BookingService::query()
+                ->with('assignedStaff')
                 ->where('organization_id', $organization->id)
                 ->where('booking_id', $booking->id)
                 ->get()
@@ -65,7 +75,23 @@ class UpdateBooking
             );
 
             $this->validateLineIdentities($candidates, $existingLines);
+            $staff = $this->staffLocker->lock(
+                $organization,
+                array_merge(
+                    $this->staffIds($candidates),
+                    $existingLines->flatMap(fn (BookingService $line) => $line->assignedStaff->pluck('id'))
+                        ->map(fn ($id): int => (int) $id)
+                        ->all(),
+                ),
+            );
+            $this->staffValidator->validate($candidates, $staff, $existingLines);
             $this->availability->ensureAvailable(
+                $organization->id,
+                $candidates,
+                excludeBookingId: $booking->id,
+                lockReservations: true,
+            );
+            $this->staffAvailability->ensureAvailable(
                 $organization->id,
                 $candidates,
                 excludeBookingId: $booking->id,
@@ -92,9 +118,11 @@ class UpdateBooking
             $retainedIds = [];
             foreach ($candidates as $candidate) {
                 if ($candidate->id !== null) {
-                    $existingLines->get($candidate->id)->update(
+                    $line = $existingLines->get($candidate->id);
+                    $line->update(
                         $candidate->persistenceAttributes($organization->id),
                     );
+                    $this->staffAssignments->sync($line, $candidate->staffIds, $user);
                     $retainedIds[] = $candidate->id;
 
                     continue;
@@ -103,6 +131,7 @@ class UpdateBooking
                 $created = $booking->bookingServices()->create(
                     $candidate->persistenceAttributes($organization->id),
                 );
+                $this->staffAssignments->sync($created, $candidate->staffIds, $user);
                 $retainedIds[] = $created->id;
             }
 
@@ -112,8 +141,20 @@ class UpdateBooking
                 ->whereNotIn('id', $retainedIds)
                 ->delete();
 
-            return $booking->refresh()->load(['customer', 'eventType', 'bookingServices']);
+            return $booking->refresh()->load(['customer', 'eventType', 'bookingServices.assignedStaff']);
         }, 3);
+    }
+
+    /**
+     * @param  list<BookingServiceCandidate>  $candidates
+     * @return list<int>
+     */
+    private function staffIds(array $candidates): array
+    {
+        return array_values(array_unique(array_merge(...array_map(
+            fn (BookingServiceCandidate $candidate): array => $candidate->staffIds,
+            $candidates,
+        ))));
     }
 
     /**

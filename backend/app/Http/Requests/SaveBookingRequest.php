@@ -74,6 +74,8 @@ class SaveBookingRequest extends FormRequest
             'booking_services.*.start_time' => ['required', 'date_format:H:i'],
             'booking_services.*.duration_minutes' => ['required', 'integer', 'min:1', 'max:4294967295'],
             'booking_services.*.quantity' => ['required', 'integer', 'min:1', 'max:4294967295'],
+            'booking_services.*.staff_ids' => ['sometimes', 'array', 'max:100'],
+            'booking_services.*.staff_ids.*' => ['required', 'integer'],
         ];
     }
 

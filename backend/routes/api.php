@@ -62,6 +62,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     ]);
     Route::post('/bookings/availability', [BookingController::class, 'availability'])
         ->name('bookings.availability');
+    Route::post('/bookings/staff-availability', [BookingController::class, 'staffAvailability'])
+        ->name('bookings.staff-availability');
     Route::post('/bookings/{booking}/cancel', [BookingController::class, 'cancel'])
         ->name('bookings.cancel');
     Route::apiResource('bookings', BookingController::class)->only([

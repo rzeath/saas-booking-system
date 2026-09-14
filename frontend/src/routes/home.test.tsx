@@ -27,7 +27,7 @@ function booking(id: number, status: BookingStatus, eventName: string, eventDate
     contact_person: 'Ana Cruz',
     contact_number: '09171234567',
     internal_notes: null,
-    booking_services: [{ id: id + 20, service: { id: 4, name: 'Mirror Booth' }, package: { id: 5, name: 'Premium' }, start_at: `${eventDate} 18:00`, end_at: `${eventDate} 21:00`, duration_minutes: 180, quantity: 1, unit_rate: '8000.00', line_total: '8000.00', sort_order: 0 }],
+    booking_services: [{ id: id + 20, service: { id: 4, name: 'Mirror Booth' }, package: { id: 5, name: 'Premium' }, start_at: `${eventDate} 18:00`, end_at: `${eventDate} 21:00`, duration_minutes: 180, quantity: 1, unit_rate: '8000.00', line_total: '8000.00', sort_order: 0, staff: [] }],
     cancelled_at: null,
     cancellation_reason: null,
     created_at: '2026-01-01',

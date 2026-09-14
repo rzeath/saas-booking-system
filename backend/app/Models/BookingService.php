@@ -6,6 +6,8 @@ use Database\Factories\BookingServiceFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class BookingService extends Model
 {
@@ -58,5 +60,18 @@ class BookingService extends Model
     public function package(): BelongsTo
     {
         return $this->belongsTo(Package::class);
+    }
+
+    public function staffAssignments(): HasMany
+    {
+        return $this->hasMany(BookingServiceStaffAssignment::class);
+    }
+
+    public function assignedStaff(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Staff::class,
+            'booking_service_staff_assignments',
+        )->withPivot(['organization_id', 'assigned_by', 'assigned_at']);
     }
 }

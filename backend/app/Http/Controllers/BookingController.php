@@ -9,10 +9,14 @@ use App\Http\Requests\BookingAvailabilityRequest;
 use App\Http\Requests\BookingIndexRequest;
 use App\Http\Requests\CancelBookingRequest;
 use App\Http\Requests\SaveBookingRequest;
+use App\Http\Requests\StaffAvailabilityRequest;
 use App\Http\Resources\BookingResource;
 use App\Models\Booking;
+use App\Models\Staff;
 use App\Support\Bookings\BookingServiceCandidateBuilder;
+use App\Support\Bookings\ManilaSchedule;
 use App\Support\Bookings\ServiceAvailabilityChecker;
+use App\Support\Bookings\StaffAvailabilityChecker;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -26,7 +30,7 @@ class BookingController extends Controller
         $validated = $request->validated();
 
         $bookings = Booking::query()
-            ->with(['customer', 'eventType', 'bookingServices'])
+            ->with(['customer', 'eventType', 'bookingServices.assignedStaff'])
             ->where('organization_id', $tenant->organizationId())
             ->when($validated['search'] ?? null, fn ($query, string $term) => $query->where(function ($query) use ($term): void {
                 $query->where('booking_number', 'like', "%{$term}%")
@@ -76,6 +80,7 @@ class BookingController extends Controller
     ): BookingResource {
         return new BookingResource($updateBooking->handle(
             $tenant->organization(),
+            $tenant->user(),
             $booking,
             $request->validated(),
         ));
@@ -116,10 +121,45 @@ class BookingController extends Controller
         ));
     }
 
+    public function staffAvailability(
+        StaffAvailabilityRequest $request,
+        TenantContext $tenant,
+        ManilaSchedule $schedule,
+        StaffAvailabilityChecker $availability,
+    ): JsonResponse {
+        $validated = $request->validated();
+        $startAt = $schedule->startAt(
+            $validated['event_date'],
+            $validated['start_time'],
+            'start_time',
+        );
+        $endAt = $startAt->modify("+{$validated['duration_minutes']} minutes");
+        $staff = Staff::query()
+            ->where('organization_id', $tenant->organizationId())
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+        $conflictingIds = $availability->conflictingStaffIds(
+            $tenant->organizationId(),
+            $staff->pluck('id')->map(fn ($id): int => (int) $id)->all(),
+            $startAt,
+            $endAt,
+            isset($validated['booking_service_id']) ? (int) $validated['booking_service_id'] : null,
+        );
+
+        return response()->json([
+            'staff' => $staff->map(fn (Staff $member): array => [
+                'id' => $member->id,
+                'name' => $member->name,
+                'available' => ! in_array($member->id, $conflictingIds, true),
+            ])->values(),
+        ]);
+    }
+
     private function resolve(int $booking, TenantContext $tenant): Booking
     {
         return Booking::query()
-            ->with(['customer', 'eventType', 'bookingServices'])
+            ->with(['customer', 'eventType', 'bookingServices.assignedStaff'])
             ->where('organization_id', $tenant->organizationId())
             ->whereKey($booking)
             ->firstOrFail();

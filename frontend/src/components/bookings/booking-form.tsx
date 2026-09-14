@@ -10,6 +10,7 @@ import { FormField, SelectField, TextAreaField } from '@/components/forms/form-f
 import {
   ApiError,
   checkBookingAvailability,
+  checkStaffAvailability,
   createBooking,
   getBusinessSettings,
   getCustomers,
@@ -27,7 +28,7 @@ import {
   updateBooking,
 } from '@/lib/api'
 import { durationLabel, formatMoney, multiplyMoney } from '@/lib/booking-format'
-import { bookingListsQueryKey } from '@/lib/bookings-query'
+import { bookingListsQueryKey, staffAvailabilityQueryKey } from '@/lib/bookings-query'
 import { businessSettingsQueryKey } from '@/lib/business-settings-query'
 import { customerListQueryKey } from '@/lib/customers-query'
 import { eventTypeListQueryKey } from '@/lib/event-types-query'
@@ -42,6 +43,7 @@ const serviceLineSchema = z.object({
   start_time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Enter a valid start time.'),
   duration_minutes: z.number().int().min(1, 'Select a duration.'),
   quantity: z.number().int('Quantity must be a whole number.').min(1, 'Quantity must be at least 1.'),
+  staff_ids: z.array(z.number().int()),
 })
 
 const bookingFormSchema = z.object({
@@ -65,6 +67,7 @@ const blankService = (): BookingFormValues['booking_services'][number] => ({
   start_time: '',
   duration_minutes: 0,
   quantity: 1,
+  staff_ids: [],
 })
 
 function valuesFromBooking(booking?: Booking): BookingFormValues {
@@ -85,6 +88,7 @@ function valuesFromBooking(booking?: Booking): BookingFormValues {
       start_time: line.start_at.slice(11, 16),
       duration_minutes: line.duration_minutes,
       quantity: line.quantity,
+      staff_ids: line.staff.map((staff) => staff.id),
     })) ?? [blankService()],
   }
 }
@@ -116,6 +120,7 @@ function BookingServiceFields({
   eventTypeId,
   currency,
   savedLine,
+  eventDate,
   onRemove,
   onScheduleChange,
 }: {
@@ -126,6 +131,7 @@ function BookingServiceFields({
   eventTypeId: number
   currency: string
   savedLine?: BookingService
+  eventDate: string
   onRemove: () => void
   onScheduleChange: () => void
 }) {
@@ -133,6 +139,8 @@ function BookingServiceFields({
   const packageId = useWatch({ control: form.control, name: `booking_services.${index}.package_id` })
   const duration = useWatch({ control: form.control, name: `booking_services.${index}.duration_minutes` })
   const quantity = useWatch({ control: form.control, name: `booking_services.${index}.quantity` })
+  const startTime = useWatch({ control: form.control, name: `booking_services.${index}.start_time` })
+  const staffIds = useWatch({ control: form.control, name: `booking_services.${index}.staff_ids` })
   const packages = useQuery({
     queryKey: servicePackageListQueryKey(serviceId, selectorQuery),
     queryFn: () => getServicePackageOptions(serviceId, selectorQuery),
@@ -143,6 +151,17 @@ function BookingServiceFields({
     queryKey: serviceRateListQueryKey(rateQuery),
     queryFn: () => getServiceRates(rateQuery),
     enabled: eventTypeId > 0 && serviceId > 0 && packageId > 0,
+  })
+  const staffAvailabilityInput = {
+    ...(savedLine ? { booking_service_id: savedLine.id } : {}),
+    event_date: eventDate,
+    start_time: startTime,
+    duration_minutes: duration,
+  }
+  const staffAvailability = useQuery({
+    queryKey: staffAvailabilityQueryKey(staffAvailabilityInput),
+    queryFn: () => checkStaffAvailability(staffAvailabilityInput),
+    enabled: /^\d{4}-\d{2}-\d{2}$/.test(eventDate) && /^([01]\d|2[0-3]):[0-5]\d$/.test(startTime) && duration > 0,
   })
   const currentPackage = savedLine && savedLine.service.id === serviceId ? {
     id: savedLine.package.id,
@@ -164,6 +183,11 @@ function BookingServiceFields({
   const errors = form.formState.errors.booking_services?.[index]
   const startRegistration = form.register(`booking_services.${index}.start_time`)
   const quantityRegistration = form.register(`booking_services.${index}.quantity`, { valueAsNumber: true })
+  const activeStaff = staffAvailability.data?.staff.map((staff) => ({ ...staff, is_active: true })) ?? []
+  const staffOptions = savedLine?.staff.reduce(
+    (options, staff) => appendCurrent(options, { ...staff, available: true }),
+    activeStaff,
+  ) ?? activeStaff
 
   return (
     <fieldset className="rounded-xl border border-slate-700 bg-slate-950/40 p-5">
@@ -205,6 +229,27 @@ function BookingServiceFields({
           {savedLine ? <span className="mt-2 block text-xs text-slate-500">Saved snapshot: {formatMoney(savedLine.unit_rate, currency)} each · {formatMoney(savedLine.line_total, currency)} total</span> : null}
         </div>
       </div>
+      <div className="mt-5 border-t border-slate-800 pt-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-sm font-medium text-slate-200">Assigned staff</span>
+          {staffAvailability.isPending ? <span role="status" className="text-xs text-slate-500">Checking availability…</span> : null}
+        </div>
+        {staffAvailability.isError ? <p role="alert" className="mt-2 text-sm text-rose-300">Staff availability could not be loaded.</p> : null}
+        {staffOptions.length > 0 ? <Controller name={`booking_services.${index}.staff_ids`} control={form.control} render={({ field }) => (
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {staffOptions.map((staff) => {
+              const selected = staffIds.includes(staff.id)
+              return <label key={staff.id} className={`flex min-h-11 items-center gap-3 rounded-lg border px-3 py-2 text-sm ${staff.available || selected ? 'border-slate-700 text-slate-200' : 'border-slate-800 text-slate-500'}`}><input type="checkbox" checked={selected} disabled={!staff.available && !selected} onChange={(event) => {
+                const next = event.target.checked
+                  ? [...field.value, staff.id]
+                  : field.value.filter((id) => id !== staff.id)
+                field.onChange(next)
+              }} /> <span>{staff.name}{staff.is_active ? '' : ' (current; inactive)'}{staff.available ? '' : ' · Unavailable'}</span></label>
+            })}
+          </div>
+        )} /> : !staffAvailability.isPending && staffAvailability.isFetched ? <p className="mt-2 text-sm text-slate-500">No active staff records are available.</p> : null}
+        {errors?.staff_ids?.message ? <p role="alert" className="mt-2 text-sm text-rose-300">{errors.staff_ids.message}</p> : null}
+      </div>
       <div className="mt-4 flex justify-end">
         <button type="button" onClick={onRemove} className="inline-flex items-center gap-2 rounded-lg border border-rose-900 px-3 py-2 text-sm text-rose-300 hover:bg-rose-950/40"><Trash2 className="size-4" aria-hidden="true" /> Remove service</button>
       </div>
@@ -221,6 +266,7 @@ export function BookingForm({ booking }: { booking?: Booking }) {
   const form = useForm<BookingFormValues>({ resolver: zodResolver(bookingFormSchema), defaultValues: valuesFromBooking(booking) })
   const fields = useFieldArray({ control: form.control, name: 'booking_services' })
   const eventTypeId = useWatch({ control: form.control, name: 'event_type_id' })
+  const eventDate = useWatch({ control: form.control, name: 'event_date' })
   const customers = useQuery({ queryKey: customerListQueryKey(selectorQuery), queryFn: () => getCustomers(selectorQuery) })
   const eventTypes = useQuery({ queryKey: eventTypeListQueryKey(selectorQuery), queryFn: () => getEventTypes(selectorQuery) })
   const services = useQuery({ queryKey: serviceListQueryKey(selectorQuery), queryFn: () => getServices(selectorQuery) })
@@ -320,7 +366,7 @@ export function BookingForm({ booking }: { booking?: Booking }) {
 
       <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
         <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-semibold">Booking services</h2><p className="mt-1 text-sm text-slate-400">Prices shown are estimates. The server resolves and saves the authoritative rate.</p></div><button type="button" onClick={() => { setAvailabilityIsStale(true); fields.append(blankService()) }} className="inline-flex items-center gap-2 rounded-lg border border-cyan-800 px-3 py-2 text-sm text-cyan-300"><Plus className="size-4" aria-hidden="true" /> Add service</button></div>
-        <div className="mt-5 space-y-5">{fields.fields.map((field, index) => <BookingServiceFields key={field.id} form={form} index={index} fieldKey={field.id} services={serviceOptions} eventTypeId={eventTypeId} currency={currency} savedLine={booking?.booking_services.find((line) => line.id === form.getValues(`booking_services.${index}.id`))} onScheduleChange={() => setAvailabilityIsStale(true)} onRemove={() => { setAvailabilityIsStale(true); fields.remove(index) }} />)}</div>
+        <div className="mt-5 space-y-5">{fields.fields.map((field, index) => <BookingServiceFields key={field.id} form={form} index={index} fieldKey={field.id} services={serviceOptions} eventTypeId={eventTypeId} eventDate={eventDate} currency={currency} savedLine={booking?.booking_services.find((line) => line.id === form.getValues(`booking_services.${index}.id`))} onScheduleChange={() => setAvailabilityIsStale(true)} onRemove={() => { setAvailabilityIsStale(true); fields.remove(index) }} />)}</div>
         {rootServiceError ? <p role="alert" className="mt-3 text-sm text-rose-300">{rootServiceError}</p> : null}
       </div>
 

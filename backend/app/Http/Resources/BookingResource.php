@@ -57,6 +57,13 @@ class BookingResource extends JsonResource
                 'unit_rate' => $line->unit_rate,
                 'line_total' => $line->line_total,
                 'sort_order' => $line->sort_order,
+                'staff' => $line->assignedStaff
+                    ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
+                    ->map(fn ($staff): array => [
+                        'id' => $staff->id,
+                        'name' => $staff->name,
+                        'is_active' => $staff->is_active,
+                    ])->values(),
             ])->values(),
             'cancelled_at' => $this->resource->cancelled_at?->toISOString(),
             'cancellation_reason' => $this->resource->cancellation_reason,

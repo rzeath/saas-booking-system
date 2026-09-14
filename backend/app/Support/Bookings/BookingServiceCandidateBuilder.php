@@ -102,6 +102,7 @@ class BookingServiceCandidateBuilder
                 $endAt,
                 $durationMinutes,
                 (int) $line['quantity'],
+                array_map('intval', $line['staff_ids'] ?? []),
                 $unitRate,
                 $lineTotal,
                 $index,

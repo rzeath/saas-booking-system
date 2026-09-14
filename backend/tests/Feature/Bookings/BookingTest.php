@@ -39,6 +39,7 @@ class BookingTest extends TestCase
         $this->getJson('/api/bookings')->assertUnauthorized();
         $this->postJson('/api/bookings', [])->assertUnauthorized();
         $this->postJson('/api/bookings/availability', [])->assertUnauthorized();
+        $this->postJson('/api/bookings/staff-availability', [])->assertUnauthorized();
         $this->getJson('/api/bookings/1')->assertUnauthorized();
         $this->putJson('/api/bookings/1', [])->assertUnauthorized();
         $this->postJson('/api/bookings/1/cancel')->assertUnauthorized();

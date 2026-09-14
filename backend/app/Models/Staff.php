@@ -6,6 +6,7 @@ use Database\Factories\StaffFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Staff extends Model
 {
@@ -36,5 +37,13 @@ class Staff extends Model
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class);
+    }
+
+    public function bookingServices(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            BookingService::class,
+            'booking_service_staff_assignments',
+        )->withPivot(['organization_id', 'assigned_by', 'assigned_at']);
     }
 }

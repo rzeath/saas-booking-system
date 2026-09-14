@@ -106,6 +106,7 @@ const bookingServiceSchema = z.object({
   unit_rate: z.string(),
   line_total: z.string(),
   sort_order: z.number(),
+  staff: z.array(relatedMasterDataSchema),
 })
 
 const bookingSchema = z.object({
@@ -147,6 +148,14 @@ const availabilityServiceSchema = z.object({
 const bookingAvailabilitySchema = z.object({
   available: z.boolean(),
   services: z.array(availabilityServiceSchema),
+})
+
+const staffAvailabilitySchema = z.object({
+  staff: z.array(z.object({
+    id: z.number(),
+    name: z.string(),
+    available: z.boolean(),
+  })),
 })
 
 const paginationSchema = {
@@ -216,6 +225,7 @@ export type BookingService = z.infer<typeof bookingServiceSchema>
 export type Booking = z.infer<typeof bookingSchema>
 export type BookingPage = z.infer<typeof bookingPageSchema>
 export type BookingAvailability = z.infer<typeof bookingAvailabilitySchema>
+export type StaffAvailability = z.infer<typeof staffAvailabilitySchema>
 export type SaveBookingServiceInput = {
   id?: number
   service_id: number
@@ -223,6 +233,7 @@ export type SaveBookingServiceInput = {
   start_time: string
   duration_minutes: number
   quantity: number
+  staff_ids: number[]
 }
 export type SaveBookingInput = {
   customer_id: number
@@ -236,8 +247,16 @@ export type SaveBookingInput = {
   internal_notes: string | null
   booking_services: SaveBookingServiceInput[]
 }
-export type BookingAvailabilityInput = Pick<SaveBookingInput, 'event_date' | 'booking_services'> & {
+export type BookingAvailabilityInput = {
   booking_id?: number
+  event_date: string
+  booking_services: Omit<SaveBookingServiceInput, 'staff_ids'>[]
+}
+export type StaffAvailabilityInput = {
+  booking_service_id?: number
+  event_date: string
+  start_time: string
+  duration_minutes: number
 }
 export type BookingQuery = {
   page: number
@@ -601,4 +620,15 @@ export async function checkBookingAvailability(
     body: JSON.stringify(input),
   })
   return bookingAvailabilitySchema.parse(await response.json())
+}
+
+export async function checkStaffAvailability(
+  input: StaffAvailabilityInput,
+): Promise<StaffAvailability> {
+  await initializeCsrf()
+  const response = await request('/bookings/staff-availability', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  return staffAvailabilitySchema.parse(await response.json())
 }

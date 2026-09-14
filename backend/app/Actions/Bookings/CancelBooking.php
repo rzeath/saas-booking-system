@@ -49,7 +49,7 @@ class CancelBooking
                 'cancellation_reason' => $reason,
             ]);
 
-            return $booking->refresh()->load(['customer', 'eventType', 'bookingServices']);
+            return $booking->refresh()->load(['customer', 'eventType', 'bookingServices.assignedStaff']);
         }, 3);
     }
 }
