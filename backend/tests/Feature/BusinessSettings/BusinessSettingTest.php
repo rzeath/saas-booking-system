@@ -15,8 +15,8 @@ class BusinessSettingTest extends TestCase
 
     public function test_unauthenticated_users_cannot_read_or_update_business_settings(): void
     {
-        $this->getJson('/api/business-settings')->assertUnauthorized();
-        $this->putJson('/api/business-settings', $this->validPayload())->assertUnauthorized();
+        $this->getJson('/api/v1/business-settings')->assertUnauthorized();
+        $this->putJson('/api/v1/business-settings', $this->validPayload())->assertUnauthorized();
     }
 
     public function test_authenticated_admin_reads_only_their_organizations_settings(): void
@@ -25,7 +25,7 @@ class BusinessSettingTest extends TestCase
         $other = $this->adminWithSettings('Other Tenant', ['display_name' => 'Other Display']);
 
         $this->actingAs($expected)
-            ->getJson('/api/business-settings')
+            ->getJson('/api/v1/business-settings')
             ->assertOk()
             ->assertExactJson([
                 'display_name' => 'Expected Display',
@@ -47,7 +47,7 @@ class BusinessSettingTest extends TestCase
         $admin = $this->adminWithSettings('Canonical Tenant');
 
         $this->actingAs($admin)
-            ->putJson('/api/business-settings', [
+            ->putJson('/api/v1/business-settings', [
                 ...$this->validPayload(),
                 'display_name' => '  Public Brand  ',
                 'timezone' => 'Asia/Singapore',
@@ -63,7 +63,7 @@ class BusinessSettingTest extends TestCase
             ->assertJsonPath('quotation_prefix', 'QUOTE2')
             ->assertJsonPath('billing_prefix', 'INVOICE');
 
-        $this->actingAs($admin)->getJson('/api/business-settings')
+        $this->actingAs($admin)->getJson('/api/v1/business-settings')
             ->assertOk()
             ->assertJsonMissingPath('timezone');
 
@@ -86,7 +86,7 @@ class BusinessSettingTest extends TestCase
         $admin = $this->adminWithSettings('Tenant');
 
         $this->actingAs($admin)
-            ->putJson('/api/business-settings', [
+            ->putJson('/api/v1/business-settings', [
                 ...$this->validPayload(),
                 'currency' => 'US1',
                 'booking_prefix' => '   ',
@@ -108,7 +108,7 @@ class BusinessSettingTest extends TestCase
         $other = $this->adminWithSettings('Tenant B', ['display_name' => 'Tenant B']);
 
         $this->actingAs($admin)
-            ->putJson('/api/business-settings', [
+            ->putJson('/api/v1/business-settings', [
                 ...$this->validPayload(),
                 'display_name' => 'Tenant A Updated',
                 'organization_id' => $other->organization_id,

@@ -24,7 +24,7 @@ class BookingAvailabilityTest extends TestCase
         [$admin, $organization] = $this->admin();
         [$service, $package] = $this->catalog($organization, 2);
 
-        $this->actingAs($admin)->postJson('/api/bookings/availability', $this->previewPayload($service, $package, '18:00', 180, 2))
+        $this->actingAs($admin)->postJson('/api/v1/bookings/availability', $this->previewPayload($service, $package, '18:00', 180, 2))
             ->assertOk()
             ->assertJsonPath('available', true)
             ->assertJsonPath('services.0.service_id', $service->id)
@@ -52,7 +52,7 @@ class BookingAvailabilityTest extends TestCase
             [$service, $otherPackage, 'package_id'],
         ] as [$selectedService, $selectedPackage, $field]) {
             $this->actingAs($admin)->postJson(
-                '/api/bookings/availability',
+                '/api/v1/bookings/availability',
                 $this->previewPayload($selectedService, $selectedPackage),
             )->assertUnprocessable()
                 ->assertJsonValidationErrors("booking_services.0.{$field}");
@@ -65,9 +65,9 @@ class BookingAvailabilityTest extends TestCase
         [$service, $package] = $this->catalog($organization, 3);
         $this->reservation($admin, $organization, $service, $package, '2027-06-15 18:00:00', '2027-06-15 21:00:00', 2);
 
-        $this->actingAs($admin)->postJson('/api/bookings/availability', $this->previewPayload($service, $package, '19:00', 180, 1))
+        $this->actingAs($admin)->postJson('/api/v1/bookings/availability', $this->previewPayload($service, $package, '19:00', 180, 1))
             ->assertOk()->assertJsonPath('available', true)->assertJsonPath('services.0.required_quantity', 3);
-        $this->actingAs($admin)->postJson('/api/bookings/availability', $this->previewPayload($service, $package, '19:00', 180, 2))
+        $this->actingAs($admin)->postJson('/api/v1/bookings/availability', $this->previewPayload($service, $package, '19:00', 180, 2))
             ->assertOk()->assertJsonPath('available', false)
             ->assertJsonPath('services.0.required_quantity', 4)
             ->assertJsonPath('services.0.over_capacity_by', 1);
@@ -79,9 +79,9 @@ class BookingAvailabilityTest extends TestCase
         [$service, $package] = $this->catalog($organization, 2);
         $this->reservation($admin, $organization, $service, $package, '2027-06-15 18:00:00', '2027-06-15 21:00:00', 2);
 
-        $this->actingAs($admin)->postJson('/api/bookings/availability', $this->previewPayload($service, $package, '21:00', 180, 2))
+        $this->actingAs($admin)->postJson('/api/v1/bookings/availability', $this->previewPayload($service, $package, '21:00', 180, 2))
             ->assertOk()->assertJsonPath('available', true);
-        $this->actingAs($admin)->postJson('/api/bookings/availability', $this->previewPayload($service, $package, '08:00', 60, 2))
+        $this->actingAs($admin)->postJson('/api/v1/bookings/availability', $this->previewPayload($service, $package, '08:00', 60, 2))
             ->assertOk()->assertJsonPath('available', true);
     }
 
@@ -90,9 +90,9 @@ class BookingAvailabilityTest extends TestCase
         [$admin, $organization] = $this->admin();
         [$service, $package] = $this->catalog($organization, 2);
 
-        $this->actingAs($admin)->postJson('/api/bookings/availability', $this->previewPayload($service, $package, quantity: 2))
+        $this->actingAs($admin)->postJson('/api/v1/bookings/availability', $this->previewPayload($service, $package, quantity: 2))
             ->assertOk()->assertJsonPath('available', true);
-        $this->actingAs($admin)->postJson('/api/bookings/availability', $this->previewPayload($service, $package, quantity: 3))
+        $this->actingAs($admin)->postJson('/api/v1/bookings/availability', $this->previewPayload($service, $package, quantity: 3))
             ->assertOk()->assertJsonPath('available', false);
     }
 
@@ -109,7 +109,7 @@ class BookingAvailabilityTest extends TestCase
             'quantity' => 2,
         ];
 
-        $this->actingAs($admin)->postJson('/api/bookings/availability', $payload)
+        $this->actingAs($admin)->postJson('/api/v1/bookings/availability', $payload)
             ->assertOk()
             ->assertJsonPath('available', false)
             ->assertJsonPath('services.0.requested_quantity', 3)
@@ -129,7 +129,7 @@ class BookingAvailabilityTest extends TestCase
             'quantity' => 2,
         ];
 
-        $this->actingAs($admin)->postJson('/api/bookings/availability', $payload)
+        $this->actingAs($admin)->postJson('/api/v1/bookings/availability', $payload)
             ->assertOk()->assertJsonPath('available', true)
             ->assertJsonPath('services.0.requested_quantity', 2);
     }
@@ -145,7 +145,7 @@ class BookingAvailabilityTest extends TestCase
             'start_time' => '19:00', 'duration_minutes' => 180, 'quantity' => 2,
         ];
 
-        $this->actingAs($admin)->postJson('/api/bookings/availability', $payload)
+        $this->actingAs($admin)->postJson('/api/v1/bookings/availability', $payload)
             ->assertOk()->assertJsonPath('available', false)
             ->assertJsonPath('services.0.required_quantity', 4);
     }
@@ -173,7 +173,7 @@ class BookingAvailabilityTest extends TestCase
                 BookingStatus::from($status),
             );
 
-            $this->actingAs($admin)->postJson('/api/bookings/availability', $this->previewPayload($service, $package))
+            $this->actingAs($admin)->postJson('/api/v1/bookings/availability', $this->previewPayload($service, $package))
                 ->assertOk()->assertJsonPath('available', $available);
         }
     }
@@ -185,7 +185,7 @@ class BookingAvailabilityTest extends TestCase
         [$otherService, $otherPackage] = $this->catalog($organization, 1, 'Other Booth');
         $this->reservation($admin, $organization, $service, $package, '2027-06-15 23:00:00', '2027-06-16 03:00:00', 1);
 
-        $this->actingAs($admin)->postJson('/api/bookings/availability', [
+        $this->actingAs($admin)->postJson('/api/v1/bookings/availability', [
             'event_date' => '2027-06-15',
             'booking_services' => [[
                 'service_id' => $otherService->id, 'package_id' => $otherPackage->id,
@@ -193,7 +193,7 @@ class BookingAvailabilityTest extends TestCase
             ]],
         ])->assertOk()->assertJsonPath('available', true);
 
-        $this->actingAs($admin)->postJson('/api/bookings/availability', [
+        $this->actingAs($admin)->postJson('/api/v1/bookings/availability', [
             'event_date' => '2027-06-16',
             'booking_services' => [[
                 'service_id' => $service->id, 'package_id' => $package->id,
@@ -210,11 +210,11 @@ class BookingAvailabilityTest extends TestCase
         $eventType = EventType::factory()->for($organization)->create();
         ServiceRate::factory()->forCombination($eventType, $service, $package)->create(['duration_minutes' => 180]);
 
-        $this->actingAs($admin)->postJson('/api/bookings/availability', $this->previewPayload($service, $package, quantity: 2))
+        $this->actingAs($admin)->postJson('/api/v1/bookings/availability', $this->previewPayload($service, $package, quantity: 2))
             ->assertOk()->assertJsonPath('available', true);
         $this->reservation($admin, $organization, $service, $package, '2027-06-15 18:00:00', '2027-06-15 21:00:00', 1);
 
-        $this->actingAs($admin)->postJson('/api/bookings', $this->bookingPayload($customer, $eventType, $service, $package, 2))
+        $this->actingAs($admin)->postJson('/api/v1/bookings', $this->bookingPayload($customer, $eventType, $service, $package, 2))
             ->assertUnprocessable()->assertJsonValidationErrors('booking_services');
     }
 
@@ -225,18 +225,18 @@ class BookingAvailabilityTest extends TestCase
         $customer = Customer::factory()->for($organization)->create();
         $eventType = EventType::factory()->for($organization)->create();
         ServiceRate::factory()->forCombination($eventType, $service, $package)->create(['duration_minutes' => 180]);
-        $created = $this->actingAs($admin)->postJson('/api/bookings', $this->bookingPayload($customer, $eventType, $service, $package, 2))
+        $created = $this->actingAs($admin)->postJson('/api/v1/bookings', $this->bookingPayload($customer, $eventType, $service, $package, 2))
             ->assertCreated();
         $bookingId = $created->json('id');
         $payload = $this->bookingPayload($customer, $eventType, $service, $package, 2);
         $payload['booking_services'][0]['id'] = $created->json('booking_services.0.id');
 
-        $this->actingAs($admin)->putJson("/api/bookings/{$bookingId}", $payload)->assertOk();
+        $this->actingAs($admin)->putJson("/api/v1/bookings/{$bookingId}", $payload)->assertOk();
 
         $this->reservation($admin, $organization, $service, $package, '2027-06-15 21:00:00', '2027-06-16 00:00:00', 1);
         $payload['event_name'] = 'Should Not Persist';
         $payload['booking_services'][0]['start_time'] = '21:00';
-        $this->actingAs($admin)->putJson("/api/bookings/{$bookingId}", $payload)
+        $this->actingAs($admin)->putJson("/api/v1/bookings/{$bookingId}", $payload)
             ->assertUnprocessable()->assertJsonValidationErrors('booking_services');
         $this->assertDatabaseHas('bookings', ['id' => $bookingId, 'event_name' => 'Availability Test']);
     }
@@ -258,7 +258,7 @@ class BookingAvailabilityTest extends TestCase
         $payload = $this->previewPayload($service, $package);
         $payload['booking_id'] = $booking->id;
 
-        $this->actingAs($admin)->postJson('/api/bookings/availability', $payload)
+        $this->actingAs($admin)->postJson('/api/v1/bookings/availability', $payload)
             ->assertOk()
             ->assertJsonPath('available', true)
             ->assertJsonPath('services.0.required_quantity', 1);
@@ -275,7 +275,7 @@ class BookingAvailabilityTest extends TestCase
         ]);
         $payload['booking_id'] = $foreignBooking->id;
 
-        $this->actingAs($admin)->postJson('/api/bookings/availability', $payload)
+        $this->actingAs($admin)->postJson('/api/v1/bookings/availability', $payload)
             ->assertNotFound();
     }
 
@@ -287,18 +287,18 @@ class BookingAvailabilityTest extends TestCase
         $customer = Customer::factory()->for($organization)->create();
         $eventType = EventType::factory()->for($organization)->create();
         ServiceRate::factory()->forCombination($eventType, $service, $package)->create(['duration_minutes' => 180]);
-        $created = $this->actingAs($admin)->postJson('/api/bookings', $this->bookingPayload($customer, $eventType, $service, $package))
+        $created = $this->actingAs($admin)->postJson('/api/v1/bookings', $this->bookingPayload($customer, $eventType, $service, $package))
             ->assertCreated();
         $bookingId = $created->json('id');
         $lineId = $created->json('booking_services.0.id');
 
-        $this->actingAs($admin)->postJson("/api/bookings/{$bookingId}/cancel", ['reason' => 'Client request'])
+        $this->actingAs($admin)->postJson("/api/v1/bookings/{$bookingId}/cancel", ['reason' => 'Client request'])
             ->assertOk()->assertJsonPath('status', 'CANCELLED')
             ->assertJsonPath('cancellation_reason', 'Client request');
         $this->assertDatabaseHas('booking_services', ['id' => $lineId, 'booking_id' => $bookingId]);
-        $this->actingAs($admin)->postJson('/api/bookings/availability', $this->previewPayload($service, $package))
+        $this->actingAs($admin)->postJson('/api/v1/bookings/availability', $this->previewPayload($service, $package))
             ->assertOk()->assertJsonPath('available', true);
-        $this->actingAs($admin)->postJson("/api/bookings/{$bookingId}/cancel")
+        $this->actingAs($admin)->postJson("/api/v1/bookings/{$bookingId}/cancel")
             ->assertUnprocessable()->assertJsonValidationErrors('status');
         $foreignCustomer = Customer::factory()->for($otherOrganization)->create();
         $foreignEventType = EventType::factory()->for($otherOrganization)->create();
@@ -310,7 +310,7 @@ class BookingAvailabilityTest extends TestCase
             'customer_name' => $foreignCustomer->name,
             'event_type_name' => $foreignEventType->name,
         ]);
-        $this->actingAs($admin)->postJson("/api/bookings/{$foreignBooking->id}/cancel", ['reason' => 'Foreign'])
+        $this->actingAs($admin)->postJson("/api/v1/bookings/{$foreignBooking->id}/cancel", ['reason' => 'Foreign'])
             ->assertNotFound();
     }
 

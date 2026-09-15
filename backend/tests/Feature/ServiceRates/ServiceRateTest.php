@@ -21,10 +21,11 @@ class ServiceRateTest extends TestCase
         $rate = ServiceRate::factory()->create();
         $payload = $this->payload($rate->event_type_id, $rate->service_id, $rate->package_id);
 
-        $this->getJson('/api/service-rates')->assertUnauthorized();
-        $this->postJson('/api/service-rates', $payload)->assertUnauthorized();
-        $this->getJson("/api/service-rates/{$rate->id}")->assertUnauthorized();
-        $this->putJson("/api/service-rates/{$rate->id}", $payload)->assertUnauthorized();
+        $path = "/api/v1/services/{$rate->service_id}/packages/{$rate->package_id}/rates";
+        $this->getJson($path)->assertUnauthorized();
+        $this->postJson($path, $payload)->assertUnauthorized();
+        $this->getJson("{$path}/{$rate->id}")->assertUnauthorized();
+        $this->putJson("{$path}/{$rate->id}", $payload)->assertUnauthorized();
     }
 
     public function test_tenant_creates_an_explicit_event_service_package_duration_rate(): void
@@ -33,7 +34,7 @@ class ServiceRateTest extends TestCase
         [, $otherOrganization] = $this->admin();
         [$eventType, $service, $package] = $this->catalog($organization);
 
-        $response = $this->actingAs($admin)->postJson('/api/service-rates', [
+        $response = $this->actingAs($admin)->postJson("/api/v1/services/{$service->id}/packages/{$package->id}/rates", [
             ...$this->payload($eventType->id, $service->id, $package->id),
             'unit_rate' => '12345678901.25',
             'organization_id' => $otherOrganization->id,
@@ -60,13 +61,13 @@ class ServiceRateTest extends TestCase
         [$foreignEventType, $foreignService, $foreignPackage] = $this->catalog($otherOrganization);
         $unmappedPackage = Package::factory()->for($organization)->create();
 
-        $this->actingAs($admin)->postJson('/api/service-rates', $this->payload($foreignEventType->id, $service->id, $package->id))
+        $this->actingAs($admin)->postJson("/api/v1/services/{$service->id}/packages/{$package->id}/rates", $this->payload($foreignEventType->id, $service->id, $package->id))
             ->assertUnprocessable()->assertJsonValidationErrors('event_type_id');
-        $this->actingAs($admin)->postJson('/api/service-rates', $this->payload($eventType->id, $foreignService->id, $package->id))
+        $this->actingAs($admin)->postJson("/api/v1/services/{$foreignService->id}/packages/{$package->id}/rates", $this->payload($eventType->id, $foreignService->id, $package->id))
             ->assertUnprocessable()->assertJsonValidationErrors('service_id');
-        $this->actingAs($admin)->postJson('/api/service-rates', $this->payload($eventType->id, $service->id, $foreignPackage->id))
+        $this->actingAs($admin)->postJson("/api/v1/services/{$service->id}/packages/{$foreignPackage->id}/rates", $this->payload($eventType->id, $service->id, $foreignPackage->id))
             ->assertUnprocessable()->assertJsonValidationErrors('package_id');
-        $this->actingAs($admin)->postJson('/api/service-rates', $this->payload($eventType->id, $service->id, $unmappedPackage->id))
+        $this->actingAs($admin)->postJson("/api/v1/services/{$service->id}/packages/{$unmappedPackage->id}/rates", $this->payload($eventType->id, $service->id, $unmappedPackage->id))
             ->assertUnprocessable()->assertJsonValidationErrors('package_id');
 
         $this->expectException(QueryException::class);
@@ -89,15 +90,15 @@ class ServiceRateTest extends TestCase
             'duration_minutes' => 180, 'unit_rate' => '5000.00',
         ]);
 
-        $this->actingAs($admin)->postJson('/api/service-rates', $this->payload($eventType->id, $service->id, $package->id))
+        $this->actingAs($admin)->postJson("/api/v1/services/{$service->id}/packages/{$package->id}/rates", $this->payload($eventType->id, $service->id, $package->id))
             ->assertUnprocessable()->assertJsonValidationErrors('duration_minutes');
-        $this->actingAs($admin)->postJson('/api/service-rates', [
+        $this->actingAs($admin)->postJson("/api/v1/services/{$otherService->id}/packages/{$package->id}/rates", [
             ...$this->payload($eventType->id, $otherService->id, $package->id), 'unit_rate' => '9000.00',
         ])->assertCreated()->assertJsonPath('service.id', $otherService->id)->assertJsonPath('unit_rate', '9000.00');
-        $this->actingAs($admin)->postJson('/api/service-rates', [
+        $this->actingAs($admin)->postJson("/api/v1/services/{$service->id}/packages/{$package->id}/rates", [
             ...$this->payload($eventType->id, $service->id, $package->id), 'duration_minutes' => 240,
         ])->assertCreated()->assertJsonPath('duration_minutes', 240);
-        $this->actingAs($admin)->postJson('/api/service-rates', $this->payload($otherEventType->id, $service->id, $package->id))
+        $this->actingAs($admin)->postJson("/api/v1/services/{$service->id}/packages/{$package->id}/rates", $this->payload($otherEventType->id, $service->id, $package->id))
             ->assertCreated()->assertJsonPath('event_type.id', $otherEventType->id);
     }
 
@@ -110,17 +111,46 @@ class ServiceRateTest extends TestCase
         [$foreignEventType, $foreignService, $foreignPackage] = $this->catalog($otherOrganization);
         $foreignRate = ServiceRate::factory()->forCombination($foreignEventType, $foreignService, $foreignPackage)->create();
 
-        $url = "/api/service-rates?status=inactive&event_type_id={$eventType->id}&service_id={$service->id}"
+        $url = "/api/v1/rates?status=inactive&event_type_id={$eventType->id}&service_id={$service->id}"
             ."&package_id={$package->id}&duration_minutes=240&search=Mirror";
         $this->actingAs($admin)->getJson($url)->assertOk()
             ->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.id', $rate->id)
             ->assertJsonPath('data.0.service.id', $service->id);
 
-        $this->actingAs($admin)->putJson("/api/service-rates/{$rate->id}", [
+        $this->actingAs($admin)->putJson("/api/v1/services/{$service->id}/packages/{$package->id}/rates/{$rate->id}", [
             ...$this->payload($eventType->id, $service->id, $package->id),
             'duration_minutes' => 300, 'unit_rate' => '8500.50', 'is_active' => true,
         ])->assertOk()->assertJsonPath('duration_minutes', 300)->assertJsonPath('unit_rate', '8500.50');
-        $this->actingAs($admin)->getJson("/api/service-rates/{$foreignRate->id}")->assertNotFound();
+        $this->actingAs($admin)->getJson("/api/v1/services/{$foreignService->id}/packages/{$foreignPackage->id}/rates/{$foreignRate->id}")->assertNotFound();
+    }
+
+    public function test_nested_rate_routes_reject_mismatched_service_package_and_rate_ids(): void
+    {
+        [$admin, $organization] = $this->admin();
+        [$eventType, $service, $package] = $this->catalog($organization);
+        $rate = ServiceRate::factory()->forCombination($eventType, $service, $package)->create();
+        $otherService = Service::factory()->for($organization)->create();
+        $otherPackage = Package::factory()->forService($service)->create();
+        $package->services()->attach($otherService->id, ['organization_id' => $organization->id]);
+
+        $this->actingAs($admin)->getJson("/api/v1/services/{$otherService->id}/packages/{$package->id}/rates/{$rate->id}")
+            ->assertNotFound();
+        $this->actingAs($admin)->getJson("/api/v1/services/{$service->id}/packages/{$otherPackage->id}/rates/{$rate->id}")
+            ->assertNotFound();
+        $this->actingAs($admin)->putJson(
+            "/api/v1/services/{$otherService->id}/packages/{$package->id}/rates/{$rate->id}",
+            $this->payload($eventType->id, $service->id, $package->id),
+        )->assertNotFound();
+        $this->actingAs($admin)->postJson("/api/v1/services/{$otherService->id}/packages/{$package->id}/rates", [
+            ...$this->payload($eventType->id, $service->id, $package->id),
+            'duration_minutes' => 181,
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('service_id');
+
+        $this->actingAs($admin)->getJson("/api/v1/services/{$service->id}/packages/{$package->id}/rates?status=all")
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.id', $rate->id);
     }
 
     /** @return array{User, Organization} */

@@ -22,10 +22,10 @@ class ServiceTest extends TestCase
     {
         $service = Service::factory()->create();
 
-        $this->getJson('/api/services')->assertUnauthorized();
-        $this->postJson('/api/services', $this->payload())->assertUnauthorized();
-        $this->getJson("/api/services/{$service->id}")->assertUnauthorized();
-        $this->putJson("/api/services/{$service->id}", $this->payload())->assertUnauthorized();
+        $this->getJson('/api/v1/services')->assertUnauthorized();
+        $this->postJson('/api/v1/services', $this->payload())->assertUnauthorized();
+        $this->getJson("/api/v1/services/{$service->id}")->assertUnauthorized();
+        $this->putJson("/api/v1/services/{$service->id}", $this->payload())->assertUnauthorized();
     }
 
     public function test_tenant_lists_and_resolves_only_its_services(): void
@@ -35,12 +35,12 @@ class ServiceTest extends TestCase
         $own = Service::factory()->for($organization)->create(['name' => 'Mirror Booth']);
         $foreign = Service::factory()->for($otherOrganization)->create(['name' => 'Private Booth']);
 
-        $this->actingAs($admin)->getJson('/api/services?status=all')
+        $this->actingAs($admin)->getJson('/api/v1/services?status=all')
             ->assertOk()->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.id', $own->id)
             ->assertJsonMissing(['name' => 'Private Booth']);
-        $this->actingAs($admin)->getJson("/api/services/{$own->id}")
+        $this->actingAs($admin)->getJson("/api/v1/services/{$own->id}")
             ->assertOk()->assertJsonPath('name', 'Mirror Booth')->assertJsonMissingPath('organization_id');
-        $this->actingAs($admin)->getJson("/api/services/{$foreign->id}")->assertNotFound();
+        $this->actingAs($admin)->getJson("/api/v1/services/{$foreign->id}")->assertNotFound();
     }
 
     public function test_tenant_creates_updates_and_cannot_override_organization(): void
@@ -48,7 +48,7 @@ class ServiceTest extends TestCase
         [$admin, $organization] = $this->admin();
         [, $otherOrganization] = $this->admin();
 
-        $response = $this->actingAs($admin)->postJson('/api/services', [
+        $response = $this->actingAs($admin)->postJson('/api/v1/services', [
             ...$this->payload(), 'name' => '  360 Video Booth  ', 'organization_id' => $otherOrganization->id,
         ])->assertCreated()->assertJsonPath('name', '360 Video Booth')->assertJsonPath('total_units', 3);
 
@@ -56,7 +56,7 @@ class ServiceTest extends TestCase
             'id' => $response->json('id'), 'organization_id' => $organization->id,
         ]);
 
-        $this->actingAs($admin)->putJson('/api/services/'.$response->json('id'), [
+        $this->actingAs($admin)->putJson('/api/v1/services/'.$response->json('id'), [
             'name' => '360 Booth', 'total_units' => 4, 'is_active' => false,
             'organization_id' => $otherOrganization->id,
         ])->assertOk()->assertJsonPath('is_active', false)->assertJsonPath('total_units', 4);
@@ -69,7 +69,7 @@ class ServiceTest extends TestCase
         Service::factory()->for($organization)->create(['name' => 'Mirror Booth']);
 
         foreach (['Mirror Booth', 'mirror booth', ' MIRROR BOOTH '] as $name) {
-            $this->actingAs($admin)->postJson('/api/services', [
+            $this->actingAs($admin)->postJson('/api/v1/services', [
                 ...$this->payload(), 'name' => $name,
             ])->assertUnprocessable()->assertJsonValidationErrors('name');
         }
@@ -86,11 +86,11 @@ class ServiceTest extends TestCase
         Service::factory()->inactive()->for($organization)->create(['name' => 'Beta Booth']);
         $foreign = Service::factory()->for($otherOrganization)->create();
 
-        $this->actingAs($admin)->postJson('/api/services', [...$this->payload(), 'total_units' => 0])
+        $this->actingAs($admin)->postJson('/api/v1/services', [...$this->payload(), 'total_units' => 0])
             ->assertUnprocessable()->assertJsonValidationErrors('total_units');
-        $this->actingAs($admin)->getJson('/api/services?status=inactive&search=Beta&per_page=1')
+        $this->actingAs($admin)->getJson('/api/v1/services?status=inactive&search=Beta&per_page=1')
             ->assertOk()->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.name', 'Beta Booth');
-        $this->actingAs($admin)->putJson("/api/services/{$foreign->id}", $this->payload())->assertNotFound();
+        $this->actingAs($admin)->putJson("/api/v1/services/{$foreign->id}", $this->payload())->assertNotFound();
     }
 
     public function test_database_enforces_unique_name_and_restrictive_organization_foreign_key(): void
@@ -135,12 +135,12 @@ class ServiceTest extends TestCase
             ]);
         }
 
-        $this->actingAs($admin)->putJson("/api/services/{$service->id}", [
+        $this->actingAs($admin)->putJson("/api/v1/services/{$service->id}", [
             'name' => 'Capacity Booth', 'total_units' => 2, 'is_active' => true,
         ])->assertUnprocessable()->assertJsonValidationErrors('total_units');
         $this->assertDatabaseHas('services', ['id' => $service->id, 'total_units' => 3]);
 
-        $this->actingAs($admin)->putJson("/api/services/{$service->id}", [
+        $this->actingAs($admin)->putJson("/api/v1/services/{$service->id}", [
             'name' => 'Capacity Booth', 'total_units' => 3, 'is_active' => true,
         ])->assertOk()->assertJsonPath('total_units', 3);
     }

@@ -20,19 +20,25 @@ class StaffAvailabilityChecker
         DateTimeInterface $startAt,
         DateTimeInterface $endAt,
         ?int $excludeBookingServiceId = null,
+        bool $lockReservations = false,
     ): array {
         if ($staffIds === []) {
             return [];
         }
 
-        return $this->reservationQuery($organizationId, $staffIds)
+        $query = $this->reservationQuery($organizationId, $staffIds)
             ->where('booking_services.start_at', '<', $endAt)
             ->where('booking_services.end_at', '>', $startAt)
             ->when(
                 $excludeBookingServiceId !== null,
                 fn (Builder $query) => $query->where('booking_services.id', '!=', $excludeBookingServiceId),
-            )
-            ->distinct()
+            );
+
+        if ($lockReservations) {
+            $query->lockForUpdate();
+        }
+
+        return $query->distinct()
             ->pluck('assignments.staff_id')
             ->map(fn ($id): int => (int) $id)
             ->values()

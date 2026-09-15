@@ -17,10 +17,10 @@ class EventTypeTest extends TestCase
     {
         $eventType = EventType::factory()->create();
 
-        $this->getJson('/api/event-types')->assertUnauthorized();
-        $this->postJson('/api/event-types', $this->payload())->assertUnauthorized();
-        $this->getJson("/api/event-types/{$eventType->id}")->assertUnauthorized();
-        $this->putJson("/api/event-types/{$eventType->id}", $this->payload())->assertUnauthorized();
+        $this->getJson('/api/v1/event-types')->assertUnauthorized();
+        $this->postJson('/api/v1/event-types', $this->payload())->assertUnauthorized();
+        $this->getJson("/api/v1/event-types/{$eventType->id}")->assertUnauthorized();
+        $this->putJson("/api/v1/event-types/{$eventType->id}", $this->payload())->assertUnauthorized();
     }
 
     public function test_tenant_can_list_and_show_only_its_event_types(): void
@@ -31,20 +31,20 @@ class EventTypeTest extends TestCase
         $other = EventType::factory()->for($otherOrganization)->create(['name' => 'Private Event']);
 
         $this->actingAs($admin)
-            ->getJson('/api/event-types?status=all')
+            ->getJson('/api/v1/event-types?status=all')
             ->assertOk()
             ->assertJsonPath('meta.total', 1)
             ->assertJsonPath('data.0.id', $expected->id)
             ->assertJsonMissing(['name' => 'Private Event']);
 
         $this->actingAs($admin)
-            ->getJson("/api/event-types/{$expected->id}")
+            ->getJson("/api/v1/event-types/{$expected->id}")
             ->assertOk()
             ->assertJsonPath('name', 'Wedding')
             ->assertJsonMissingPath('organization_id');
 
         $this->actingAs($admin)
-            ->getJson("/api/event-types/{$other->id}")
+            ->getJson("/api/v1/event-types/{$other->id}")
             ->assertNotFound();
     }
 
@@ -53,7 +53,7 @@ class EventTypeTest extends TestCase
         [$admin, $organization] = $this->admin();
         [, $otherOrganization] = $this->admin();
 
-        $response = $this->actingAs($admin)->postJson('/api/event-types', [
+        $response = $this->actingAs($admin)->postJson('/api/v1/event-types', [
             'name' => '  Corporate Event  ',
             'is_active' => true,
             'organization_id' => $otherOrganization->id,
@@ -76,7 +76,7 @@ class EventTypeTest extends TestCase
 
         foreach (['Wedding', 'wedding', ' WEDDING '] as $name) {
             $this->actingAs($admin)
-                ->postJson('/api/event-types', ['name' => $name, 'is_active' => true])
+                ->postJson('/api/v1/event-types', ['name' => $name, 'is_active' => true])
                 ->assertUnprocessable()
                 ->assertJsonValidationErrors('name');
         }
@@ -89,7 +89,7 @@ class EventTypeTest extends TestCase
         EventType::factory()->for($otherOrganization)->create(['name' => 'Wedding']);
 
         $this->actingAs($admin)
-            ->postJson('/api/event-types', ['name' => 'Wedding', 'is_active' => true])
+            ->postJson('/api/v1/event-types', ['name' => 'Wedding', 'is_active' => true])
             ->assertCreated();
 
         $this->assertDatabaseHas('event_types', [
@@ -106,7 +106,7 @@ class EventTypeTest extends TestCase
         $other = EventType::factory()->for($otherOrganization)->create(['name' => 'Do Not Change']);
 
         $this->actingAs($admin)
-            ->putJson("/api/event-types/{$eventType->id}", [
+            ->putJson("/api/v1/event-types/{$eventType->id}", [
                 'name' => 'Birthday Party',
                 'is_active' => false,
                 'organization_id' => $otherOrganization->id,
@@ -116,7 +116,7 @@ class EventTypeTest extends TestCase
             ->assertJsonPath('is_active', false);
 
         $this->actingAs($admin)
-            ->putJson("/api/event-types/{$other->id}", $this->payload())
+            ->putJson("/api/v1/event-types/{$other->id}", $this->payload())
             ->assertNotFound();
 
         $this->assertDatabaseHas('event_types', ['id' => $other->id, 'name' => 'Do Not Change']);
@@ -131,11 +131,11 @@ class EventTypeTest extends TestCase
         $other = EventType::factory()->for($otherOrganization)->create(['name' => 'Corporate']);
 
         $this->actingAs($admin)
-            ->putJson("/api/event-types/{$wedding->id}", ['name' => 'wedding', 'is_active' => true])
+            ->putJson("/api/v1/event-types/{$wedding->id}", ['name' => 'wedding', 'is_active' => true])
             ->assertOk();
 
         $this->actingAs($admin)
-            ->putJson("/api/event-types/{$other->id}", ['name' => 'Birthday', 'is_active' => true])
+            ->putJson("/api/v1/event-types/{$other->id}", ['name' => 'Birthday', 'is_active' => true])
             ->assertNotFound();
     }
 
@@ -147,13 +147,13 @@ class EventTypeTest extends TestCase
         EventType::factory()->inactive()->for($organization)->create(['name' => 'Wedding']);
 
         $this->actingAs($admin)
-            ->getJson('/api/event-types?status=active&search=event')
+            ->getJson('/api/v1/event-types?status=active&search=event')
             ->assertOk()
             ->assertJsonPath('meta.total', 1)
             ->assertJsonPath('data.0.name', 'Corporate Event');
 
         $this->actingAs($admin)
-            ->getJson('/api/event-types?status=inactive&per_page=1&page=1')
+            ->getJson('/api/v1/event-types?status=inactive&per_page=1&page=1')
             ->assertOk()
             ->assertJsonPath('meta.total', 1)
             ->assertJsonPath('data.0.name', 'Wedding');

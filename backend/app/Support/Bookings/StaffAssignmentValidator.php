@@ -33,20 +33,39 @@ class StaffAssignmentValidator
                     ->map(fn ($id): int => (int) $id)
                     ->all() ?? [];
 
-            foreach ($candidate->staffIds as $staffId) {
-                $member = $staff->get($staffId);
+            $this->validateIds(
+                $candidate->staffIds,
+                $staff,
+                $retainedIds,
+                "booking_services.{$index}.staff_ids",
+            );
+        }
+    }
 
-                if (! $member instanceof Staff) {
-                    throw ValidationException::withMessages([
-                        "booking_services.{$index}.staff_ids" => 'One or more selected staff are invalid.',
-                    ]);
-                }
+    /**
+     * @param  list<int>  $staffIds
+     * @param  Collection<int, Staff>  $staff
+     * @param  list<int>  $retainedIds
+     */
+    public function validateIds(
+        array $staffIds,
+        Collection $staff,
+        array $retainedIds,
+        string $attribute,
+    ): void {
+        foreach ($staffIds as $staffId) {
+            $member = $staff->get($staffId);
 
-                if (! $member->is_active && ! in_array($staffId, $retainedIds, true)) {
-                    throw ValidationException::withMessages([
-                        "booking_services.{$index}.staff_ids" => 'Inactive staff cannot receive a new assignment.',
-                    ]);
-                }
+            if (! $member instanceof Staff) {
+                throw ValidationException::withMessages([
+                    $attribute => 'One or more selected staff are invalid.',
+                ]);
+            }
+
+            if (! $member->is_active && ! in_array($staffId, $retainedIds, true)) {
+                throw ValidationException::withMessages([
+                    $attribute => 'Inactive staff cannot receive a new assignment.',
+                ]);
             }
         }
     }

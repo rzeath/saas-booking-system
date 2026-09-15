@@ -18,10 +18,10 @@ class StaffTest extends TestCase
     {
         $staff = Staff::factory()->create();
 
-        $this->getJson('/api/staff')->assertUnauthorized();
-        $this->postJson('/api/staff', $this->payload())->assertUnauthorized();
-        $this->getJson("/api/staff/{$staff->id}")->assertUnauthorized();
-        $this->putJson("/api/staff/{$staff->id}", $this->payload())->assertUnauthorized();
+        $this->getJson('/api/v1/staff')->assertUnauthorized();
+        $this->postJson('/api/v1/staff', $this->payload())->assertUnauthorized();
+        $this->getJson("/api/v1/staff/{$staff->id}")->assertUnauthorized();
+        $this->putJson("/api/v1/staff/{$staff->id}", $this->payload())->assertUnauthorized();
     }
 
     public function test_tenant_lists_and_shows_only_its_staff(): void
@@ -31,18 +31,18 @@ class StaffTest extends TestCase
         $own = Staff::factory()->for($organization)->create(['name' => 'Maria Santos']);
         $foreign = Staff::factory()->for($otherOrganization)->create(['name' => 'Private Person']);
 
-        $this->actingAs($admin)->getJson('/api/staff?status=all')
+        $this->actingAs($admin)->getJson('/api/v1/staff?status=all')
             ->assertOk()
             ->assertJsonPath('meta.total', 1)
             ->assertJsonPath('data.0.id', $own->id)
             ->assertJsonMissing(['name' => 'Private Person']);
 
-        $this->actingAs($admin)->getJson("/api/staff/{$own->id}")
+        $this->actingAs($admin)->getJson("/api/v1/staff/{$own->id}")
             ->assertOk()
             ->assertJsonPath('name', 'Maria Santos')
             ->assertJsonMissingPath('organization_id');
 
-        $this->actingAs($admin)->getJson("/api/staff/{$foreign->id}")->assertNotFound();
+        $this->actingAs($admin)->getJson("/api/v1/staff/{$foreign->id}")->assertNotFound();
     }
 
     public function test_tenant_creates_staff_with_derived_organization_and_default_active_status(): void
@@ -50,7 +50,7 @@ class StaffTest extends TestCase
         [$admin, $organization] = $this->admin();
         [, $otherOrganization] = $this->admin();
 
-        $response = $this->actingAs($admin)->postJson('/api/staff', [
+        $response = $this->actingAs($admin)->postJson('/api/v1/staff', [
             'name' => '  Juan Dela Cruz  ',
             'phone' => '  0917 123 4567  ',
             'email' => '  juan@example.com  ',
@@ -75,7 +75,7 @@ class StaffTest extends TestCase
     {
         [$admin] = $this->admin();
 
-        $this->actingAs($admin)->postJson('/api/staff', [
+        $this->actingAs($admin)->postJson('/api/v1/staff', [
             'name' => '   ',
             'phone' => '   ',
             'email' => 'not-an-email',
@@ -93,7 +93,7 @@ class StaffTest extends TestCase
             'email' => 'shared@example.com',
         ]);
 
-        $this->actingAs($admin)->postJson('/api/staff', [
+        $this->actingAs($admin)->postJson('/api/v1/staff', [
             'name' => 'Juan Dela Cruz',
             'phone' => '0917 123 4567',
             'email' => 'shared@example.com',
@@ -109,7 +109,7 @@ class StaffTest extends TestCase
         $staff = Staff::factory()->for($organization)->create();
         $foreign = Staff::factory()->for($otherOrganization)->create(['name' => 'Do Not Change']);
 
-        $this->actingAs($admin)->putJson("/api/staff/{$staff->id}", [
+        $this->actingAs($admin)->putJson("/api/v1/staff/{$staff->id}", [
             'name' => 'Updated Operator',
             'phone' => '+63 917 765 4321',
             'email' => 'updated@example.com',
@@ -123,7 +123,7 @@ class StaffTest extends TestCase
             ->assertJsonPath('notes', 'Updated notes')
             ->assertJsonPath('is_active', false);
 
-        $this->actingAs($admin)->putJson("/api/staff/{$foreign->id}", $this->payload())
+        $this->actingAs($admin)->putJson("/api/v1/staff/{$foreign->id}", $this->payload())
             ->assertNotFound();
         $this->assertDatabaseHas('staff', ['id' => $foreign->id, 'name' => 'Do Not Change']);
     }
@@ -139,7 +139,7 @@ class StaffTest extends TestCase
         Staff::factory()->for($organization)->create(['name' => 'Unrelated Operator']);
 
         foreach (['Maria', '555 1234', 'maria@example.com'] as $search) {
-            $this->actingAs($admin)->getJson('/api/staff?status=all&search='.urlencode($search))
+            $this->actingAs($admin)->getJson('/api/v1/staff?status=all&search='.urlencode($search))
                 ->assertOk()
                 ->assertJsonPath('meta.total', 1)
                 ->assertJsonPath('data.0.name', 'Maria Santos');
@@ -153,18 +153,18 @@ class StaffTest extends TestCase
         Staff::factory()->for($organization)->create(['name' => 'Alex Operator']);
         Staff::factory()->inactive()->for($organization)->create(['name' => 'Zed Inactive']);
 
-        $this->actingAs($admin)->getJson('/api/staff?status=active&per_page=1&page=2')
+        $this->actingAs($admin)->getJson('/api/v1/staff?status=active&per_page=1&page=2')
             ->assertOk()
             ->assertJsonPath('meta.total', 2)
             ->assertJsonPath('meta.current_page', 2)
             ->assertJsonPath('data.0.name', 'Alex Operator');
 
-        $this->actingAs($admin)->getJson('/api/staff?status=inactive')
+        $this->actingAs($admin)->getJson('/api/v1/staff?status=inactive')
             ->assertOk()
             ->assertJsonPath('meta.total', 1)
             ->assertJsonPath('data.0.name', 'Zed Inactive');
 
-        $this->actingAs($admin)->getJson('/api/staff?status=all')
+        $this->actingAs($admin)->getJson('/api/v1/staff?status=all')
             ->assertOk()
             ->assertJsonPath('meta.total', 3);
     }

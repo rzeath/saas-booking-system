@@ -30,15 +30,15 @@ function fetchApi(overrides?: (url: string, init?: RequestInit) => Response | Pr
     if (overridden) return overridden
     if (url.endsWith('/api/me')) return response(auth)
     if (url.endsWith('/sanctum/csrf-cookie')) return new Response(null, { status: 204 })
-    if (url.endsWith('/api/business-settings')) return response(settings)
-    if (url.includes('/api/customers?')) return response(page([customer]))
-    if (url.includes('/api/event-types?')) return response(page([eventType]))
-    if (url.includes('/api/services/4/packages?')) return response(page([packageItem]))
-    if (url.includes('/api/service-rates?')) return response(page([rate]))
-    if (url.includes('/api/services?')) return response(page([service]))
-    if (url.endsWith('/api/bookings/staff-availability')) return response(staffAvailability)
-    if (url.endsWith('/api/bookings/8')) return response(booking)
-    if (url.includes('/api/bookings?')) return response(page([booking]))
+    if (url.endsWith('/api/v1/business-settings')) return response(settings)
+    if (url.includes('/api/v1/customers?')) return response(page([customer]))
+    if (url.includes('/api/v1/event-types?')) return response(page([eventType]))
+    if (url.includes('/api/v1/services/4/package-mappings?')) return response(page([packageItem]))
+    if (url.includes('/api/v1/services/4/packages/5/rates?')) return response(page([rate]))
+    if (url.includes('/api/v1/services?')) return response(page([service]))
+    if (url.endsWith('/api/v1/bookings/staff-availability')) return response(staffAvailability)
+    if (url.endsWith('/api/v1/bookings/8')) return response(booking)
+    if (url.includes('/api/v1/bookings?')) return response(page([booking]))
     return response({ message: 'Not found.' }, 404)
   })
 }
@@ -68,15 +68,15 @@ test('lists bookings and applies all supported filters', async () => {
 
   await waitFor(() => expect(fetchMock.mock.calls.some(([input]) => {
     const url = String(input)
-    return url.includes('/api/bookings?') && url.includes('search=Ana') && url.includes('status=CONFIRMED') && url.includes('event_date_from=2027-06-01') && url.includes('event_date_to=2027-06-30') && url.includes('customer_id=2') && url.includes('event_type_id=3')
+    return url.includes('/api/v1/bookings?') && url.includes('search=Ana') && url.includes('status=CONFIRMED') && url.includes('event_date_from=2027-06-01') && url.includes('event_date_to=2027-06-30') && url.includes('customer_id=2') && url.includes('event_type_id=3')
   })).toBe(true))
 })
 
 test('paginates the booking list and opens a booking', async () => {
-  const fetchMock = fetchApi((url) => url.includes('/api/bookings?') ? response(page([booking], url.includes('page=2') ? 2 : 1, 2)) : undefined)
+  const fetchMock = fetchApi((url) => url.includes('/api/v1/bookings?') ? response(page([booking], url.includes('page=2') ? 2 : 1, 2)) : undefined)
   renderRoute('/bookings', fetchMock)
   fireEvent.click(await screen.findByRole('button', { name: 'Next' }))
-  await waitFor(() => expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/api/bookings?page=2'))).toBe(true))
+  await waitFor(() => expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/api/v1/bookings?page=2'))).toBe(true))
   fireEvent.click(await screen.findByRole('link', { name: 'Open' }))
   expect(await screen.findByRole('heading', { name: 'BK-2027-000001' })).toBeInTheDocument()
 })
@@ -84,7 +84,7 @@ test('paginates the booking list and opens a booking', async () => {
 test('shows empty and recoverable list error states', async () => {
   let failed = true
   const fetchMock = fetchApi((url) => {
-    if (url.includes('/api/bookings?')) return failed ? response({ message: 'Failed' }, 500) : response(page([]))
+    if (url.includes('/api/v1/bookings?')) return failed ? response({ message: 'Failed' }, 500) : response(page([]))
   })
   renderRoute('/bookings', fetchMock)
   expect(await screen.findByText('We could not load bookings.')).toBeInTheDocument()
@@ -96,14 +96,14 @@ test('shows empty and recoverable list error states', async () => {
 test('creates a booking with backend-authoritative pricing and availability preview', async () => {
   let submitted: Record<string, unknown> | undefined
   const fetchMock = fetchApi((url, init) => {
-    if (url.endsWith('/api/bookings/availability') && init?.method === 'POST') return response({ available: true, services: [{ service_id: 4, available: true, total_units: 2, requested_quantity: 1, required_quantity: 1, over_capacity_by: 0 }] })
-    if (url.endsWith('/api/bookings') && init?.method === 'POST') { submitted = JSON.parse(String(init.body)) as Record<string, unknown>; return response(booking, 201) }
+    if (url.endsWith('/api/v1/bookings/availability') && init?.method === 'POST') return response({ available: true, services: [{ service_id: 4, available: true, total_units: 2, requested_quantity: 1, required_quantity: 1, over_capacity_by: 0 }] })
+    if (url.endsWith('/api/v1/bookings') && init?.method === 'POST') { submitted = JSON.parse(String(init.body)) as Record<string, unknown>; return response(booking, 201) }
   })
   renderRoute('/bookings/new', fetchMock)
   await screen.findByRole('heading', { name: 'Create booking' })
   await screen.findByRole('option', { name: 'Ana Cruz' })
 
-  fireEvent.change(screen.getByLabelText('Customer'), { target: { value: '2' } })
+  fireEvent.click(screen.getByRole('option', { name: 'Ana Cruz' }))
   expect(screen.getByLabelText('Contact person')).toHaveValue('Ana Cruz')
   fireEvent.change(screen.getByLabelText('Event type'), { target: { value: '3' } })
   fireEvent.change(screen.getByLabelText('Event name / occasion'), { target: { value: 'Ana & Leo' } })
@@ -154,6 +154,91 @@ test('supports repeated service lines and clears dependent choices', async () =>
   expect(screen.getAllByLabelText('Service')).toHaveLength(1)
 })
 
+test('shows an empty result when customer search has no matches', async () => {
+  const fetchMock = fetchApi((url) => {
+    if (url.includes('/api/v1/customers?') && url.includes('search=missing')) return response(page([]))
+  })
+  renderRoute('/bookings/new', fetchMock)
+  await screen.findByRole('option', { name: 'Ana Cruz' })
+
+  fireEvent.change(screen.getByLabelText('Search customer'), { target: { value: 'missing' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Search' }))
+
+  expect(await screen.findByText('No customers found.')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Add New Customer' })).toBeInTheDocument()
+})
+
+test('creates and selects a customer inline without resetting booking values', async () => {
+  const createdCustomer = {
+    ...customer,
+    id: 12,
+    name: 'Bea Ramos',
+    email: 'bea@example.com',
+    phone: '09178889999',
+  }
+  let bookingPayload: Record<string, unknown> | undefined
+  const fetchMock = fetchApi((url, init) => {
+    if (url.endsWith('/api/v1/customers') && init?.method === 'POST') return response(createdCustomer, 201)
+    if (url.endsWith('/api/v1/bookings') && init?.method === 'POST') {
+      bookingPayload = JSON.parse(String(init.body)) as Record<string, unknown>
+      return response({ ...booking, customer: { id: 12, name: 'Bea Ramos', is_active: true } }, 201)
+    }
+  })
+  renderRoute('/bookings/new', fetchMock)
+  await screen.findByRole('option', { name: 'Ana Cruz' })
+
+  fireEvent.change(screen.getByLabelText('Event type'), { target: { value: '3' } })
+  fireEvent.change(screen.getByLabelText('Event name / occasion'), { target: { value: 'Bea Birthday' } })
+  fireEvent.change(screen.getByLabelText('Event date'), { target: { value: '2027-08-20' } })
+  fireEvent.change(screen.getByLabelText('Venue name'), { target: { value: 'Garden Hall' } })
+  fireEvent.change(screen.getByLabelText('Venue address'), { target: { value: 'Quezon City' } })
+  fireEvent.change(screen.getByLabelText('Contact person'), { target: { value: 'Lia Coordinator' } })
+  fireEvent.change(screen.getByLabelText('Contact number'), { target: { value: '09990000000' } })
+  fireEvent.change(screen.getByLabelText('Internal notes'), { target: { value: 'Keep this setup note.' } })
+  fireEvent.change(screen.getByLabelText('Service'), { target: { value: '4' } })
+  await screen.findByRole('option', { name: 'Premium' })
+  fireEvent.change(screen.getByLabelText('Package'), { target: { value: '5' } })
+  await screen.findByRole('option', { name: '3 hours' })
+  fireEvent.change(screen.getByLabelText('Duration'), { target: { value: '180' } })
+  fireEvent.change(screen.getByLabelText('Start time'), { target: { value: '19:30' } })
+  fireEvent.change(screen.getByLabelText('Quantity'), { target: { value: '2' } })
+  fireEvent.click(await screen.findByRole('checkbox', { name: 'Mia Santos' }))
+
+  fireEvent.click(screen.getByRole('button', { name: 'Add New Customer' }))
+  fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Bea Ramos' } })
+  fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'bea@example.com' } })
+  fireEvent.change(screen.getByLabelText('Phone'), { target: { value: '09178889999' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Create customer' }))
+
+  expect(await screen.findByText('Bea Ramos')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Change' })).toBeInTheDocument()
+  expect(screen.getByLabelText('Event name / occasion')).toHaveValue('Bea Birthday')
+  expect(screen.getByLabelText('Event date')).toHaveValue('2027-08-20')
+  expect(screen.getByLabelText('Venue name')).toHaveValue('Garden Hall')
+  expect(screen.getByLabelText('Venue address')).toHaveValue('Quezon City')
+  expect(screen.getByLabelText('Contact person')).toHaveValue('Lia Coordinator')
+  expect(screen.getByLabelText('Contact number')).toHaveValue('09990000000')
+  expect(screen.getByLabelText('Internal notes')).toHaveValue('Keep this setup note.')
+  expect(screen.getByLabelText('Service')).toHaveValue('4')
+  expect(screen.getByLabelText('Package')).toHaveValue('5')
+  expect(screen.getByLabelText('Duration')).toHaveValue('180')
+  expect(screen.getByLabelText('Start time')).toHaveValue('19:30')
+  expect(screen.getByLabelText('Quantity')).toHaveValue(2)
+  expect(screen.getByRole('checkbox', { name: 'Mia Santos' })).toBeChecked()
+
+  fireEvent.click(screen.getByRole('button', { name: 'Create booking' }))
+  await waitFor(() => expect(bookingPayload).toBeDefined())
+  expect(bookingPayload).toMatchObject({
+    customer_id: 12,
+    event_name: 'Bea Birthday',
+    event_date: '2027-08-20',
+    venue_name: 'Garden Hall',
+    contact_person: 'Lia Coordinator',
+    contact_number: '09990000000',
+    booking_services: [{ service_id: 4, package_id: 5, start_time: '19:30', duration_minutes: 180, quantity: 2, staff_ids: [10] }],
+  })
+})
+
 test('validates required fields and at least one service before create', async () => {
   const fetchMock = renderRoute('/bookings/new')
   await screen.findByRole('option', { name: 'Ana Cruz' })
@@ -162,13 +247,13 @@ test('validates required fields and at least one service before create', async (
   expect(await screen.findByText('Select a customer.')).toBeInTheDocument()
   expect(screen.getByText('Event name is required.')).toBeInTheDocument()
   expect(screen.getByText('Add at least one service.')).toBeInTheDocument()
-  expect(fetchMock.mock.calls.some(([input, init]) => String(input).endsWith('/api/bookings') && init?.method === 'POST')).toBe(false)
+  expect(fetchMock.mock.calls.some(([input, init]) => String(input).endsWith('/api/v1/bookings') && init?.method === 'POST')).toBe(false)
 })
 
 test('shows a capacity conflict from the availability preview', async () => {
   let previewPayload: { booking_id?: number } | undefined
   const fetchMock = fetchApi((url, init) => {
-    if (url.endsWith('/api/bookings/availability') && init?.method === 'POST') {
+    if (url.endsWith('/api/v1/bookings/availability') && init?.method === 'POST') {
       previewPayload = JSON.parse(String(init.body)) as { booking_id?: number }
       return response({ available: false, services: [{ service_id: 4, available: false, total_units: 2, requested_quantity: 2, required_quantity: 3, over_capacity_by: 1 }] })
     }
@@ -185,11 +270,11 @@ test('shows a capacity conflict from the availability preview', async () => {
 
 test('shows an authoritative capacity conflict when create is submitted', async () => {
   const fetchMock = fetchApi((url, init) => {
-    if (url.endsWith('/api/bookings') && init?.method === 'POST') return response({ message: 'Validation failed.', errors: { booking_services: ['The requested schedule exceeds available service capacity.'] } }, 422)
+    if (url.endsWith('/api/v1/bookings') && init?.method === 'POST') return response({ message: 'Validation failed.', errors: { booking_services: ['The requested schedule exceeds available service capacity.'] } }, 422)
   })
   renderRoute('/bookings/new', fetchMock)
   await screen.findByRole('option', { name: 'Ana Cruz' })
-  fireEvent.change(screen.getByLabelText('Customer'), { target: { value: '2' } })
+  fireEvent.click(screen.getByRole('option', { name: 'Ana Cruz' }))
   fireEvent.change(screen.getByLabelText('Event type'), { target: { value: '3' } })
   fireEvent.change(screen.getByLabelText('Event name / occasion'), { target: { value: 'Ana & Leo' } })
   fireEvent.change(screen.getByLabelText('Event date'), { target: { value: '2027-06-15' } })
@@ -207,7 +292,7 @@ test('shows an authoritative capacity conflict when create is submitted', async 
 test('updates a pending booking and retains service line identity', async () => {
   let updatePayload: { event_name: string; booking_services: { id?: number }[] } | undefined
   const fetchMock = fetchApi((url, init) => {
-    if (url.endsWith('/api/bookings/8') && init?.method === 'PUT') {
+    if (url.endsWith('/api/v1/bookings/8') && init?.method === 'PUT') {
       updatePayload = JSON.parse(String(init.body)) as typeof updatePayload
       return response({ ...booking, event_name: updatePayload?.event_name ?? booking.event_name })
     }
@@ -224,12 +309,13 @@ test('updates a pending booking and retains service line identity', async () => 
 test('maps backend booking conflicts and represents inactive current dependencies', async () => {
   const inactiveBooking = { ...booking, customer: { ...booking.customer, is_active: false }, event_type: { ...booking.event_type, is_active: false } }
   const fetchMock = fetchApi((url, init) => {
-    if (url.includes('/api/customers?') || url.includes('/api/event-types?') || url.includes('/api/services?') || url.includes('/api/services/4/packages?') || url.includes('/api/service-rates?')) return response(page([]))
-    if (url.endsWith('/api/bookings/8') && init?.method === 'PUT') return response({ message: 'Validation failed.', errors: { booking_services: ['The requested schedule exceeds available service capacity.'] } }, 422)
-    if (url.endsWith('/api/bookings/8')) return response(inactiveBooking)
+    if (url.includes('/api/v1/customers?') || url.includes('/api/v1/event-types?') || url.includes('/api/v1/services?') || url.includes('/api/v1/services/4/package-mappings?') || url.includes('/api/v1/services/4/packages/5/rates?')) return response(page([]))
+    if (url.endsWith('/api/v1/bookings/8') && init?.method === 'PUT') return response({ message: 'Validation failed.', errors: { booking_services: ['The requested schedule exceeds available service capacity.'] } }, 422)
+    if (url.endsWith('/api/v1/bookings/8')) return response(inactiveBooking)
   })
   renderRoute('/bookings/8/edit', fetchMock)
-  expect(await screen.findByRole('option', { name: 'Ana Cruz (current; inactive)' })).toBeInTheDocument()
+  expect(await screen.findByText('Ana Cruz')).toBeInTheDocument()
+  expect(screen.getByText('Inactive customer')).toBeInTheDocument()
   expect(screen.getByRole('option', { name: 'Wedding (current; inactive)' })).toBeInTheDocument()
   expect(screen.getByRole('option', { name: 'Mirror Booth (current; inactive)' })).toBeInTheDocument()
   expect(await screen.findByRole('option', { name: 'Premium (current; inactive)' })).toBeInTheDocument()
@@ -253,7 +339,7 @@ test('cancels a pending booking only after confirmation', async () => {
   const cancelled = { ...booking, status: 'CANCELLED', cancelled_at: '2026-09-13', cancellation_reason: 'Client request' }
   let cancelCalls = 0
   const fetchMock = fetchApi((url, init) => {
-    if (url.endsWith('/api/bookings/8/cancel') && init?.method === 'POST') { cancelCalls += 1; return response(cancelled) }
+    if (url.endsWith('/api/v1/bookings/8/cancel') && init?.method === 'POST') { cancelCalls += 1; return response(cancelled) }
   })
   renderRoute('/bookings/8', fetchMock)
   fireEvent.click(await screen.findByRole('button', { name: /Cancel booking/ }))
@@ -268,7 +354,7 @@ test('cancels a pending booking only after confirmation', async () => {
 test('shows the booking loading state', async () => {
   let resolveBookings!: (value: Response) => void
   const pending = new Promise<Response>((resolve) => { resolveBookings = resolve })
-  renderRoute('/bookings', fetchApi((url) => url.includes('/api/bookings?') ? pending : undefined))
+  renderRoute('/bookings', fetchApi((url) => url.includes('/api/v1/bookings?') ? pending : undefined))
   expect(await screen.findByText('Loading bookings…')).toBeInTheDocument()
   resolveBookings(response(page([])))
   expect(await screen.findByText('No bookings match these filters.')).toBeInTheDocument()
@@ -276,7 +362,7 @@ test('shows the booking loading state', async () => {
 
 test('blocks the edit UI for a non-pending booking', async () => {
   const confirmed = { ...booking, status: 'CONFIRMED' }
-  renderRoute('/bookings/8/edit', fetchApi((url) => url.endsWith('/api/bookings/8') ? response(confirmed) : undefined))
+  renderRoute('/bookings/8/edit', fetchApi((url) => url.endsWith('/api/v1/bookings/8') ? response(confirmed) : undefined))
   expect(await screen.findByRole('heading', { name: 'This booking is read-only' })).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Save changes' })).not.toBeInTheDocument()
 })

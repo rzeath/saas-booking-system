@@ -17,10 +17,10 @@ class CustomerTest extends TestCase
     {
         $customer = Customer::factory()->create();
 
-        $this->getJson('/api/customers')->assertUnauthorized();
-        $this->postJson('/api/customers', $this->payload())->assertUnauthorized();
-        $this->getJson("/api/customers/{$customer->id}")->assertUnauthorized();
-        $this->putJson("/api/customers/{$customer->id}", $this->payload())->assertUnauthorized();
+        $this->getJson('/api/v1/customers')->assertUnauthorized();
+        $this->postJson('/api/v1/customers', $this->payload())->assertUnauthorized();
+        $this->getJson("/api/v1/customers/{$customer->id}")->assertUnauthorized();
+        $this->putJson("/api/v1/customers/{$customer->id}", $this->payload())->assertUnauthorized();
     }
 
     public function test_tenant_can_list_and_show_only_its_customers(): void
@@ -31,20 +31,20 @@ class CustomerTest extends TestCase
         $other = Customer::factory()->for($otherOrganization)->create(['name' => 'Private Customer']);
 
         $this->actingAs($admin)
-            ->getJson('/api/customers?status=all')
+            ->getJson('/api/v1/customers?status=all')
             ->assertOk()
             ->assertJsonPath('meta.total', 1)
             ->assertJsonPath('data.0.id', $expected->id)
             ->assertJsonMissing(['name' => 'Private Customer']);
 
         $this->actingAs($admin)
-            ->getJson("/api/customers/{$expected->id}")
+            ->getJson("/api/v1/customers/{$expected->id}")
             ->assertOk()
             ->assertJsonPath('name', 'Expected Customer')
             ->assertJsonMissingPath('organization_id');
 
         $this->actingAs($admin)
-            ->getJson("/api/customers/{$other->id}")
+            ->getJson("/api/v1/customers/{$other->id}")
             ->assertNotFound();
     }
 
@@ -53,7 +53,7 @@ class CustomerTest extends TestCase
         [$admin, $organization] = $this->admin();
         [, $otherOrganization] = $this->admin();
 
-        $response = $this->actingAs($admin)->postJson('/api/customers', [
+        $response = $this->actingAs($admin)->postJson('/api/v1/customers', [
             ...$this->payload(),
             'name' => '  Juan Dela Cruz  ',
             'email' => '  juan@example.com  ',
@@ -85,7 +85,7 @@ class CustomerTest extends TestCase
         ]);
 
         $this->actingAs($admin)
-            ->postJson('/api/customers', [
+            ->postJson('/api/v1/customers', [
                 ...$this->payload(),
                 'name' => 'Same Person',
                 'email' => 'same@example.com',
@@ -104,7 +104,7 @@ class CustomerTest extends TestCase
         $other = Customer::factory()->for($otherOrganization)->create(['name' => 'Do Not Change']);
 
         $this->actingAs($admin)
-            ->putJson("/api/customers/{$customer->id}", [
+            ->putJson("/api/v1/customers/{$customer->id}", [
                 ...$this->payload(),
                 'name' => 'Updated Customer',
                 'is_active' => false,
@@ -115,7 +115,7 @@ class CustomerTest extends TestCase
             ->assertJsonPath('is_active', false);
 
         $this->actingAs($admin)
-            ->putJson("/api/customers/{$other->id}", [
+            ->putJson("/api/v1/customers/{$other->id}", [
                 ...$this->payload(),
                 'name' => '   ',
             ])
@@ -134,7 +134,7 @@ class CustomerTest extends TestCase
         [$admin] = $this->admin();
 
         $this->actingAs($admin)
-            ->postJson('/api/customers', [
+            ->postJson('/api/v1/customers', [
                 ...$this->payload(),
                 'name' => '   ',
                 'email' => 'not-an-email',
@@ -146,7 +146,13 @@ class CustomerTest extends TestCase
     public function test_customer_search_covers_name_email_and_phone(): void
     {
         [$admin, $organization] = $this->admin();
-        Customer::factory()->for($organization)->create([
+        [, $otherOrganization] = $this->admin();
+        $expected = Customer::factory()->for($organization)->create([
+            'name' => 'Maria Santos',
+            'email' => 'maria@example.com',
+            'phone' => '09171234567',
+        ]);
+        Customer::factory()->for($otherOrganization)->create([
             'name' => 'Maria Santos',
             'email' => 'maria@example.com',
             'phone' => '09171234567',
@@ -155,11 +161,17 @@ class CustomerTest extends TestCase
 
         foreach (['Maria', 'maria@example.com', '1234567'] as $search) {
             $this->actingAs($admin)
-                ->getJson('/api/customers?status=all&search='.urlencode($search))
+                ->getJson('/api/v1/customers?status=all&search='.urlencode($search))
                 ->assertOk()
                 ->assertJsonPath('meta.total', 1)
-                ->assertJsonPath('data.0.name', 'Maria Santos');
+                ->assertJsonPath('data.0.id', $expected->id);
         }
+
+        $this->actingAs($admin)
+            ->getJson('/api/v1/customers?status=active&search=NoSuchCustomer')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 0)
+            ->assertJsonCount(0, 'data');
     }
 
     public function test_customer_status_filter_and_pagination_are_deterministic(): void
@@ -170,14 +182,14 @@ class CustomerTest extends TestCase
         Customer::factory()->inactive()->for($organization)->create(['name' => 'Gamma Inactive']);
 
         $this->actingAs($admin)
-            ->getJson('/api/customers?status=active&per_page=1&page=2')
+            ->getJson('/api/v1/customers?status=active&per_page=1&page=2')
             ->assertOk()
             ->assertJsonPath('meta.total', 2)
             ->assertJsonPath('meta.current_page', 2)
             ->assertJsonPath('data.0.name', 'Beta Active');
 
         $this->actingAs($admin)
-            ->getJson('/api/customers?status=inactive')
+            ->getJson('/api/v1/customers?status=inactive')
             ->assertOk()
             ->assertJsonPath('meta.total', 1)
             ->assertJsonPath('data.0.name', 'Gamma Inactive');

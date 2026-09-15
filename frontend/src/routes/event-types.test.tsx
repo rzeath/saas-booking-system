@@ -43,7 +43,7 @@ function baseFetch() {
     void _init
     const url = String(input)
     if (url.endsWith('/api/me')) return jsonResponse(authContext)
-    if (url.includes('/api/event-types?')) return jsonResponse(page())
+    if (url.includes('/api/v1/event-types?')) return jsonResponse(page())
     if (url.endsWith('/sanctum/csrf-cookie')) return new Response(null, { status: 204 })
     return jsonResponse({ message: 'Not found.' }, 404)
   })
@@ -80,8 +80,8 @@ test('creates an event type successfully', async () => {
     const url = String(input)
     if (url.endsWith('/api/me')) return jsonResponse(authContext)
     if (url.endsWith('/sanctum/csrf-cookie')) return new Response(null, { status: 204 })
-    if (url.endsWith('/api/event-types') && init?.method === 'POST') return jsonResponse(created, 201)
-    if (url.includes('/api/event-types?')) return jsonResponse(page())
+    if (url.endsWith('/api/v1/event-types') && init?.method === 'POST') return jsonResponse(created, 201)
+    if (url.includes('/api/v1/event-types?')) return jsonResponse(page())
     return jsonResponse({ message: 'Not found.' }, 404)
   })
   renderEventTypes(fetchMock)
@@ -99,10 +99,10 @@ test('shows duplicate-name backend validation', async () => {
     const url = String(input)
     if (url.endsWith('/api/me')) return jsonResponse(authContext)
     if (url.endsWith('/sanctum/csrf-cookie')) return new Response(null, { status: 204 })
-    if (url.endsWith('/api/event-types') && init?.method === 'POST') {
+    if (url.endsWith('/api/v1/event-types') && init?.method === 'POST') {
       return jsonResponse({ message: 'Validation failed.', errors: { name: ['An event type with this name already exists.'] } }, 422)
     }
-    if (url.includes('/api/event-types?')) return jsonResponse(page())
+    if (url.includes('/api/v1/event-types?')) return jsonResponse(page())
     return jsonResponse({ message: 'Not found.' }, 404)
   })
   renderEventTypes(fetchMock)
@@ -121,8 +121,8 @@ test('edits an event type', async () => {
     const url = String(input)
     if (url.endsWith('/api/me')) return jsonResponse(authContext)
     if (url.endsWith('/sanctum/csrf-cookie')) return new Response(null, { status: 204 })
-    if (url.endsWith('/api/event-types/31') && init?.method === 'PUT') return jsonResponse(updated)
-    if (url.includes('/api/event-types?')) return jsonResponse(page())
+    if (url.endsWith('/api/v1/event-types/31') && init?.method === 'PUT') return jsonResponse(updated)
+    if (url.includes('/api/v1/event-types?')) return jsonResponse(page())
     return jsonResponse({ message: 'Not found.' }, 404)
   })
   renderEventTypes(fetchMock)

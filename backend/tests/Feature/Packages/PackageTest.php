@@ -31,19 +31,19 @@ class PackageTest extends TestCase
         $package = Package::factory()->create();
         $service = Service::factory()->create();
 
-        $this->getJson('/api/packages')->assertUnauthorized();
-        $this->postJson('/api/packages', $this->payload())->assertUnauthorized();
-        $this->getJson("/api/packages/{$package->id}")->assertUnauthorized();
-        $this->putJson("/api/packages/{$package->id}", $this->payload())->assertUnauthorized();
-        $this->getJson("/api/services/{$service->id}/packages")->assertUnauthorized();
-        $this->putJson("/api/services/{$service->id}/packages", ['package_ids' => []])->assertUnauthorized();
+        $this->getJson('/api/v1/packages')->assertUnauthorized();
+        $this->postJson('/api/v1/packages', $this->payload())->assertUnauthorized();
+        $this->getJson("/api/v1/packages/{$package->id}")->assertUnauthorized();
+        $this->putJson("/api/v1/packages/{$package->id}", $this->payload())->assertUnauthorized();
+        $this->getJson("/api/v1/services/{$service->id}/package-mappings")->assertUnauthorized();
+        $this->putJson("/api/v1/services/{$service->id}/package-mappings", ['package_ids' => []])->assertUnauthorized();
     }
 
     public function test_tenant_creates_lists_and_updates_an_independent_package(): void
     {
         [$admin, $organization] = $this->admin();
 
-        $response = $this->actingAs($admin)->postJson('/api/packages', [
+        $response = $this->actingAs($admin)->postJson('/api/v1/packages', [
             'name' => '  Premium  ', 'is_active' => true, 'organization_id' => 999, 'service_id' => 999,
         ])->assertCreated()->assertJsonPath('name', 'Premium')->assertJsonPath('services', []);
 
@@ -51,9 +51,9 @@ class PackageTest extends TestCase
         $this->assertDatabaseHas('packages', [
             'id' => $packageId, 'organization_id' => $organization->id, 'name' => 'Premium',
         ]);
-        $this->actingAs($admin)->getJson('/api/packages?status=all')
+        $this->actingAs($admin)->getJson('/api/v1/packages?status=all')
             ->assertOk()->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.id', $packageId);
-        $this->actingAs($admin)->putJson("/api/packages/{$packageId}", [
+        $this->actingAs($admin)->putJson("/api/v1/packages/{$packageId}", [
             'name' => 'Premium Plus', 'is_active' => false, 'service_id' => 999,
         ])->assertOk()->assertJsonPath('is_active', false)->assertJsonPath('services', []);
     }
@@ -66,18 +66,18 @@ class PackageTest extends TestCase
         $premium = Package::factory()->for($organization)->create(['name' => 'Premium']);
         $basic = Package::factory()->for($organization)->create(['name' => 'Basic']);
 
-        $this->actingAs($admin)->putJson("/api/services/{$firstService->id}/packages", [
+        $this->actingAs($admin)->putJson("/api/v1/services/{$firstService->id}/package-mappings", [
             'package_ids' => [$premium->id, $basic->id],
         ])->assertOk()->assertJsonCount(2, 'data');
-        $this->actingAs($admin)->putJson("/api/services/{$secondService->id}/packages", [
+        $this->actingAs($admin)->putJson("/api/v1/services/{$secondService->id}/package-mappings", [
             'package_ids' => [$premium->id],
         ])->assertOk()->assertJsonCount(1, 'data');
 
         $this->assertCount(2, $firstService->refresh()->packages);
         $this->assertCount(2, $premium->refresh()->services);
-        $this->actingAs($admin)->getJson("/api/services/{$firstService->id}/packages?status=all")
+        $this->actingAs($admin)->getJson("/api/v1/services/{$firstService->id}/package-mappings?status=all")
             ->assertOk()->assertJsonPath('meta.total', 2);
-        $this->actingAs($admin)->getJson("/api/packages/{$premium->id}")
+        $this->actingAs($admin)->getJson("/api/v1/packages/{$premium->id}")
             ->assertOk()->assertJsonCount(2, 'services');
     }
 
@@ -89,10 +89,10 @@ class PackageTest extends TestCase
         $package = Package::factory()->for($organization)->create();
         $foreignPackage = Package::factory()->for($otherOrganization)->create();
 
-        $this->actingAs($admin)->putJson("/api/services/{$service->id}/packages", [
+        $this->actingAs($admin)->putJson("/api/v1/services/{$service->id}/package-mappings", [
             'package_ids' => [$package->id, $package->id],
         ])->assertUnprocessable()->assertJsonValidationErrors('package_ids.1');
-        $this->actingAs($admin)->putJson("/api/services/{$service->id}/packages", [
+        $this->actingAs($admin)->putJson("/api/v1/services/{$service->id}/package-mappings", [
             'package_ids' => [$foreignPackage->id],
         ])->assertUnprocessable()->assertJsonValidationErrors('package_ids.0');
 
@@ -121,13 +121,13 @@ class PackageTest extends TestCase
         Package::factory()->for($organization)->create(['name' => 'Premium']);
         $foreign = Package::factory()->for($otherOrganization)->create(['name' => 'Private']);
 
-        $this->actingAs($admin)->postJson('/api/packages', ['name' => 'premium'])
+        $this->actingAs($admin)->postJson('/api/v1/packages', ['name' => 'premium'])
             ->assertUnprocessable()->assertJsonValidationErrors('name');
         Package::factory()->for($otherOrganization)->create(['name' => 'Premium']);
-        $this->actingAs($admin)->getJson('/api/packages?status=all')
+        $this->actingAs($admin)->getJson('/api/v1/packages?status=all')
             ->assertOk()->assertJsonPath('meta.total', 1)->assertJsonMissing(['name' => 'Private']);
-        $this->actingAs($admin)->getJson("/api/packages/{$foreign->id}")->assertNotFound();
-        $this->actingAs($admin)->putJson("/api/packages/{$foreign->id}", $this->payload())->assertNotFound();
+        $this->actingAs($admin)->getJson("/api/v1/packages/{$foreign->id}")->assertNotFound();
+        $this->actingAs($admin)->putJson("/api/v1/packages/{$foreign->id}", $this->payload())->assertNotFound();
     }
 
     public function test_mapping_used_by_a_rate_cannot_be_unassigned(): void
@@ -138,7 +138,7 @@ class PackageTest extends TestCase
         $package = Package::factory()->forService($service)->create();
         ServiceRate::factory()->forCombination($eventType, $service, $package)->create();
 
-        $this->actingAs($admin)->putJson("/api/services/{$service->id}/packages", [
+        $this->actingAs($admin)->putJson("/api/v1/services/{$service->id}/package-mappings", [
             'package_ids' => [],
         ])->assertUnprocessable()->assertJsonValidationErrors('package_ids');
         $this->assertDatabaseHas('service_package', [

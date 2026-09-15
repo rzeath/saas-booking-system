@@ -22,10 +22,10 @@ class SaveServiceRateRequest extends FormRequest
     {
         $currentId = null;
 
-        if ($this->route('service_rate') !== null) {
+        if ($this->route('rate') !== null) {
             $currentId = ServiceRate::query()
                 ->where('organization_id', $tenant->organizationId())
-                ->whereKey($this->route('service_rate'))
+                ->whereKey($this->route('rate'))
                 ->firstOrFail()
                 ->id;
         }

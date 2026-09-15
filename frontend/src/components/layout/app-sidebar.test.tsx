@@ -25,7 +25,7 @@ test('opens and dismisses grouped navigation at a mobile viewport', async () => 
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input)
     if (url.endsWith('/api/me')) return response(auth)
-    if (url.endsWith('/api/business-settings')) return response(settings)
+    if (url.endsWith('/api/v1/business-settings')) return response(settings)
     return response(emptyPage())
   }))
   render(<AppProviders><App /></AppProviders>)
@@ -60,7 +60,7 @@ test('signs out from the anchored account control and returns to login', async (
         ? new Response(JSON.stringify({ message: 'Unauthenticated.' }), { status: 401, headers: { 'Content-Type': 'application/json' } })
         : response(auth)
     }
-    if (url.endsWith('/api/business-settings')) return response(settings)
+    if (url.endsWith('/api/v1/business-settings')) return response(settings)
     return response(emptyPage())
   }))
   render(<AppProviders><App /></AppProviders>)

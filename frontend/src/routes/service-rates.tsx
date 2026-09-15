@@ -70,7 +70,7 @@ function RateForm({ rate, onSaved, onCancel }: {
         unit_rate: values.unit_rate,
         is_active: values.status === 'active',
       }
-      return rate ? updateServiceRate(rate.id, input) : createServiceRate(input)
+      return rate ? updateServiceRate(rate.id, input, { service_id: rate.service.id, package_id: rate.package.id }) : createServiceRate(input)
     },
     onSuccess: onSaved,
     onError: (error) => {

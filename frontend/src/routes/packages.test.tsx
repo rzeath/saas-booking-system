@@ -14,9 +14,9 @@ function baseFetch() {
     const url = String(input)
     if (url.endsWith('/api/me')) return response(auth)
     if (url.endsWith('/sanctum/csrf-cookie')) return new Response(null, { status: 204 })
-    if (url.endsWith('/api/packages') && init?.method === 'POST') return response({ ...packageItem, id: 21, services: [], name: 'Basic' }, 201)
-    if (url.endsWith('/api/packages/20') && init?.method === 'PUT') return response({ ...packageItem, name: 'Premium Plus', is_active: false })
-    if (url.includes('/api/packages?')) return response(page([packageItem]))
+    if (url.endsWith('/api/v1/packages') && init?.method === 'POST') return response({ ...packageItem, id: 21, services: [], name: 'Basic' }, 201)
+    if (url.endsWith('/api/v1/packages/20') && init?.method === 'PUT') return response({ ...packageItem, name: 'Premium Plus', is_active: false })
+    if (url.includes('/api/v1/packages?')) return response(page([packageItem]))
     return response({ message: 'Not found.' }, 404)
   })
 }
@@ -44,8 +44,8 @@ test('creates a package without a service field', async () => {
     const url = String(input)
     if (url.endsWith('/api/me')) return response(auth)
     if (url.endsWith('/sanctum/csrf-cookie')) return new Response(null, { status: 204 })
-    if (url.endsWith('/api/packages') && init?.method === 'POST') { submitted = JSON.parse(String(init.body)) as Record<string, unknown>; return response({ ...packageItem, id: 21, services: [], name: 'Basic' }, 201) }
-    if (url.includes('/api/packages?')) return response(page([packageItem]))
+    if (url.endsWith('/api/v1/packages') && init?.method === 'POST') { submitted = JSON.parse(String(init.body)) as Record<string, unknown>; return response({ ...packageItem, id: 21, services: [], name: 'Basic' }, 201) }
+    if (url.includes('/api/v1/packages?')) return response(page([packageItem]))
     return response({}, 404)
   })
   renderPage(fetchMock)
@@ -65,5 +65,5 @@ test('edits and deactivates a package', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
   expect(await screen.findByText('Premium Plus saved.')).toBeInTheDocument()
   fireEvent.click(within(row!).getByRole('button', { name: 'Deactivate' }))
-  await waitFor(() => expect(fetchMock.mock.calls.filter(([url, init]) => String(url).endsWith('/api/packages/20') && init?.method === 'PUT').length).toBeGreaterThanOrEqual(2))
+  await waitFor(() => expect(fetchMock.mock.calls.filter(([url, init]) => String(url).endsWith('/api/v1/packages/20') && init?.method === 'PUT').length).toBeGreaterThanOrEqual(2))
 })

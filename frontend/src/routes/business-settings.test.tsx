@@ -39,7 +39,7 @@ function baseFetch() {
     const url = String(input)
 
     if (url.endsWith('/api/me')) return jsonResponse(authContext)
-    if (url.endsWith('/api/business-settings')) return jsonResponse(settings)
+    if (url.endsWith('/api/v1/business-settings')) return jsonResponse(settings)
     if (url.endsWith('/sanctum/csrf-cookie')) return new Response(null, { status: 204 })
 
     return jsonResponse({ message: 'Not found.' }, 404)
@@ -81,11 +81,11 @@ test('submits normalized settings and renders the saved result', async () => {
 
     if (url.endsWith('/api/me')) return jsonResponse(authContext)
     if (url.endsWith('/sanctum/csrf-cookie')) return new Response(null, { status: 204 })
-    if (url.endsWith('/api/business-settings') && init?.method === 'PUT') {
+    if (url.endsWith('/api/v1/business-settings') && init?.method === 'PUT') {
       const inputSettings = JSON.parse(String(init.body)) as typeof settings
       return jsonResponse({ ...settings, ...inputSettings })
     }
-    if (url.endsWith('/api/business-settings')) return jsonResponse(settings)
+    if (url.endsWith('/api/v1/business-settings')) return jsonResponse(settings)
 
     return jsonResponse({ message: 'Not found.' }, 404)
   })
@@ -99,7 +99,7 @@ test('submits normalized settings and renders the saved result', async () => {
   expect(screen.getByLabelText('Display Name')).toHaveValue('Updated Brand')
   expect(screen.getByLabelText('Booking Prefix')).toHaveValue('BOOK')
 
-  const updateCall = fetchMock.mock.calls.find((call) => String(call[0]).endsWith('/api/business-settings') && call[1]?.method === 'PUT')
+  const updateCall = fetchMock.mock.calls.find((call) => String(call[0]).endsWith('/api/v1/business-settings') && call[1]?.method === 'PUT')
   expect(JSON.parse(String(updateCall?.[1]?.body))).toMatchObject({
     display_name: 'Updated Brand',
     booking_prefix: 'BOOK',
@@ -112,13 +112,13 @@ test('maps backend validation errors to the corresponding field', async () => {
 
     if (url.endsWith('/api/me')) return jsonResponse(authContext)
     if (url.endsWith('/sanctum/csrf-cookie')) return new Response(null, { status: 204 })
-    if (url.endsWith('/api/business-settings') && init?.method === 'PUT') {
+    if (url.endsWith('/api/v1/business-settings') && init?.method === 'PUT') {
       return jsonResponse({
         message: 'The booking prefix is invalid.',
         errors: { booking_prefix: ['The booking prefix is invalid.'] },
       }, 422)
     }
-    if (url.endsWith('/api/business-settings')) return jsonResponse(settings)
+    if (url.endsWith('/api/v1/business-settings')) return jsonResponse(settings)
 
     return jsonResponse({ message: 'Not found.' }, 404)
   })

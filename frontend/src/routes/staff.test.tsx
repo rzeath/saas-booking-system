@@ -40,14 +40,14 @@ function baseFetch(data = [staff]) {
     const url = String(input)
     if (url.endsWith('/api/me')) return jsonResponse(authContext)
     if (url.endsWith('/sanctum/csrf-cookie')) return new Response(null, { status: 204 })
-    if (url.endsWith('/api/staff') && init?.method === 'POST') {
+    if (url.endsWith('/api/v1/staff') && init?.method === 'POST') {
       return jsonResponse({ ...staff, id: 42, name: 'Juan Dela Cruz' }, 201)
     }
-    if (url.endsWith('/api/staff/41') && init?.method === 'PUT') {
+    if (url.endsWith('/api/v1/staff/41') && init?.method === 'PUT') {
       const body = JSON.parse(String(init.body)) as { name: string; is_active: boolean }
       return jsonResponse({ ...staff, name: body.name, is_active: body.is_active })
     }
-    if (url.includes('/api/staff?')) return jsonResponse(page(data))
+    if (url.includes('/api/v1/staff?')) return jsonResponse(page(data))
     return jsonResponse({ message: 'Not found.' }, 404)
   })
 }
@@ -158,10 +158,10 @@ test('maps backend validation errors to the matching field', async () => {
     const url = String(input)
     if (url.endsWith('/api/me')) return jsonResponse(authContext)
     if (url.endsWith('/sanctum/csrf-cookie')) return new Response(null, { status: 204 })
-    if (url.endsWith('/api/staff') && init?.method === 'POST') {
+    if (url.endsWith('/api/v1/staff') && init?.method === 'POST') {
       return jsonResponse({ message: 'Validation failed.', errors: { phone: ['The phone field is required.'] } }, 422)
     }
-    if (url.includes('/api/staff?')) return jsonResponse(page())
+    if (url.includes('/api/v1/staff?')) return jsonResponse(page())
     return jsonResponse({}, 404)
   })
   renderStaff(fetchMock)
@@ -180,10 +180,10 @@ test('shows a generic save error', async () => {
     const url = String(input)
     if (url.endsWith('/api/me')) return jsonResponse(authContext)
     if (url.endsWith('/sanctum/csrf-cookie')) return new Response(null, { status: 204 })
-    if (url.endsWith('/api/staff') && init?.method === 'POST') {
+    if (url.endsWith('/api/v1/staff') && init?.method === 'POST') {
       return jsonResponse({ message: 'Unable to save staff right now.' }, 500)
     }
-    if (url.includes('/api/staff?')) return jsonResponse(page())
+    if (url.includes('/api/v1/staff?')) return jsonResponse(page())
     return jsonResponse({}, 404)
   })
   renderStaff(fetchMock)

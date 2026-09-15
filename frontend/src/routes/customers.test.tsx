@@ -47,7 +47,7 @@ function baseFetch() {
     void _init
     const url = String(input)
     if (url.endsWith('/api/me')) return jsonResponse(authContext)
-    if (url.includes('/api/customers?')) return jsonResponse(page())
+    if (url.includes('/api/v1/customers?')) return jsonResponse(page())
     if (url.endsWith('/sanctum/csrf-cookie')) return new Response(null, { status: 204 })
     return jsonResponse({ message: 'Not found.' }, 404)
   })
@@ -77,7 +77,7 @@ test('sends customer search and status filters through the shared query contract
 
   await waitFor(() => expect(fetchMock.mock.calls.some(([input]) => {
     const url = String(input)
-    return url.includes('/api/customers?') && url.includes('search=maria')
+    return url.includes('/api/v1/customers?') && url.includes('search=maria')
   })).toBe(true))
 
   fireEvent.change(screen.getByLabelText('Status filter'), { target: { value: 'inactive' } })
@@ -102,8 +102,8 @@ test('creates a customer and refreshes the list', async () => {
     const url = String(input)
     if (url.endsWith('/api/me')) return jsonResponse(authContext)
     if (url.endsWith('/sanctum/csrf-cookie')) return new Response(null, { status: 204 })
-    if (url.endsWith('/api/customers') && init?.method === 'POST') return jsonResponse(created, 201)
-    if (url.includes('/api/customers?')) return jsonResponse(page())
+    if (url.endsWith('/api/v1/customers') && init?.method === 'POST') return jsonResponse(created, 201)
+    if (url.includes('/api/v1/customers?')) return jsonResponse(page())
     return jsonResponse({ message: 'Not found.' }, 404)
   })
   renderCustomers(fetchMock)
@@ -127,8 +127,8 @@ test('edits an existing customer', async () => {
     const url = String(input)
     if (url.endsWith('/api/me')) return jsonResponse(authContext)
     if (url.endsWith('/sanctum/csrf-cookie')) return new Response(null, { status: 204 })
-    if (url.endsWith('/api/customers/21') && init?.method === 'PUT') return jsonResponse(updated)
-    if (url.includes('/api/customers?')) return jsonResponse(page())
+    if (url.endsWith('/api/v1/customers/21') && init?.method === 'PUT') return jsonResponse(updated)
+    if (url.includes('/api/v1/customers?')) return jsonResponse(page())
     return jsonResponse({ message: 'Not found.' }, 404)
   })
   renderCustomers(fetchMock)
@@ -139,7 +139,7 @@ test('edits an existing customer', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
 
   expect(await screen.findByText('Maria Updated saved.')).toBeInTheDocument()
-  expect(fetchMock.mock.calls.some(([input, init]) => String(input).endsWith('/api/customers/21') && init?.method === 'PUT')).toBe(true)
+  expect(fetchMock.mock.calls.some(([input, init]) => String(input).endsWith('/api/v1/customers/21') && init?.method === 'PUT')).toBe(true)
 })
 
 test('shows backend customer validation errors on the matching field', async () => {
@@ -147,10 +147,10 @@ test('shows backend customer validation errors on the matching field', async () 
     const url = String(input)
     if (url.endsWith('/api/me')) return jsonResponse(authContext)
     if (url.endsWith('/sanctum/csrf-cookie')) return new Response(null, { status: 204 })
-    if (url.endsWith('/api/customers') && init?.method === 'POST') {
+    if (url.endsWith('/api/v1/customers') && init?.method === 'POST') {
       return jsonResponse({ message: 'Validation failed.', errors: { email: ['The email is invalid.'] } }, 422)
     }
-    if (url.includes('/api/customers?')) return jsonResponse(page())
+    if (url.includes('/api/v1/customers?')) return jsonResponse(page())
     return jsonResponse({ message: 'Not found.' }, 404)
   })
   renderCustomers(fetchMock)

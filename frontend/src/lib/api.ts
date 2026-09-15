@@ -332,6 +332,10 @@ async function request(path: string, init: RequestInit = {}): Promise<Response> 
   return response
 }
 
+function requestV1(path: string, init: RequestInit = {}): Promise<Response> {
+  return request(`/v1${path}`, init)
+}
+
 async function initializeCsrf(): Promise<void> {
   const response = await fetch('/sanctum/csrf-cookie', {
     credentials: 'same-origin',
@@ -369,7 +373,7 @@ export async function logout(): Promise<void> {
 }
 
 export async function getBusinessSettings(): Promise<BusinessSetting> {
-  const response = await request('/business-settings')
+  const response = await requestV1('/business-settings')
   return businessSettingSchema.parse(await response.json())
 }
 
@@ -377,7 +381,7 @@ export async function updateBusinessSettings(
   input: UpdateBusinessSettingInput,
 ): Promise<BusinessSetting> {
   await initializeCsrf()
-  const response = await request('/business-settings', {
+  const response = await requestV1('/business-settings', {
     method: 'PUT',
     body: JSON.stringify(input),
   })
@@ -419,13 +423,13 @@ function bookingQueryString(query: BookingQuery): string {
 }
 
 export async function getCustomers(query: MasterDataQuery): Promise<CustomerPage> {
-  const response = await request(`/customers?${masterDataQueryString(query)}`)
+  const response = await requestV1(`/customers?${masterDataQueryString(query)}`)
   return customerPageSchema.parse(await response.json())
 }
 
 export async function createCustomer(input: SaveCustomerInput): Promise<Customer> {
   await initializeCsrf()
-  const response = await request('/customers', {
+  const response = await requestV1('/customers', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -435,7 +439,7 @@ export async function createCustomer(input: SaveCustomerInput): Promise<Customer
 
 export async function updateCustomer(id: number, input: SaveCustomerInput): Promise<Customer> {
   await initializeCsrf()
-  const response = await request(`/customers/${id}`, {
+  const response = await requestV1(`/customers/${id}`, {
     method: 'PUT',
     body: JSON.stringify(input),
   })
@@ -444,13 +448,13 @@ export async function updateCustomer(id: number, input: SaveCustomerInput): Prom
 }
 
 export async function getEventTypes(query: MasterDataQuery): Promise<EventTypePage> {
-  const response = await request(`/event-types?${masterDataQueryString(query)}`)
+  const response = await requestV1(`/event-types?${masterDataQueryString(query)}`)
   return eventTypePageSchema.parse(await response.json())
 }
 
 export async function createEventType(input: SaveEventTypeInput): Promise<EventType> {
   await initializeCsrf()
-  const response = await request('/event-types', {
+  const response = await requestV1('/event-types', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -463,7 +467,7 @@ export async function updateEventType(
   input: SaveEventTypeInput,
 ): Promise<EventType> {
   await initializeCsrf()
-  const response = await request(`/event-types/${id}`, {
+  const response = await requestV1(`/event-types/${id}`, {
     method: 'PUT',
     body: JSON.stringify(input),
   })
@@ -472,29 +476,29 @@ export async function updateEventType(
 }
 
 export async function getServices(query: MasterDataQuery): Promise<ServicePage> {
-  const response = await request(`/services?${masterDataQueryString(query)}`)
+  const response = await requestV1(`/services?${masterDataQueryString(query)}`)
   return servicePageSchema.parse(await response.json())
 }
 
 export async function createService(input: SaveServiceInput): Promise<Service> {
   await initializeCsrf()
-  const response = await request('/services', { method: 'POST', body: JSON.stringify(input) })
+  const response = await requestV1('/services', { method: 'POST', body: JSON.stringify(input) })
   return serviceSchema.parse(await response.json())
 }
 
 export async function updateService(id: number, input: SaveServiceInput): Promise<Service> {
   await initializeCsrf()
-  const response = await request(`/services/${id}`, { method: 'PUT', body: JSON.stringify(input) })
+  const response = await requestV1(`/services/${id}`, { method: 'PUT', body: JSON.stringify(input) })
   return serviceSchema.parse(await response.json())
 }
 
 export async function getPackages(query: MasterDataQuery): Promise<PackagePage> {
-  const response = await request(`/packages?${masterDataQueryString(query)}`)
+  const response = await requestV1(`/packages?${masterDataQueryString(query)}`)
   return packagePageSchema.parse(await response.json())
 }
 
 export async function getServicePackages(serviceId: number, query: MasterDataQuery): Promise<PackagePage> {
-  const response = await request(`/services/${serviceId}/packages?${masterDataQueryString(query)}`)
+  const response = await requestV1(`/services/${serviceId}/package-mappings?${masterDataQueryString(query)}`)
   return packagePageSchema.parse(await response.json())
 }
 
@@ -526,19 +530,19 @@ export function getServicePackageOptions(serviceId: number, query: MasterDataQue
 
 export async function createPackage(input: SavePackageInput): Promise<Package> {
   await initializeCsrf()
-  const response = await request('/packages', { method: 'POST', body: JSON.stringify(input) })
+  const response = await requestV1('/packages', { method: 'POST', body: JSON.stringify(input) })
   return packageSchema.parse(await response.json())
 }
 
 export async function updatePackage(id: number, input: SavePackageInput): Promise<Package> {
   await initializeCsrf()
-  const response = await request(`/packages/${id}`, { method: 'PUT', body: JSON.stringify(input) })
+  const response = await requestV1(`/packages/${id}`, { method: 'PUT', body: JSON.stringify(input) })
   return packageSchema.parse(await response.json())
 }
 
 export async function updateServicePackages(serviceId: number, packageIds: number[]): Promise<Package[]> {
   await initializeCsrf()
-  const response = await request(`/services/${serviceId}/packages`, {
+  const response = await requestV1(`/services/${serviceId}/package-mappings`, {
     method: 'PUT',
     body: JSON.stringify({ package_ids: packageIds }),
   })
@@ -547,64 +551,71 @@ export async function updateServicePackages(serviceId: number, packageIds: numbe
 }
 
 export async function getServiceRates(query: ServiceRateQuery): Promise<ServiceRatePage> {
-  const response = await request(`/service-rates?${serviceRateQueryString(query)}`)
+  const path = query.service_id && query.package_id
+    ? `/services/${query.service_id}/packages/${query.package_id}/rates`
+    : '/rates'
+  const response = await requestV1(`${path}?${serviceRateQueryString(query)}`)
   return serviceRatePageSchema.parse(await response.json())
 }
 
 export async function createServiceRate(input: SaveServiceRateInput): Promise<ServiceRate> {
   await initializeCsrf()
-  const response = await request('/service-rates', { method: 'POST', body: JSON.stringify(input) })
+  const response = await requestV1(`/services/${input.service_id}/packages/${input.package_id}/rates`, { method: 'POST', body: JSON.stringify(input) })
   return serviceRateSchema.parse(await response.json())
 }
 
-export async function updateServiceRate(id: number, input: SaveServiceRateInput): Promise<ServiceRate> {
+export async function updateServiceRate(
+  id: number,
+  input: SaveServiceRateInput,
+  currentParent: Pick<SaveServiceRateInput, 'service_id' | 'package_id'> = input,
+): Promise<ServiceRate> {
   await initializeCsrf()
-  const response = await request(`/service-rates/${id}`, { method: 'PUT', body: JSON.stringify(input) })
+  const response = await requestV1(`/services/${currentParent.service_id}/packages/${currentParent.package_id}/rates/${id}`, { method: 'PUT', body: JSON.stringify(input) })
   return serviceRateSchema.parse(await response.json())
 }
 
 export async function getStaff(query: MasterDataQuery): Promise<StaffPage> {
-  const response = await request(`/staff?${masterDataQueryString(query)}`)
+  const response = await requestV1(`/staff?${masterDataQueryString(query)}`)
   return staffPageSchema.parse(await response.json())
 }
 
 export async function createStaff(input: SaveStaffInput): Promise<Staff> {
   await initializeCsrf()
-  const response = await request('/staff', { method: 'POST', body: JSON.stringify(input) })
+  const response = await requestV1('/staff', { method: 'POST', body: JSON.stringify(input) })
   return staffSchema.parse(await response.json())
 }
 
 export async function updateStaff(id: number, input: SaveStaffInput): Promise<Staff> {
   await initializeCsrf()
-  const response = await request(`/staff/${id}`, { method: 'PUT', body: JSON.stringify(input) })
+  const response = await requestV1(`/staff/${id}`, { method: 'PUT', body: JSON.stringify(input) })
   return staffSchema.parse(await response.json())
 }
 
 export async function getBookings(query: BookingQuery): Promise<BookingPage> {
-  const response = await request(`/bookings?${bookingQueryString(query)}`)
+  const response = await requestV1(`/bookings?${bookingQueryString(query)}`)
   return bookingPageSchema.parse(await response.json())
 }
 
 export async function getBooking(id: number): Promise<Booking> {
-  const response = await request(`/bookings/${id}`)
+  const response = await requestV1(`/bookings/${id}`)
   return bookingSchema.parse(await response.json())
 }
 
 export async function createBooking(input: SaveBookingInput): Promise<Booking> {
   await initializeCsrf()
-  const response = await request('/bookings', { method: 'POST', body: JSON.stringify(input) })
+  const response = await requestV1('/bookings', { method: 'POST', body: JSON.stringify(input) })
   return bookingSchema.parse(await response.json())
 }
 
 export async function updateBooking(id: number, input: SaveBookingInput): Promise<Booking> {
   await initializeCsrf()
-  const response = await request(`/bookings/${id}`, { method: 'PUT', body: JSON.stringify(input) })
+  const response = await requestV1(`/bookings/${id}`, { method: 'PUT', body: JSON.stringify(input) })
   return bookingSchema.parse(await response.json())
 }
 
 export async function cancelBooking(id: number, reason: string | null): Promise<Booking> {
   await initializeCsrf()
-  const response = await request(`/bookings/${id}/cancel`, {
+  const response = await requestV1(`/bookings/${id}/cancel`, {
     method: 'POST',
     body: JSON.stringify({ reason }),
   })
@@ -615,7 +626,7 @@ export async function checkBookingAvailability(
   input: BookingAvailabilityInput,
 ): Promise<BookingAvailability> {
   await initializeCsrf()
-  const response = await request('/bookings/availability', {
+  const response = await requestV1('/bookings/availability', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -626,7 +637,7 @@ export async function checkStaffAvailability(
   input: StaffAvailabilityInput,
 ): Promise<StaffAvailability> {
   await initializeCsrf()
-  const response = await request('/bookings/staff-availability', {
+  const response = await requestV1('/bookings/staff-availability', {
     method: 'POST',
     body: JSON.stringify(input),
   })

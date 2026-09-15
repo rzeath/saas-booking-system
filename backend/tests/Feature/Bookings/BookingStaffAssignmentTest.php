@@ -43,7 +43,7 @@ class BookingStaffAssignmentTest extends TestCase
             ['name' => 'Ana Reyes'],
         )->create();
 
-        $response = $this->actingAs($admin)->postJson('/api/bookings', $this->payload(
+        $response = $this->actingAs($admin)->postJson('/api/v1/bookings', $this->payload(
             $customer,
             $eventType,
             $service,
@@ -64,9 +64,115 @@ class BookingStaffAssignmentTest extends TestCase
             ]);
         }
 
-        $this->actingAs($admin)->getJson("/api/bookings/{$response->json('id')}")
+        $this->actingAs($admin)->getJson("/api/v1/bookings/{$response->json('id')}")
             ->assertOk()
             ->assertJsonCount(2, 'booking_services.0.staff');
+    }
+
+    public function test_persisted_booking_service_staff_endpoints_list_check_and_update_assignments(): void
+    {
+        [$admin, $organization] = $this->admin();
+        [$customer, $eventType, $service, $package] = $this->catalog($organization);
+        $assigned = Staff::factory()->for($organization)->create(['name' => 'Assigned Staff']);
+        $replacement = Staff::factory()->for($organization)->create(['name' => 'Replacement Staff']);
+        $created = $this->actingAs($admin)->postJson('/api/v1/bookings', $this->payload(
+            $customer,
+            $eventType,
+            $service,
+            $package,
+            staffIds: [$assigned->id],
+        ))->assertCreated();
+        $lineId = $created->json('booking_services.0.id');
+
+        $this->actingAs($admin)->getJson("/api/v1/booking-services/{$lineId}/staff-assignments")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $assigned->id);
+        $this->actingAs($admin)->getJson("/api/v1/booking-services/{$lineId}/staff-availability")
+            ->assertOk()
+            ->assertJsonFragment(['id' => $assigned->id, 'available' => true])
+            ->assertJsonFragment(['id' => $replacement->id, 'available' => true]);
+        $this->actingAs($admin)->putJson("/api/v1/booking-services/{$lineId}/staff-assignments", [
+            'staff_ids' => [$replacement->id],
+        ])->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $replacement->id);
+
+        $this->assertDatabaseMissing('booking_service_staff_assignments', [
+            'booking_service_id' => $lineId,
+            'staff_id' => $assigned->id,
+        ]);
+        $this->assertDatabaseHas('booking_service_staff_assignments', [
+            'organization_id' => $organization->id,
+            'booking_service_id' => $lineId,
+            'staff_id' => $replacement->id,
+            'assigned_by' => $admin->id,
+        ]);
+
+        $this->actingAs($admin)->putJson("/api/v1/booking-services/{$lineId}/staff-assignments", [
+            'staff_ids' => [],
+        ])->assertOk()
+            ->assertJsonCount(0, 'data');
+        $this->assertDatabaseMissing('booking_service_staff_assignments', [
+            'booking_service_id' => $lineId,
+            'staff_id' => $replacement->id,
+        ]);
+    }
+
+    public function test_persisted_booking_service_staff_endpoints_hide_foreign_lines(): void
+    {
+        [$admin, $organization] = $this->admin();
+        [$foreignAdmin, $foreignOrganization] = $this->admin();
+        $staff = Staff::factory()->for($organization)->create();
+        [$customer, $eventType, $service, $package] = $this->catalog($foreignOrganization);
+        $booking = Booking::factory()->create([
+            'organization_id' => $foreignOrganization->id,
+            'customer_id' => $customer->id,
+            'event_type_id' => $eventType->id,
+            'created_by' => $foreignAdmin->id,
+        ]);
+        $line = BookingService::factory()
+            ->forBooking($booking)
+            ->forPackage($package, $service)
+            ->create();
+
+        $this->actingAs($admin)->getJson("/api/v1/booking-services/{$line->id}/staff-availability")
+            ->assertNotFound();
+        $this->actingAs($admin)->getJson("/api/v1/booking-services/{$line->id}/staff-assignments")
+            ->assertNotFound();
+        $this->actingAs($admin)->putJson("/api/v1/booking-services/{$line->id}/staff-assignments", [
+            'staff_ids' => [$staff->id],
+        ])->assertNotFound();
+    }
+
+    public function test_persisted_assignment_update_rejects_staff_schedule_conflicts(): void
+    {
+        [$admin, $organization] = $this->admin();
+        [$customer, $eventType, $service, $package] = $this->catalog($organization);
+        $staff = Staff::factory()->for($organization)->create();
+        $unassigned = $this->actingAs($admin)->postJson('/api/v1/bookings', $this->payload(
+            $customer,
+            $eventType,
+            $service,
+            $package,
+        ))->assertCreated();
+        $this->actingAs($admin)->postJson('/api/v1/bookings', $this->payload(
+            $customer,
+            $eventType,
+            $service,
+            $package,
+            staffIds: [$staff->id],
+        ))->assertCreated();
+
+        $lineId = $unassigned->json('booking_services.0.id');
+        $this->actingAs($admin)->putJson("/api/v1/booking-services/{$lineId}/staff-assignments", [
+            'staff_ids' => [$staff->id],
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('staff_ids');
+        $this->assertDatabaseMissing('booking_service_staff_assignments', [
+            'booking_service_id' => $lineId,
+            'staff_id' => $staff->id,
+        ]);
     }
 
     public function test_duplicate_and_cross_tenant_staff_assignments_are_rejected(): void
@@ -78,7 +184,7 @@ class BookingStaffAssignmentTest extends TestCase
         $foreignStaff = Staff::factory()->for($otherOrganization)->create();
         $inactiveStaff = Staff::factory()->inactive()->for($organization)->create();
 
-        $this->actingAs($admin)->postJson('/api/bookings', $this->payload(
+        $this->actingAs($admin)->postJson('/api/v1/bookings', $this->payload(
             $customer,
             $eventType,
             $service,
@@ -87,7 +193,7 @@ class BookingStaffAssignmentTest extends TestCase
         ))->assertUnprocessable()
             ->assertJsonValidationErrors('booking_services.0.staff_ids');
 
-        $this->actingAs($admin)->postJson('/api/bookings', $this->payload(
+        $this->actingAs($admin)->postJson('/api/v1/bookings', $this->payload(
             $customer,
             $eventType,
             $service,
@@ -96,7 +202,7 @@ class BookingStaffAssignmentTest extends TestCase
         ))->assertUnprocessable()
             ->assertJsonValidationErrors('booking_services');
 
-        $this->actingAs($admin)->postJson('/api/bookings', $this->payload(
+        $this->actingAs($admin)->postJson('/api/v1/bookings', $this->payload(
             $customer,
             $eventType,
             $service,
@@ -114,7 +220,7 @@ class BookingStaffAssignmentTest extends TestCase
         [$admin, $organization] = $this->admin();
         [$customer, $eventType, $service, $package] = $this->catalog($organization);
         $staff = Staff::factory()->for($organization)->create();
-        $created = $this->actingAs($admin)->postJson('/api/bookings', $this->payload(
+        $created = $this->actingAs($admin)->postJson('/api/v1/bookings', $this->payload(
             $customer,
             $eventType,
             $service,
@@ -138,7 +244,7 @@ class BookingStaffAssignmentTest extends TestCase
         [$customer, $eventType, $service, $package] = $this->catalog($organization);
         $staff = Staff::factory()->for($organization)->create();
 
-        $this->actingAs($admin)->postJson('/api/bookings', $this->payload(
+        $this->actingAs($admin)->postJson('/api/v1/bookings', $this->payload(
             $customer,
             $eventType,
             $service,
@@ -148,7 +254,7 @@ class BookingStaffAssignmentTest extends TestCase
             staffIds: [$staff->id],
         ))->assertCreated();
 
-        $this->actingAs($admin)->postJson('/api/bookings', $this->payload(
+        $this->actingAs($admin)->postJson('/api/v1/bookings', $this->payload(
             $customer,
             $eventType,
             $service,
@@ -159,7 +265,7 @@ class BookingStaffAssignmentTest extends TestCase
         ))->assertUnprocessable()
             ->assertJsonValidationErrors('booking_services.0.staff_ids');
 
-        $this->actingAs($admin)->postJson('/api/bookings', $this->payload(
+        $this->actingAs($admin)->postJson('/api/v1/bookings', $this->payload(
             $customer,
             $eventType,
             $service,
@@ -177,7 +283,7 @@ class BookingStaffAssignmentTest extends TestCase
 
         foreach ([BookingStatus::Cancelled, BookingStatus::Completed] as $status) {
             $staff = Staff::factory()->for($organization)->create();
-            $created = $this->actingAs($admin)->postJson('/api/bookings', $this->payload(
+            $created = $this->actingAs($admin)->postJson('/api/v1/bookings', $this->payload(
                 $customer,
                 $eventType,
                 $service,
@@ -193,7 +299,7 @@ class BookingStaffAssignmentTest extends TestCase
                 ...$audit,
             ]);
 
-            $this->actingAs($admin)->postJson('/api/bookings', $this->payload(
+            $this->actingAs($admin)->postJson('/api/v1/bookings', $this->payload(
                 $customer,
                 $eventType,
                 $service,
@@ -210,7 +316,7 @@ class BookingStaffAssignmentTest extends TestCase
 
         foreach ([BookingStatus::Pending, BookingStatus::Quoted, BookingStatus::Confirmed] as $status) {
             $staff = Staff::factory()->for($organization)->create();
-            $created = $this->actingAs($admin)->postJson('/api/bookings', $this->payload(
+            $created = $this->actingAs($admin)->postJson('/api/v1/bookings', $this->payload(
                 $customer,
                 $eventType,
                 $service,
@@ -219,7 +325,7 @@ class BookingStaffAssignmentTest extends TestCase
             ))->assertCreated();
             Booking::query()->whereKey($created->json('id'))->update(['status' => $status]);
 
-            $this->actingAs($admin)->postJson('/api/bookings', $this->payload(
+            $this->actingAs($admin)->postJson('/api/v1/bookings', $this->payload(
                 $customer,
                 $eventType,
                 $service,
@@ -237,7 +343,7 @@ class BookingStaffAssignmentTest extends TestCase
         [$customer, $eventType, $service, $package] = $this->catalog($organization);
         $retainedStaff = Staff::factory()->for($organization)->create();
         $busyStaff = Staff::factory()->for($organization)->create();
-        $created = $this->actingAs($admin)->postJson('/api/bookings', $this->payload(
+        $created = $this->actingAs($admin)->postJson('/api/v1/bookings', $this->payload(
             $customer,
             $eventType,
             $service,
@@ -247,11 +353,11 @@ class BookingStaffAssignmentTest extends TestCase
         $payload = $this->payload($customer, $eventType, $service, $package, staffIds: [$retainedStaff->id]);
         $payload['booking_services'][0]['id'] = $created->json('booking_services.0.id');
 
-        $this->actingAs($admin)->putJson("/api/bookings/{$created->json('id')}", $payload)
+        $this->actingAs($admin)->putJson("/api/v1/bookings/{$created->json('id')}", $payload)
             ->assertOk()
             ->assertJsonPath('booking_services.0.staff.0.id', $retainedStaff->id);
 
-        $this->actingAs($admin)->postJson('/api/bookings', $this->payload(
+        $this->actingAs($admin)->postJson('/api/v1/bookings', $this->payload(
             $customer,
             $eventType,
             $service,
@@ -263,7 +369,7 @@ class BookingStaffAssignmentTest extends TestCase
         $payload['booking_services'][0]['start_time'] = '19:30';
         $payload['booking_services'][0]['staff_ids'] = [$busyStaff->id];
 
-        $this->actingAs($admin)->putJson("/api/bookings/{$created->json('id')}", $payload)
+        $this->actingAs($admin)->putJson("/api/v1/bookings/{$created->json('id')}", $payload)
             ->assertUnprocessable()
             ->assertJsonValidationErrors('booking_services.0.staff_ids');
         $this->assertDatabaseHas('bookings', [
@@ -282,7 +388,7 @@ class BookingStaffAssignmentTest extends TestCase
         [$customer, $eventType, $service, $package] = $this->catalog($organization);
         $staff = Staff::factory()->for($organization)->create();
 
-        $this->actingAs($admin)->postJson('/api/bookings', $this->payload(
+        $this->actingAs($admin)->postJson('/api/v1/bookings', $this->payload(
             $customer,
             $eventType,
             $service,
@@ -293,7 +399,7 @@ class BookingStaffAssignmentTest extends TestCase
             staffIds: [$staff->id],
         ))->assertCreated();
 
-        $this->actingAs($admin)->postJson('/api/bookings', $this->payload(
+        $this->actingAs($admin)->postJson('/api/v1/bookings', $this->payload(
             $customer,
             $eventType,
             $service,
@@ -315,7 +421,7 @@ class BookingStaffAssignmentTest extends TestCase
         $free = Staff::factory()->for($organization)->create(['name' => 'Free Staff']);
         Staff::factory()->inactive()->for($organization)->create(['name' => 'Inactive Staff']);
         Staff::factory()->for($otherOrganization)->create(['name' => 'Foreign Staff']);
-        $created = $this->actingAs($admin)->postJson('/api/bookings', $this->payload(
+        $created = $this->actingAs($admin)->postJson('/api/v1/bookings', $this->payload(
             $customer,
             $eventType,
             $service,
@@ -328,7 +434,7 @@ class BookingStaffAssignmentTest extends TestCase
             'duration_minutes' => 60,
         ];
 
-        $this->actingAs($admin)->postJson('/api/bookings/staff-availability', $input)
+        $this->actingAs($admin)->postJson('/api/v1/bookings/staff-availability', $input)
             ->assertOk()
             ->assertJsonCount(2, 'staff')
             ->assertJsonFragment(['id' => $busy->id, 'name' => 'Busy Staff', 'available' => false])
@@ -336,7 +442,7 @@ class BookingStaffAssignmentTest extends TestCase
             ->assertJsonMissing(['name' => 'Inactive Staff'])
             ->assertJsonMissing(['name' => 'Foreign Staff']);
 
-        $this->actingAs($admin)->postJson('/api/bookings/staff-availability', [
+        $this->actingAs($admin)->postJson('/api/v1/bookings/staff-availability', [
             ...$input,
             'booking_service_id' => $created->json('booking_services.0.id'),
         ])->assertOk()
@@ -354,7 +460,7 @@ class BookingStaffAssignmentTest extends TestCase
             ->forPackage($foreignPackage, $foreignService)
             ->create()
             ->id;
-        $this->actingAs($admin)->postJson('/api/bookings/staff-availability', [
+        $this->actingAs($admin)->postJson('/api/v1/bookings/staff-availability', [
             ...$input,
             'booking_service_id' => $foreignLine,
         ])->assertNotFound();

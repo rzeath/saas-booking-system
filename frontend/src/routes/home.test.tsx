@@ -43,10 +43,10 @@ function dashboardFetch(empty = false) {
   return vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input)
     if (url.endsWith('/api/me')) return response(auth)
-    if (url.includes('/api/services?')) return response(page(empty ? [] : [{ id: 4, name: 'Mirror Booth', total_units: 2, is_active: true, created_at: '2026-01-01', updated_at: '2026-01-01' }], empty ? 0 : 6))
-    if (url.includes('/api/bookings?') && url.includes('status=PENDING')) return response(page(empty ? [] : [booking(1, 'PENDING', 'Ana & Leo', '2027-06-15')], empty ? 0 : 3))
-    if (url.includes('/api/bookings?') && url.includes('status=QUOTED')) return response(page(empty ? [] : [booking(2, 'QUOTED', 'Product Launch', '2027-06-18')], empty ? 0 : 2))
-    if (url.includes('/api/bookings?') && url.includes('status=CONFIRMED')) return response(page(empty ? [] : [booking(3, 'CONFIRMED', 'Company Night', '2027-06-20')], empty ? 0 : 4))
+    if (url.includes('/api/v1/services?')) return response(page(empty ? [] : [{ id: 4, name: 'Mirror Booth', total_units: 2, is_active: true, created_at: '2026-01-01', updated_at: '2026-01-01' }], empty ? 0 : 6))
+    if (url.includes('/api/v1/bookings?') && url.includes('status=PENDING')) return response(page(empty ? [] : [booking(1, 'PENDING', 'Ana & Leo', '2027-06-15')], empty ? 0 : 3))
+    if (url.includes('/api/v1/bookings?') && url.includes('status=QUOTED')) return response(page(empty ? [] : [booking(2, 'QUOTED', 'Product Launch', '2027-06-18')], empty ? 0 : 2))
+    if (url.includes('/api/v1/bookings?') && url.includes('status=CONFIRMED')) return response(page(empty ? [] : [booking(3, 'CONFIRMED', 'Company Night', '2027-06-20')], empty ? 0 : 4))
     return response({ message: 'Not found.' }, 404)
   })
 }

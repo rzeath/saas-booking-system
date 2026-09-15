@@ -1,8 +1,9 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Api\V1;
 
 use App\Actions\Services\UpdateService;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\MasterDataIndexRequest;
 use App\Http\Requests\SaveServiceRequest;
 use App\Http\Resources\ServiceResource;

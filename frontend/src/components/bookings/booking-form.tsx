@@ -6,6 +6,7 @@ import { Controller, useFieldArray, useForm, useWatch, type UseFormReturn } from
 import { Link, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 
+import { CustomerPicker } from '@/components/bookings/customer-picker'
 import { FormField, SelectField, TextAreaField } from '@/components/forms/form-field'
 import {
   ApiError,
@@ -13,7 +14,6 @@ import {
   checkStaffAvailability,
   createBooking,
   getBusinessSettings,
-  getCustomers,
   getEventTypes,
   getServicePackageOptions,
   getServiceRates,
@@ -30,7 +30,6 @@ import {
 import { durationLabel, formatMoney, multiplyMoney } from '@/lib/booking-format'
 import { bookingListsQueryKey, staffAvailabilityQueryKey } from '@/lib/bookings-query'
 import { businessSettingsQueryKey } from '@/lib/business-settings-query'
-import { customerListQueryKey } from '@/lib/customers-query'
 import { eventTypeListQueryKey } from '@/lib/event-types-query'
 import { servicePackageListQueryKey } from '@/lib/packages-query'
 import { serviceRateListQueryKey } from '@/lib/service-rates-query'
@@ -91,6 +90,20 @@ function valuesFromBooking(booking?: Booking): BookingFormValues {
       staff_ids: line.staff.map((staff) => staff.id),
     })) ?? [blankService()],
   }
+}
+
+function customerFromBooking(booking?: Booking): Customer | undefined {
+  return booking ? {
+    id: booking.customer.id,
+    name: booking.customer.name,
+    email: booking.customer_snapshot.email,
+    phone: booking.customer_snapshot.phone,
+    address: booking.customer_snapshot.address,
+    notes: null,
+    is_active: booking.customer.is_active,
+    created_at: '',
+    updated_at: '',
+  } : undefined
 }
 
 function appendCurrent<T extends { id: number }>(active: T[], current?: T): T[] {
@@ -263,31 +276,24 @@ export function BookingForm({ booking }: { booking?: Booking }) {
   const [message, setMessage] = useState<string>()
   const [availability, setAvailability] = useState<BookingAvailability>()
   const [availabilityIsStale, setAvailabilityIsStale] = useState(false)
+  const [chosenCustomer, setChosenCustomer] = useState<Customer>()
   const form = useForm<BookingFormValues>({ resolver: zodResolver(bookingFormSchema), defaultValues: valuesFromBooking(booking) })
   const fields = useFieldArray({ control: form.control, name: 'booking_services' })
+  const customerId = useWatch({ control: form.control, name: 'customer_id' })
   const eventTypeId = useWatch({ control: form.control, name: 'event_type_id' })
   const eventDate = useWatch({ control: form.control, name: 'event_date' })
-  const customers = useQuery({ queryKey: customerListQueryKey(selectorQuery), queryFn: () => getCustomers(selectorQuery) })
   const eventTypes = useQuery({ queryKey: eventTypeListQueryKey(selectorQuery), queryFn: () => getEventTypes(selectorQuery) })
   const services = useQuery({ queryKey: serviceListQueryKey(selectorQuery), queryFn: () => getServices(selectorQuery) })
   const settings = useQuery({ queryKey: businessSettingsQueryKey, queryFn: getBusinessSettings })
-  const currentCustomer: Customer | undefined = booking ? {
-    id: booking.customer.id,
-    name: booking.customer.name,
-    email: booking.customer_snapshot.email,
-    phone: booking.customer_snapshot.phone,
-    address: booking.customer_snapshot.address,
-    notes: null,
-    is_active: booking.customer.is_active,
-    created_at: '',
-    updated_at: '',
-  } : undefined
-  const customerOptions = appendCurrent(customers.data?.data ?? [], currentCustomer)
   const currentEventType: EventType | undefined = booking ? { ...booking.event_type, created_at: '', updated_at: '' } : undefined
   const eventTypeOptions = appendCurrent(eventTypes.data?.data ?? [], currentEventType)
   const savedServiceOptions = booking?.booking_services.map((line) => ({ id: line.service.id, name: line.service.name, total_units: 0, is_active: false, created_at: '', updated_at: '' })) ?? []
   const serviceOptions = savedServiceOptions.reduce((items, service) => appendCurrent(items, service), services.data?.data ?? [])
   const currency = settings.data?.currency ?? 'PHP'
+  const savedCustomer = customerFromBooking(booking)
+  const selectedCustomer = chosenCustomer?.id === customerId
+    ? chosenCustomer
+    : savedCustomer?.id === customerId ? savedCustomer : undefined
 
   useEffect(() => {
     form.reset(valuesFromBooking(booking))
@@ -326,8 +332,8 @@ export function BookingForm({ booking }: { booking?: Booking }) {
     onError: (error) => setMessage(error instanceof Error ? error.message : 'Unable to check availability.'),
   })
 
-  const loadingOptions = customers.isPending || eventTypes.isPending || services.isPending || settings.isPending
-  const optionError = customers.isError || eventTypes.isError || services.isError || settings.isError
+  const loadingOptions = eventTypes.isPending || services.isPending || settings.isPending
+  const optionError = eventTypes.isError || services.isError || settings.isError
   const rootServiceError = form.formState.errors.booking_services?.root?.message ?? form.formState.errors.booking_services?.message
   const eventDateRegistration = form.register('event_date')
 
@@ -340,15 +346,24 @@ export function BookingForm({ booking }: { booking?: Booking }) {
       <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
         <h2 className="text-lg font-semibold">Event details</h2>
         <div className="mt-5 grid gap-5 md:grid-cols-2">
-          <Controller name="customer_id" control={form.control} render={({ field }) => <SelectField label="Customer" id="booking-customer" disabled={loadingOptions} error={form.formState.errors.customer_id?.message} {...field} onChange={(event) => {
-            const id = Number(event.target.value)
-            field.onChange(id)
-            const customer = customerOptions.find((item) => item.id === id)
-            if (customer) {
-              form.setValue('contact_person', customer.name, { shouldValidate: true })
-              form.setValue('contact_number', customer.phone ?? '', { shouldValidate: true })
-            }
-          }}><option value="0">Select customer</option>{customerOptions.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}{customer.is_active ? '' : ' (current; inactive)'}</option>)}</SelectField>} />
+          <Controller name="customer_id" control={form.control} render={({ field }) => (
+            <CustomerPicker
+              value={field.value}
+              selectedCustomer={selectedCustomer}
+              error={form.formState.errors.customer_id?.message}
+              disabled={saveMutation.isPending}
+              onSelect={(customer) => {
+                field.onChange(customer.id)
+                setChosenCustomer(customer)
+                if (form.getValues('contact_person').trim() === '') {
+                  form.setValue('contact_person', customer.name, { shouldValidate: true })
+                }
+                if (form.getValues('contact_number').trim() === '') {
+                  form.setValue('contact_number', customer.phone ?? '', { shouldValidate: true })
+                }
+              }}
+            />
+          )} />
           <Controller name="event_type_id" control={form.control} render={({ field }) => <SelectField label="Event type" id="booking-event-type" disabled={loadingOptions} error={form.formState.errors.event_type_id?.message} {...field} onChange={(event) => {
             setAvailabilityIsStale(true)
             field.onChange(Number(event.target.value))
