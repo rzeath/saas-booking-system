@@ -1,6 +1,7 @@
 import {
   CalendarDays,
   Database,
+  FileText,
   Gauge,
   LogOut,
   Menu,
@@ -17,7 +18,13 @@ import { cn } from '@/lib/utils'
 
 const navigation = [
   { label: 'Overview', items: [{ to: '/', label: 'Dashboard', icon: Gauge, end: true }] },
-  { label: 'Operations', items: [{ to: '/bookings', label: 'Bookings', icon: CalendarDays, end: false }] },
+  {
+    label: 'Operations',
+    items: [
+      { to: '/bookings', label: 'Bookings', icon: CalendarDays, end: false },
+      { to: '/quotations', label: 'Quotations', icon: FileText, end: false },
+    ],
+  },
   {
     label: 'People',
     items: [{ to: '/customers', label: 'Customers', icon: Users, end: false }],

@@ -12,6 +12,9 @@ import { BookingsRoute } from '@/routes/bookings'
 import { CustomersRoute } from '@/routes/customers'
 import { HomeRoute } from '@/routes/home'
 import { MasterDataRoute } from '@/routes/master-data'
+import { QuotationDetailRoute } from '@/routes/quotation-detail'
+import { QuotationNewRoute } from '@/routes/quotation-new'
+import { QuotationsRoute } from '@/routes/quotations'
 
 export default function App() {
   return (
@@ -29,6 +32,9 @@ export default function App() {
         <Route path="/bookings/new" element={<BookingNewRoute />} />
         <Route path="/bookings/:bookingId" element={<BookingDetailRoute />} />
         <Route path="/bookings/:bookingId/edit" element={<BookingEditRoute />} />
+        <Route path="/bookings/:bookingId/quotations/new" element={<QuotationNewRoute />} />
+        <Route path="/quotations" element={<QuotationsRoute />} />
+        <Route path="/quotations/:quotationId" element={<QuotationDetailRoute />} />
         <Route path="/settings/business" element={<BusinessSettingsRoute />} />
       </Route>
       <Route path="/login" element={<GuestRoute><LoginRoute /></GuestRoute>} />

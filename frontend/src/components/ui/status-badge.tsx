@@ -1,6 +1,6 @@
 import type { PropsWithChildren } from 'react'
 
-import type { BookingStatus } from '@/lib/api'
+import type { BookingStatus, QuotationStatus } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 type StatusTone = 'neutral' | 'success' | 'warning' | 'danger' | 'info'
@@ -32,4 +32,19 @@ const bookingTone: Record<BookingStatus, StatusTone> = {
 export function BookingStatusBadge({ status }: { status: BookingStatus }) {
   const label = status.charAt(0) + status.slice(1).toLowerCase()
   return <StatusBadge tone={bookingTone[status]}>{label}</StatusBadge>
+}
+
+const quotationTone: Record<QuotationStatus, StatusTone> = {
+  DRAFT: 'neutral',
+  SENT: 'info',
+  ACCEPTED: 'success',
+  REJECTED: 'danger',
+  CANCELLED: 'danger',
+  EXPIRED: 'warning',
+  OUTDATED: 'warning',
+}
+
+export function QuotationStatusBadge({ status }: { status: QuotationStatus }) {
+  const label = status.charAt(0) + status.slice(1).toLowerCase()
+  return <StatusBadge tone={quotationTone[status]}>{label}</StatusBadge>
 }

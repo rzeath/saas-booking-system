@@ -42,6 +42,8 @@ class QuotationApiTest extends TestCase
             'valid_until' => '2099-12-31',
         ])->assertCreated()
             ->assertJsonPath('status', 'DRAFT')
+            ->assertJsonPath('booking.id', $booking->id)
+            ->assertJsonPath('booking.booking_number', $booking->booking_number)
             ->assertJsonPath('valid_until', '2099-12-31')
             ->assertJsonPath('seller_snapshot.display_name', $organization->businessSetting->display_name)
             ->assertJsonPath('customer_snapshot.name', $booking->customer_name)
@@ -148,7 +150,9 @@ class QuotationApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(2, 'data')
             ->assertJsonPath('meta.total', 3)
-            ->assertJsonPath('data.0.quotation_number', 'QT-2027-000003');
+            ->assertJsonPath('data.0.quotation_number', 'QT-2027-000003')
+            ->assertJsonPath('data.0.booking.id', $booking->id)
+            ->assertJsonPath('data.0.booking.booking_number', $booking->booking_number);
 
         $this->actingAs($user)->getJson('/api/v1/quotations?status=OUTDATED&search=Searchable')
             ->assertOk()
@@ -166,6 +170,7 @@ class QuotationApiTest extends TestCase
         $this->actingAs($user)->getJson("/api/v1/quotations/{$quotation->id}")
             ->assertOk()
             ->assertJsonPath('id', $quotation->id)
+            ->assertJsonPath('booking.id', $booking->id)
             ->assertJsonPath('subtotal', '15000.50')
             ->assertJsonPath('total', '15000.50')
             ->assertJsonCount(1, 'items')

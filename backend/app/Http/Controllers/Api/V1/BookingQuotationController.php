@@ -16,10 +16,12 @@ class BookingQuotationController extends Controller
         TenantContext $tenant,
         CreateQuotation $createQuotation,
     ): QuotationResource {
-        return new QuotationResource($createQuotation->handle(
+        $quotation = $createQuotation->handle(
             $tenant->user(),
             $booking,
             $request->validated(),
-        ));
+        );
+
+        return new QuotationResource($quotation->loadMissing('booking'));
     }
 }

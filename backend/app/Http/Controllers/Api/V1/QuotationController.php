@@ -21,6 +21,7 @@ class QuotationController extends Controller
         $validated = $request->validated();
 
         $quotations = Quotation::query()
+            ->with('booking:id,booking_number,status')
             ->where('organization_id', $tenant->organizationId())
             ->when($validated['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
             ->when($validated['search'] ?? null, fn ($query, string $term) => $query->where(function ($query) use ($term): void {
@@ -46,17 +47,19 @@ class QuotationController extends Controller
         TenantContext $tenant,
         UpdateDraftQuotation $updateDraftQuotation,
     ): QuotationResource {
-        return new QuotationResource($updateDraftQuotation->handle(
+        $resolvedQuotation = $updateDraftQuotation->handle(
             $tenant->user(),
             $quotation,
             $request->validated(),
-        ));
+        );
+
+        return new QuotationResource($resolvedQuotation->loadMissing('booking'));
     }
 
     private function resolve(int $quotation, TenantContext $tenant): Quotation
     {
         return Quotation::query()
-            ->with('items')
+            ->with(['booking:id,booking_number,status', 'items'])
             ->where('organization_id', $tenant->organizationId())
             ->whereKey($quotation)
             ->firstOrFail();

@@ -95,6 +95,91 @@ const bookingStatusSchema = z.enum([
   'CANCELLED',
 ])
 
+const quotationStatusSchema = z.enum([
+  'DRAFT',
+  'SENT',
+  'ACCEPTED',
+  'REJECTED',
+  'CANCELLED',
+  'EXPIRED',
+  'OUTDATED',
+])
+
+const quotationBookingSchema = z.object({
+  id: z.number(),
+  booking_number: z.string(),
+  status: bookingStatusSchema,
+})
+
+const quotationSummarySchema = z.object({
+  id: z.number(),
+  quotation_number: z.string(),
+  status: quotationStatusSchema,
+  booking: quotationBookingSchema.optional(),
+  customer_name: z.string(),
+  total: z.string(),
+  valid_until: z.string().nullable(),
+  sent_at: z.string().nullable(),
+  accepted_at: z.string().nullable(),
+  closed_at: z.string().nullable(),
+  created_at: z.string(),
+})
+
+const quotationItemSchema = z.object({
+  id: z.number(),
+  service_name: z.string(),
+  package_name: z.string(),
+  start_at: z.string(),
+  end_at: z.string(),
+  duration_minutes: z.number(),
+  quantity: z.number(),
+  unit_rate: z.string(),
+  line_total: z.string(),
+  sort_order: z.number(),
+})
+
+const quotationSchema = z.object({
+  id: z.number(),
+  quotation_number: z.string(),
+  status: quotationStatusSchema,
+  booking: quotationBookingSchema,
+  valid_until: z.string().nullable(),
+  sent_at: z.string().nullable(),
+  accepted_at: z.string().nullable(),
+  closed_at: z.string().nullable(),
+  seller_snapshot: z.object({
+    display_name: z.string(),
+    email: z.string().nullable(),
+    phone: z.string().nullable(),
+    address: z.string().nullable(),
+    logo_path: z.string().nullable(),
+  }),
+  customer_snapshot: z.object({
+    name: z.string(),
+    email: z.string().nullable(),
+    phone: z.string().nullable(),
+    address: z.string().nullable(),
+  }),
+  event_snapshot: z.object({
+    event_type_name: z.string(),
+    event_name: z.string(),
+    event_date: z.string(),
+    venue_name: z.string(),
+    venue_address: z.string().nullable(),
+    contact_person: z.string(),
+    contact_number: z.string(),
+  }),
+  currency: z.string(),
+  subtotal: z.string(),
+  transportation_fee: z.string(),
+  crew_meal_fee: z.string(),
+  discount_amount: z.string(),
+  total: z.string(),
+  items: z.array(quotationItemSchema),
+  created_at: z.string(),
+  updated_at: z.string(),
+})
+
 const bookingServiceSchema = z.object({
   id: z.number(),
   service: z.object({ id: z.number(), name: z.string() }),
@@ -130,6 +215,7 @@ const bookingSchema = z.object({
   contact_number: z.string(),
   internal_notes: z.string().nullable(),
   booking_services: z.array(bookingServiceSchema),
+  quotations: z.array(quotationSummarySchema).optional(),
   cancelled_at: z.string().nullable(),
   cancellation_reason: z.string().nullable(),
   created_at: z.string(),
@@ -186,6 +272,7 @@ const packagePageSchema = z.object({ data: z.array(packageSchema), ...pagination
 const serviceRatePageSchema = z.object({ data: z.array(serviceRateSchema), ...paginationSchema })
 const staffPageSchema = z.object({ data: z.array(staffSchema), ...paginationSchema })
 const bookingPageSchema = z.object({ data: z.array(bookingSchema), ...paginationSchema })
+const quotationPageSchema = z.object({ data: z.array(quotationSummarySchema), ...paginationSchema })
 
 const errorResponseSchema = z.object({
   message: z.string().optional(),
@@ -224,6 +311,11 @@ export type BookingStatus = z.infer<typeof bookingStatusSchema>
 export type BookingService = z.infer<typeof bookingServiceSchema>
 export type Booking = z.infer<typeof bookingSchema>
 export type BookingPage = z.infer<typeof bookingPageSchema>
+export type QuotationStatus = z.infer<typeof quotationStatusSchema>
+export type QuotationSummary = z.infer<typeof quotationSummarySchema>
+export type QuotationItem = z.infer<typeof quotationItemSchema>
+export type Quotation = z.infer<typeof quotationSchema>
+export type QuotationPage = z.infer<typeof quotationPageSchema>
 export type BookingAvailability = z.infer<typeof bookingAvailabilitySchema>
 export type StaffAvailability = z.infer<typeof staffAvailabilitySchema>
 export type SaveBookingServiceInput = {
@@ -268,6 +360,19 @@ export type BookingQuery = {
   event_type_id: number
   per_page?: number
 }
+export type QuotationQuery = {
+  page: number
+  search: string
+  status: QuotationStatus | ''
+  per_page?: number
+}
+export type SaveDraftQuotationInput = {
+  transportation_fee?: string
+  crew_meal_fee?: string
+  discount_amount?: string
+  valid_until?: string | null
+}
+export type QuotationTransition = 'send' | 'accept' | 'reject' | 'cancel'
 export type MasterDataStatus = 'active' | 'inactive' | 'all'
 export type MasterDataQuery = {
   page: number
@@ -418,6 +523,14 @@ function bookingQueryString(query: BookingQuery): string {
   if (query.event_date_to) params.set('event_date_to', query.event_date_to)
   if (query.customer_id) params.set('customer_id', String(query.customer_id))
   if (query.event_type_id) params.set('event_type_id', String(query.event_type_id))
+  if (query.per_page) params.set('per_page', String(query.per_page))
+  return params.toString()
+}
+
+function quotationQueryString(query: QuotationQuery): string {
+  const params = new URLSearchParams({ page: String(query.page) })
+  if (query.search) params.set('search', query.search)
+  if (query.status) params.set('status', query.status)
   if (query.per_page) params.set('per_page', String(query.per_page))
   return params.toString()
 }
@@ -599,6 +712,49 @@ export async function getBookings(query: BookingQuery): Promise<BookingPage> {
 export async function getBooking(id: number): Promise<Booking> {
   const response = await requestV1(`/bookings/${id}`)
   return bookingSchema.parse(await response.json())
+}
+
+export async function getQuotations(query: QuotationQuery): Promise<QuotationPage> {
+  const response = await requestV1(`/quotations?${quotationQueryString(query)}`)
+  return quotationPageSchema.parse(await response.json())
+}
+
+export async function getQuotation(id: number): Promise<Quotation> {
+  const response = await requestV1(`/quotations/${id}`)
+  return quotationSchema.parse(await response.json())
+}
+
+export async function createQuotation(
+  bookingId: number,
+  input: SaveDraftQuotationInput,
+): Promise<Quotation> {
+  await initializeCsrf()
+  const response = await requestV1(`/bookings/${bookingId}/quotations`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  return quotationSchema.parse(await response.json())
+}
+
+export async function updateQuotation(
+  id: number,
+  input: SaveDraftQuotationInput,
+): Promise<Quotation> {
+  await initializeCsrf()
+  const response = await requestV1(`/quotations/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  })
+  return quotationSchema.parse(await response.json())
+}
+
+export async function transitionQuotation(
+  id: number,
+  transition: QuotationTransition,
+): Promise<Quotation> {
+  await initializeCsrf()
+  const response = await requestV1(`/quotations/${id}/${transition}`, { method: 'POST' })
+  return quotationSchema.parse(await response.json())
 }
 
 export async function createBooking(input: SaveBookingInput): Promise<Booking> {

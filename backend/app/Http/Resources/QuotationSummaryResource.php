@@ -16,6 +16,11 @@ class QuotationSummaryResource extends JsonResource
             'id' => $this->resource->id,
             'quotation_number' => $this->resource->quotation_number,
             'status' => $this->resource->status->value,
+            'booking' => $this->whenLoaded('booking', fn (): array => [
+                'id' => $this->resource->booking->id,
+                'booking_number' => $this->resource->booking->booking_number,
+                'status' => $this->resource->booking->status->value,
+            ]),
             'customer_name' => $this->resource->customer_name,
             'total' => $this->resource->total,
             'valid_until' => $this->resource->valid_until?->format('Y-m-d'),

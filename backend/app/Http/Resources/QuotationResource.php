@@ -16,6 +16,11 @@ class QuotationResource extends JsonResource
             'id' => $this->resource->id,
             'quotation_number' => $this->resource->quotation_number,
             'status' => $this->resource->status->value,
+            'booking' => [
+                'id' => $this->resource->booking->id,
+                'booking_number' => $this->resource->booking->booking_number,
+                'status' => $this->resource->booking->status->value,
+            ],
             'valid_until' => $this->resource->valid_until?->format('Y-m-d'),
             'sent_at' => $this->resource->sent_at?->toISOString(),
             'accepted_at' => $this->resource->accepted_at?->toISOString(),
