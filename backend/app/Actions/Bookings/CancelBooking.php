@@ -2,10 +2,13 @@
 
 namespace App\Actions\Bookings;
 
+use App\Actions\Quotations\CancelQuotation;
 use App\Enums\BookingStatus;
+use App\Enums\QuotationStatus;
 use App\Models\Booking;
 use App\Models\BookingService;
 use App\Models\Organization;
+use App\Models\Quotation;
 use App\Models\User;
 use App\Support\Bookings\ServiceRowLocker;
 use Illuminate\Support\Facades\DB;
@@ -13,7 +16,10 @@ use Illuminate\Validation\ValidationException;
 
 class CancelBooking
 {
-    public function __construct(private readonly ServiceRowLocker $serviceLocker) {}
+    public function __construct(
+        private readonly ServiceRowLocker $serviceLocker,
+        private readonly CancelQuotation $cancelQuotation,
+    ) {}
 
     public function handle(
         Organization $organization,
@@ -28,10 +34,37 @@ class CancelBooking
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            if ($booking->status !== BookingStatus::Pending) {
+            $quotations = Quotation::query()
+                ->where('organization_id', $organization->id)
+                ->where('booking_id', $booking->id)
+                ->whereIn('status', [
+                    QuotationStatus::Draft,
+                    QuotationStatus::Sent,
+                    QuotationStatus::Accepted,
+                ])
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
+            $activeQuotation = $quotations->first(fn (Quotation $quotation): bool => in_array(
+                $quotation->status,
+                [QuotationStatus::Draft, QuotationStatus::Sent],
+                true,
+            ));
+            $acceptedQuotation = $quotations->firstWhere('status', QuotationStatus::Accepted);
+            $isConsistentPending = $booking->status === BookingStatus::Pending
+                && $acceptedQuotation === null
+                && ($activeQuotation === null || $activeQuotation->status === QuotationStatus::Draft);
+            $isConsistentQuoted = $booking->status === BookingStatus::Quoted
+                && (($activeQuotation?->status === QuotationStatus::Sent) xor ($acceptedQuotation !== null));
+
+            if (! $isConsistentPending && ! $isConsistentQuoted) {
                 throw ValidationException::withMessages([
-                    'status' => 'Only pending bookings may be cancelled in this phase.',
+                    'status' => 'Only pending or consistently quoted bookings may be cancelled.',
                 ]);
+            }
+
+            if ($activeQuotation !== null) {
+                $this->cancelQuotation->handleLocked($activeQuotation, $booking);
             }
 
             $serviceIds = BookingService::query()

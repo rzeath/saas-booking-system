@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use LogicException;
 
-class CancelQuotation
+class OutdateQuotation
 {
     public function __construct(private readonly QuotationTransitionLocker $locker) {}
 
@@ -44,7 +44,7 @@ class CancelQuotation
 
         if (! in_array($quotation->status, [QuotationStatus::Draft, QuotationStatus::Sent], true)) {
             throw ValidationException::withMessages([
-                'status' => 'Only Draft or Sent quotations may be cancelled.',
+                'status' => 'Only Draft or Sent quotations may become outdated.',
             ]);
         }
 
@@ -60,7 +60,7 @@ class CancelQuotation
 
         $wasSent = $quotation->status === QuotationStatus::Sent;
         $quotation->update([
-            'status' => QuotationStatus::Cancelled,
+            'status' => QuotationStatus::Outdated,
             'closed_at' => now('UTC'),
         ]);
 

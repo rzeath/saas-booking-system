@@ -2,11 +2,16 @@
 
 namespace App\Actions\Bookings;
 
+use App\Actions\Quotations\OutdateQuotation;
 use App\Enums\BookingStatus;
+use App\Enums\QuotationStatus;
 use App\Models\Booking;
 use App\Models\BookingService;
 use App\Models\Organization;
+use App\Models\Quotation;
+use App\Models\QuotationItem;
 use App\Models\User;
+use App\Support\Bookings\BookingCommercialChangeDetector;
 use App\Support\Bookings\BookingMasterDataResolver;
 use App\Support\Bookings\BookingServiceCandidate;
 use App\Support\Bookings\BookingServiceCandidateBuilder;
@@ -31,6 +36,8 @@ class UpdateBooking
         private readonly StaffAssignmentValidator $staffValidator,
         private readonly StaffAvailabilityChecker $staffAvailability,
         private readonly StaffAssignmentSynchronizer $staffAssignments,
+        private readonly BookingCommercialChangeDetector $commercialChanges,
+        private readonly OutdateQuotation $outdateQuotation,
     ) {}
 
     /** @param array<string, mixed> $data */
@@ -43,11 +50,8 @@ class UpdateBooking
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            if ($booking->status !== BookingStatus::Pending) {
-                throw ValidationException::withMessages([
-                    'status' => 'Only pending bookings may be edited.',
-                ]);
-            }
+            [$activeQuotation, $acceptedQuotation] = $this->lockRelevantQuotations($booking);
+            $this->ensureEditableState($booking, $activeQuotation, $acceptedQuotation);
 
             $existingLines = BookingService::query()
                 ->with('assignedStaff')
@@ -75,6 +79,25 @@ class UpdateBooking
             );
 
             $this->validateLineIdentities($candidates, $existingLines);
+            $hasCommercialChanges = $this->commercialChanges->hasChanges(
+                $booking,
+                $existingLines,
+                $customer,
+                $eventType,
+                $candidates,
+                $data,
+            );
+
+            if ($acceptedQuotation !== null && $hasCommercialChanges) {
+                throw ValidationException::withMessages([
+                    'booking' => 'Commercially quoted Booking data cannot be changed after quotation acceptance.',
+                ]);
+            }
+
+            if ($activeQuotation !== null && $hasCommercialChanges) {
+                $this->outdateQuotation->handleLocked($activeQuotation, $booking);
+            }
+
             $staff = $this->staffLocker->lock(
                 $organization,
                 array_merge(
@@ -135,6 +158,19 @@ class UpdateBooking
                 $retainedIds[] = $created->id;
             }
 
+            $removedIds = $existingLines->keys()
+                ->map(fn ($id): int => (int) $id)
+                ->diff($retainedIds)
+                ->values()
+                ->all();
+
+            if ($removedIds !== []) {
+                QuotationItem::query()
+                    ->where('booking_id', $booking->id)
+                    ->whereIn('booking_service_id', $removedIds)
+                    ->update(['booking_service_id' => null]);
+            }
+
             BookingService::query()
                 ->where('organization_id', $organization->id)
                 ->where('booking_id', $booking->id)
@@ -143,6 +179,49 @@ class UpdateBooking
 
             return $booking->refresh()->load(['customer', 'eventType', 'bookingServices.assignedStaff']);
         }, 3);
+    }
+
+    /** @return array{Quotation|null, Quotation|null} */
+    private function lockRelevantQuotations(Booking $booking): array
+    {
+        $quotations = Quotation::query()
+            ->where('organization_id', $booking->organization_id)
+            ->where('booking_id', $booking->id)
+            ->whereIn('status', [
+                QuotationStatus::Draft,
+                QuotationStatus::Sent,
+                QuotationStatus::Accepted,
+            ])
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get();
+
+        return [
+            $quotations->first(fn (Quotation $quotation): bool => in_array(
+                $quotation->status,
+                [QuotationStatus::Draft, QuotationStatus::Sent],
+                true,
+            )),
+            $quotations->firstWhere('status', QuotationStatus::Accepted),
+        ];
+    }
+
+    private function ensureEditableState(
+        Booking $booking,
+        ?Quotation $activeQuotation,
+        ?Quotation $acceptedQuotation,
+    ): void {
+        $isConsistentPending = $booking->status === BookingStatus::Pending
+            && $acceptedQuotation === null
+            && ($activeQuotation === null || $activeQuotation->status === QuotationStatus::Draft);
+        $isConsistentQuoted = $booking->status === BookingStatus::Quoted
+            && (($activeQuotation?->status === QuotationStatus::Sent) xor ($acceptedQuotation !== null));
+
+        if (! $isConsistentPending && ! $isConsistentQuoted) {
+            throw ValidationException::withMessages([
+                'status' => 'Only pending or consistently quoted bookings may be edited.',
+            ]);
+        }
     }
 
     /**
