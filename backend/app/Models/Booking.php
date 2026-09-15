@@ -87,4 +87,9 @@ class Booking extends Model
     {
         return $this->hasMany(BookingService::class)->orderBy('sort_order')->orderBy('id');
     }
+
+    public function quotations(): HasMany
+    {
+        return $this->hasMany(Quotation::class);
+    }
 }

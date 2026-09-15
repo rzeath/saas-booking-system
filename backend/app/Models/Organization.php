@@ -63,4 +63,9 @@ class Organization extends Model
     {
         return $this->hasMany(Booking::class);
     }
+
+    public function quotations(): HasMany
+    {
+        return $this->hasMany(Quotation::class);
+    }
 }
