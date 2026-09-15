@@ -59,7 +59,11 @@ class QuotationController extends Controller
     private function resolve(int $quotation, TenantContext $tenant): Quotation
     {
         return Quotation::query()
-            ->with(['booking:id,booking_number,status', 'items'])
+            ->with([
+                'billing:id,quotation_id,billing_number',
+                'booking:id,booking_number,status',
+                'items',
+            ])
             ->where('organization_id', $tenant->organizationId())
             ->whereKey($quotation)
             ->firstOrFail();

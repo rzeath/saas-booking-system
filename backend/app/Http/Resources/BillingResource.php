@@ -2,35 +2,31 @@
 
 namespace App\Http\Resources;
 
+use App\Support\Billings\PaymentSummaryCalculator;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class QuotationResource extends JsonResource
+class BillingResource extends JsonResource
 {
     public static $wrap = null;
 
     /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
+        $summary = app(PaymentSummaryCalculator::class)->forBilling($this->resource);
+
         return [
             'id' => $this->resource->id,
-            'quotation_number' => $this->resource->quotation_number,
-            'status' => $this->resource->status->value,
-            'booking' => [
+            'billing_number' => $this->resource->billing_number,
+            'quotation' => [
+                'id' => $this->resource->quotation_id,
+                'quotation_number' => $this->resource->quotation_number,
+            ],
+            'booking' => $this->whenLoaded('booking', fn (): array => [
                 'id' => $this->resource->booking->id,
                 'booking_number' => $this->resource->booking->booking_number,
                 'status' => $this->resource->booking->status->value,
-            ],
-            'billing' => $this->whenLoaded('billing', fn (): ?array => $this->resource->billing === null
-                ? null
-                : [
-                    'id' => $this->resource->billing->id,
-                    'billing_number' => $this->resource->billing->billing_number,
-                ]),
-            'valid_until' => $this->resource->valid_until?->format('Y-m-d'),
-            'sent_at' => $this->resource->sent_at?->toISOString(),
-            'accepted_at' => $this->resource->accepted_at?->toISOString(),
-            'closed_at' => $this->resource->closed_at?->toISOString(),
+            ]),
             'seller_snapshot' => [
                 'display_name' => $this->resource->business_display_name,
                 'email' => $this->resource->business_email,
@@ -58,9 +54,13 @@ class QuotationResource extends JsonResource
             'crew_meal_fee' => $this->resource->crew_meal_fee,
             'discount_amount' => $this->resource->discount_amount,
             'total' => $this->resource->total,
-            'items' => QuotationItemResource::collection($this->whenLoaded('items')),
+            'payment_summary' => [
+                'amount_paid' => $summary->amountPaid,
+                'remaining_balance' => $summary->remainingBalance,
+                'payment_status' => $summary->paymentStatus,
+            ],
+            'items' => BillingItemResource::collection($this->whenLoaded('items')),
             'created_at' => $this->resource->created_at?->toISOString(),
-            'updated_at' => $this->resource->updated_at?->toISOString(),
         ];
     }
 }

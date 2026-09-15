@@ -14,9 +14,13 @@ class PaymentSummaryCalculator
 
     public function forBilling(Billing $billing): PaymentSummary
     {
+        $payments = $billing->relationLoaded('payments')
+            ? $billing->getRelation('payments')
+            : $billing->payments()->get(['amount', 'status']);
+
         return $this->calculate(
             $billing,
-            $billing->payments()->get(['amount', 'status']),
+            $payments,
         );
     }
 

@@ -3,6 +3,8 @@
 use App\Http\Controllers\Api\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Api\Auth\CurrentUserController;
 use App\Http\Controllers\Api\Auth\RegisteredUserController;
+use App\Http\Controllers\Api\V1\BillingController;
+use App\Http\Controllers\Api\V1\BillingPaymentController;
 use App\Http\Controllers\Api\V1\BookingController;
 use App\Http\Controllers\Api\V1\BookingQuotationController;
 use App\Http\Controllers\Api\V1\BookingServiceStaffController;
@@ -10,7 +12,10 @@ use App\Http\Controllers\Api\V1\BusinessSettingController;
 use App\Http\Controllers\Api\V1\CustomerController;
 use App\Http\Controllers\Api\V1\EventTypeController;
 use App\Http\Controllers\Api\V1\PackageController;
+use App\Http\Controllers\Api\V1\PaymentController;
+use App\Http\Controllers\Api\V1\PaymentVoidController;
 use App\Http\Controllers\Api\V1\QuotationController;
+use App\Http\Controllers\Api\V1\QuotationPaymentController;
 use App\Http\Controllers\Api\V1\QuotationPdfController;
 use App\Http\Controllers\Api\V1\QuotationStatusController;
 use App\Http\Controllers\Api\V1\ServiceController;
@@ -102,10 +107,20 @@ Route::middleware('auth:sanctum')->group(function (): void {
             ->name('quotations.reject');
         Route::post('/quotations/{quotation}/cancel', [QuotationStatusController::class, 'cancel'])
             ->name('quotations.cancel');
+        Route::post('/quotations/{quotation}/payments', [QuotationPaymentController::class, 'store'])
+            ->name('quotations.payments.store');
         Route::get('/quotations/{quotation}/pdf', QuotationPdfController::class)
             ->name('quotations.pdf');
         Route::apiResource('quotations', QuotationController::class)->only([
             'index', 'show', 'update',
         ]);
+
+        Route::get('/billings/{billing}/payments', [BillingPaymentController::class, 'index'])
+            ->name('billings.payments.index');
+        Route::apiResource('billings', BillingController::class)->only(['index', 'show']);
+
+        Route::post('/payments/{payment}/void', PaymentVoidController::class)
+            ->name('payments.void');
+        Route::apiResource('payments', PaymentController::class)->only('index');
     });
 });
