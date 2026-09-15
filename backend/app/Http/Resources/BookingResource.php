@@ -65,6 +65,7 @@ class BookingResource extends JsonResource
                         'is_active' => $staff->is_active,
                     ])->values(),
             ])->values(),
+            'quotations' => QuotationSummaryResource::collection($this->whenLoaded('quotations')),
             'cancelled_at' => $this->resource->cancelled_at?->toISOString(),
             'cancellation_reason' => $this->resource->cancellation_reason,
             'created_at' => $this->resource->created_at?->toISOString(),

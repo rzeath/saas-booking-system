@@ -4,11 +4,14 @@ use App\Http\Controllers\Api\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Api\Auth\CurrentUserController;
 use App\Http\Controllers\Api\Auth\RegisteredUserController;
 use App\Http\Controllers\Api\V1\BookingController;
+use App\Http\Controllers\Api\V1\BookingQuotationController;
 use App\Http\Controllers\Api\V1\BookingServiceStaffController;
 use App\Http\Controllers\Api\V1\BusinessSettingController;
 use App\Http\Controllers\Api\V1\CustomerController;
 use App\Http\Controllers\Api\V1\EventTypeController;
 use App\Http\Controllers\Api\V1\PackageController;
+use App\Http\Controllers\Api\V1\QuotationController;
+use App\Http\Controllers\Api\V1\QuotationStatusController;
 use App\Http\Controllers\Api\V1\ServiceController;
 use App\Http\Controllers\Api\V1\ServicePackageController;
 use App\Http\Controllers\Api\V1\ServiceRateController;
@@ -84,8 +87,22 @@ Route::middleware('auth:sanctum')->group(function (): void {
             ->name('bookings.staff-availability');
         Route::post('/bookings/{booking}/cancel', [BookingController::class, 'cancel'])
             ->name('bookings.cancel');
+        Route::post('/bookings/{booking}/quotations', [BookingQuotationController::class, 'store'])
+            ->name('bookings.quotations.store');
         Route::apiResource('bookings', BookingController::class)->only([
             'index', 'store', 'show', 'update',
+        ]);
+
+        Route::post('/quotations/{quotation}/send', [QuotationStatusController::class, 'send'])
+            ->name('quotations.send');
+        Route::post('/quotations/{quotation}/accept', [QuotationStatusController::class, 'accept'])
+            ->name('quotations.accept');
+        Route::post('/quotations/{quotation}/reject', [QuotationStatusController::class, 'reject'])
+            ->name('quotations.reject');
+        Route::post('/quotations/{quotation}/cancel', [QuotationStatusController::class, 'cancel'])
+            ->name('quotations.cancel');
+        Route::apiResource('quotations', QuotationController::class)->only([
+            'index', 'show', 'update',
         ]);
     });
 });

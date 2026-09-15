@@ -121,7 +121,14 @@ class BookingController extends Controller
     private function resolve(int $booking, TenantContext $tenant): Booking
     {
         return Booking::query()
-            ->with(['customer', 'eventType', 'bookingServices.assignedStaff'])
+            ->with([
+                'customer',
+                'eventType',
+                'bookingServices.assignedStaff',
+                'quotations' => fn ($query) => $query
+                    ->orderByDesc('created_at')
+                    ->orderByDesc('id'),
+            ])
             ->where('organization_id', $tenant->organizationId())
             ->whereKey($booking)
             ->firstOrFail();
