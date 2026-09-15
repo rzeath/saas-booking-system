@@ -1,10 +1,12 @@
 import {
   CalendarDays,
+  CircleDollarSign,
   Database,
   FileText,
   Gauge,
   LogOut,
   Menu,
+  ReceiptText,
   Settings,
   Users,
   X,
@@ -21,9 +23,14 @@ const navigation = [
   { label: 'Overview', items: [{ to: '/', label: 'Dashboard', icon: Gauge, end: true }] },
   {
     label: 'Operations',
+    items: [{ to: '/bookings', label: 'Bookings', icon: CalendarDays, end: false }],
+  },
+  {
+    label: 'Commercial',
     items: [
-      { to: '/bookings', label: 'Bookings', icon: CalendarDays, end: false },
       { to: '/quotations', label: 'Quotations', icon: FileText, end: false },
+      { to: '/billings', label: 'Billings', icon: ReceiptText, end: false },
+      { to: '/payments', label: 'Payments', icon: CircleDollarSign, end: false },
     ],
   },
   {

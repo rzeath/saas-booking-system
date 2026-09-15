@@ -5,6 +5,8 @@ import { AuthenticatedLayout } from '@/components/layout/authenticated-layout'
 import { LoginRoute } from '@/routes/auth/login'
 import { RegisterRoute } from '@/routes/auth/register'
 import { BusinessSettingsRoute } from '@/routes/business-settings'
+import { BillingDetailRoute } from '@/routes/billing-detail'
+import { BillingsRoute } from '@/routes/billings'
 import { BookingDetailRoute } from '@/routes/booking-detail'
 import { BookingEditRoute } from '@/routes/booking-edit'
 import { BookingNewRoute } from '@/routes/booking-new'
@@ -12,6 +14,7 @@ import { BookingsRoute } from '@/routes/bookings'
 import { CustomersRoute } from '@/routes/customers'
 import { HomeRoute } from '@/routes/home'
 import { MasterDataRoute } from '@/routes/master-data'
+import { PaymentsRoute } from '@/routes/payments'
 import { QuotationDetailRoute } from '@/routes/quotation-detail'
 import { QuotationNewRoute } from '@/routes/quotation-new'
 import { QuotationsRoute } from '@/routes/quotations'
@@ -35,6 +38,9 @@ export default function App() {
         <Route path="/bookings/:bookingId/quotations/new" element={<QuotationNewRoute />} />
         <Route path="/quotations" element={<QuotationsRoute />} />
         <Route path="/quotations/:quotationId" element={<QuotationDetailRoute />} />
+        <Route path="/billings" element={<BillingsRoute />} />
+        <Route path="/billings/:billingId" element={<BillingDetailRoute />} />
+        <Route path="/payments" element={<PaymentsRoute />} />
         <Route path="/settings/business" element={<BusinessSettingsRoute />} />
       </Route>
       <Route path="/login" element={<GuestRoute><LoginRoute /></GuestRoute>} />

@@ -83,5 +83,5 @@ test('renders a useful dashboard empty state without inventing financial data', 
 
   expect(await screen.findByText('No upcoming bookings')).toBeInTheDocument()
   expect(screen.getByText('No confirmed events')).toBeInTheDocument()
-  expect(screen.queryByText(/revenue|payment|balance/i)).not.toBeInTheDocument()
+  expect(within(screen.getByRole('main')).queryByText(/revenue|payment|balance/i)).not.toBeInTheDocument()
 })

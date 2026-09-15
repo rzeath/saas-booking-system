@@ -1,6 +1,7 @@
 import type { PropsWithChildren } from 'react'
 
-import type { BookingStatus, QuotationStatus } from '@/lib/api'
+import type { BillingPaymentStatus, BookingStatus, PaymentStatus, QuotationStatus } from '@/lib/api'
+import { paymentStatusLabel } from '@/lib/billing-format'
 import { cn } from '@/lib/utils'
 
 type StatusTone = 'neutral' | 'success' | 'warning' | 'danger' | 'info'
@@ -47,4 +48,18 @@ const quotationTone: Record<QuotationStatus, StatusTone> = {
 export function QuotationStatusBadge({ status }: { status: QuotationStatus }) {
   const label = status.charAt(0) + status.slice(1).toLowerCase()
   return <StatusBadge tone={quotationTone[status]}>{label}</StatusBadge>
+}
+
+const billingPaymentTone: Record<BillingPaymentStatus, StatusTone> = {
+  UNPAID: 'warning',
+  PARTIALLY_PAID: 'info',
+  PAID: 'success',
+}
+
+export function BillingPaymentStatusBadge({ status }: { status: BillingPaymentStatus }) {
+  return <StatusBadge tone={billingPaymentTone[status]}>{paymentStatusLabel(status)}</StatusBadge>
+}
+
+export function PaymentStatusBadge({ status }: { status: PaymentStatus }) {
+  return <StatusBadge tone={status === 'POSTED' ? 'success' : 'neutral'}>{status === 'POSTED' ? 'Posted' : 'Voided'}</StatusBadge>
 }

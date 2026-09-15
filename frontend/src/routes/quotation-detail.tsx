@@ -1,15 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Check, Download, Pencil, Send, XCircle } from 'lucide-react'
+import { ArrowLeft, Check, CreditCard, Download, Eye, Pencil, Send, XCircle } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import { QuotationAdjustmentsForm } from '@/components/quotations/quotation-adjustments-form'
 import { QuotationCommercialSummary } from '@/components/quotations/quotation-commercial-summary'
 import { QuotationItemsTable } from '@/components/quotations/quotation-items-table'
+import { RecordPaymentDialog } from '@/components/payments/record-payment-dialog'
 import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
 import { BookingStatusBadge, QuotationStatusBadge, StatusBadge } from '@/components/ui/status-badge'
-import { ApiError, getQuotation, getQuotationPdf, transitionQuotation, type QuotationTransition, updateQuotation } from '@/lib/api'
+import { ApiError, getBilling, getQuotation, getQuotationPdf, transitionQuotation, type QuotationTransition, updateQuotation } from '@/lib/api'
+import { moneyToCents } from '@/lib/billing-format'
+import { billingDetailQueryKey } from '@/lib/billings-query'
 import { bookingDetailQueryKey, bookingListsQueryKey } from '@/lib/bookings-query'
 import { formatBusinessDate, formatLifecycleTimestamp } from '@/lib/quotation-format'
 import { quotationDetailQueryKey, quotationListsQueryKey } from '@/lib/quotations-query'
@@ -39,9 +42,12 @@ export function QuotationDetailRoute() {
   const queryClient = useQueryClient()
   const [editing, setEditing] = useState(false)
   const [pendingTransition, setPendingTransition] = useState<QuotationTransition>()
+  const [recordingPayment, setRecordingPayment] = useState(false)
   const [message, setMessage] = useState<string>()
   const [pdfError, setPdfError] = useState<string>()
   const quotation = useQuery({ queryKey: quotationDetailQueryKey(quotationId), queryFn: () => getQuotation(quotationId), enabled: Number.isInteger(quotationId) && quotationId > 0 })
+  const billingId = quotation.data?.billing?.id ?? 0
+  const billing = useQuery({ queryKey: billingDetailQueryKey(billingId), queryFn: () => getBilling(billingId), enabled: billingId > 0 })
   const updateMutation = useMutation({
     mutationFn: (input: Parameters<typeof updateQuotation>[1]) => updateQuotation(quotationId, input),
     onSuccess: (updated) => {
@@ -95,7 +101,14 @@ export function QuotationDetailRoute() {
   const item = quotation.data
   const isDraft = item.status === 'DRAFT'
   const isSent = item.status === 'SENT'
+  const isAccepted = item.status === 'ACCEPTED'
   const terminal = !isDraft && !isSent
+  const billingRemainingCents = moneyToCents(billing.data?.payment_summary.remaining_balance ?? '0.00')
+  const canRecordAdditionalPayment = isAccepted
+    && Boolean(item.billing)
+    && billingRemainingCents !== null
+    && billingRemainingCents > 0n
+    && (item.booking.status === 'CONFIRMED' || item.booking.status === 'COMPLETED')
 
   return (
     <section>
@@ -110,6 +123,8 @@ export function QuotationDetailRoute() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          {isAccepted && item.billing ? <Link to={`/billings/${item.billing.id}`} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-semibold shadow-sm hover:bg-surface-subtle"><Eye className="size-4" aria-hidden="true" /> View Billing</Link> : null}
+          {isAccepted && (!item.billing || canRecordAdditionalPayment) ? <Button onClick={() => { setRecordingPayment(true); setMessage(undefined) }}><CreditCard className="size-4" aria-hidden="true" /> Record Payment</Button> : null}
           <Button variant="secondary" disabled={pdfMutation.isPending} onClick={() => { setPdfError(undefined); pdfMutation.mutate() }}><Download className="size-4" aria-hidden="true" /> {pdfMutation.isPending ? 'Preparing PDF...' : 'Download PDF'}</Button>
           {isDraft ? <Button variant="secondary" onClick={() => { setEditing(true); setMessage(undefined) }}><Pencil className="size-4" aria-hidden="true" /> Edit adjustments</Button> : null}
           {isDraft ? <Button onClick={() => { setPendingTransition('send'); setMessage(undefined) }}><Send className="size-4" aria-hidden="true" /> Send</Button> : null}
@@ -123,6 +138,7 @@ export function QuotationDetailRoute() {
       {message ? <p role={transitionMutation.isError ? 'alert' : 'status'} className={`mt-5 rounded-lg border p-4 text-sm ${transitionMutation.isError ? 'border-red-200 bg-danger-soft text-danger' : 'border-green-200 bg-success-soft text-success'}`}>{message}</p> : null}
       {item.status === 'OUTDATED' ? <p className="mt-5 rounded-lg border border-amber-200 bg-warning-soft p-4 text-sm text-warning">This quotation no longer reflects the current Booking details. Create a new quotation from the Booking to issue an updated revision.</p> : null}
       {item.status === 'ACCEPTED' ? <p className="mt-5 rounded-lg border border-green-200 bg-success-soft p-4 text-sm text-success">Accepted on {formatLifecycleTimestamp(item.accepted_at)}. The related Booking remains {item.booking.status === 'QUOTED' ? 'Quoted' : item.booking.status.charAt(0) + item.booking.status.slice(1).toLowerCase()}.</p> : null}
+      {isAccepted && item.billing && billing.isError ? <p role="alert" className="mt-5 text-sm text-danger">Billing totals could not be loaded. Open the Billing to review or record another payment.</p> : null}
 
       {editing ? (
         <section className="mt-6 rounded-lg border border-border bg-surface p-6">
@@ -186,6 +202,19 @@ export function QuotationDetailRoute() {
         >
           <p className="text-sm text-muted">{item.quotation_number}</p>
         </Modal>
+      ) : null}
+      {recordingPayment ? (
+        <RecordPaymentDialog
+          quotationId={item.id}
+          quotationNumber={item.quotation_number}
+          total={billing.data?.total ?? item.total}
+          summary={billing.data?.payment_summary ?? { amount_paid: '0.00', remaining_balance: item.total, payment_status: 'UNPAID' }}
+          onClose={() => setRecordingPayment(false)}
+          onSuccess={(result) => {
+            setRecordingPayment(false)
+            setMessage(`Payment recorded. Billing ${result.billing.billing_number} is ready.`)
+          }}
+        />
       ) : null}
     </section>
   )

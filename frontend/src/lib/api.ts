@@ -115,6 +115,21 @@ const quotationStatusSchema = z.enum([
   'OUTDATED',
 ])
 
+const paymentStatusSchema = z.enum(['POSTED', 'VOIDED'])
+const paymentMethodSchema = z.enum(['CASH', 'GCASH', 'BANK_TRANSFER', 'CHECK'])
+const billingPaymentStatusSchema = z.enum(['UNPAID', 'PARTIALLY_PAID', 'PAID'])
+
+const billingReferenceSchema = z.object({
+  id: z.number(),
+  billing_number: z.string(),
+})
+
+const paymentSummarySchema = z.object({
+  amount_paid: z.string(),
+  remaining_balance: z.string(),
+  payment_status: billingPaymentStatusSchema,
+})
+
 const quotationBookingSchema = z.object({
   id: z.number(),
   booking_number: z.string(),
@@ -153,6 +168,7 @@ const quotationSchema = z.object({
   quotation_number: z.string(),
   status: quotationStatusSchema,
   booking: quotationBookingSchema,
+  billing: billingReferenceSchema.nullable().optional(),
   valid_until: z.string().nullable(),
   sent_at: z.string().nullable(),
   accepted_at: z.string().nullable(),
@@ -187,6 +203,81 @@ const quotationSchema = z.object({
   items: z.array(quotationItemSchema),
   created_at: z.string(),
   updated_at: z.string(),
+})
+
+const billingItemSchema = z.object({
+  id: z.number(),
+  service_name: z.string(),
+  package_name: z.string(),
+  start_at: z.string(),
+  end_at: z.string(),
+  duration_minutes: z.number(),
+  quantity: z.number(),
+  unit_rate: z.string(),
+  line_total: z.string(),
+  sort_order: z.number(),
+})
+
+const billingSchema = z.object({
+  id: z.number(),
+  billing_number: z.string(),
+  quotation: z.object({ id: z.number(), quotation_number: z.string() }),
+  booking: quotationBookingSchema,
+  seller_snapshot: z.object({
+    display_name: z.string(),
+    email: z.string().nullable(),
+    phone: z.string().nullable(),
+    address: z.string().nullable(),
+    logo_path: z.string().nullable(),
+  }),
+  customer_snapshot: z.object({
+    name: z.string(),
+    email: z.string().nullable(),
+    phone: z.string().nullable(),
+    address: z.string().nullable(),
+  }),
+  event_snapshot: z.object({
+    event_type_name: z.string(),
+    event_name: z.string(),
+    event_date: z.string(),
+    venue_name: z.string(),
+    venue_address: z.string().nullable(),
+    contact_person: z.string(),
+    contact_number: z.string(),
+  }),
+  subtotal: z.string(),
+  transportation_fee: z.string(),
+  crew_meal_fee: z.string(),
+  discount_amount: z.string(),
+  total: z.string(),
+  payment_summary: paymentSummarySchema,
+  items: z.array(billingItemSchema).optional(),
+  created_at: z.string(),
+})
+
+const paymentSchema = z.object({
+  id: z.number(),
+  billing: billingReferenceSchema,
+  quotation: z.object({ id: z.number(), quotation_number: z.string() }),
+  booking: quotationBookingSchema,
+  amount: z.string(),
+  paid_at: z.string(),
+  payment_method: paymentMethodSchema,
+  reference_number: z.string().nullable(),
+  internal_note: z.string().nullable(),
+  status: paymentStatusSchema,
+  created_by: z.object({ id: z.number(), name: z.string() }),
+  voided_at: z.string().nullable(),
+  void_reason: z.string().nullable(),
+  voided_by: z.object({ id: z.number(), name: z.string() }).nullable(),
+  created_at: z.string(),
+})
+
+const paymentMutationResultSchema = z.object({
+  payment: paymentSchema,
+  billing: billingReferenceSchema,
+  payment_summary: paymentSummarySchema,
+  booking: quotationBookingSchema,
 })
 
 const bookingServiceSchema = z.object({
@@ -282,6 +373,8 @@ const serviceRatePageSchema = z.object({ data: z.array(serviceRateSchema), ...pa
 const staffPageSchema = z.object({ data: z.array(staffSchema), ...paginationSchema })
 const bookingPageSchema = z.object({ data: z.array(bookingSchema), ...paginationSchema })
 const quotationPageSchema = z.object({ data: z.array(quotationSummarySchema), ...paginationSchema })
+const billingPageSchema = z.object({ data: z.array(billingSchema), ...paginationSchema })
+const paymentPageSchema = z.object({ data: z.array(paymentSchema), ...paginationSchema })
 
 const errorResponseSchema = z.object({
   message: z.string().optional(),
@@ -329,6 +422,17 @@ export type QuotationSummary = z.infer<typeof quotationSummarySchema>
 export type QuotationItem = z.infer<typeof quotationItemSchema>
 export type Quotation = z.infer<typeof quotationSchema>
 export type QuotationPage = z.infer<typeof quotationPageSchema>
+export type BillingPaymentStatus = z.infer<typeof billingPaymentStatusSchema>
+export type BillingReference = z.infer<typeof billingReferenceSchema>
+export type PaymentSummary = z.infer<typeof paymentSummarySchema>
+export type BillingItem = z.infer<typeof billingItemSchema>
+export type Billing = z.infer<typeof billingSchema>
+export type BillingPage = z.infer<typeof billingPageSchema>
+export type PaymentMethod = z.infer<typeof paymentMethodSchema>
+export type PaymentStatus = z.infer<typeof paymentStatusSchema>
+export type Payment = z.infer<typeof paymentSchema>
+export type PaymentPage = z.infer<typeof paymentPageSchema>
+export type PaymentMutationResult = z.infer<typeof paymentMutationResultSchema>
 export type BookingAvailability = z.infer<typeof bookingAvailabilitySchema>
 export type StaffAvailability = z.infer<typeof staffAvailabilitySchema>
 export type SaveBookingServiceInput = {
@@ -378,6 +482,27 @@ export type QuotationQuery = {
   search: string
   status: QuotationStatus | ''
   per_page?: number
+}
+export type BillingQuery = {
+  page: number
+  search: string
+  per_page?: number
+}
+export type PaymentQuery = {
+  page: number
+  search: string
+  status: PaymentStatus | ''
+  payment_method: PaymentMethod | ''
+  paid_from: string
+  paid_to: string
+  per_page?: number
+}
+export type RecordPaymentInput = {
+  amount: string
+  paid_at: string
+  payment_method: PaymentMethod
+  reference_number: string | null
+  internal_note: string | null
 }
 export type SaveDraftQuotationInput = {
   transportation_fee?: string
@@ -558,6 +683,24 @@ function quotationQueryString(query: QuotationQuery): string {
   const params = new URLSearchParams({ page: String(query.page) })
   if (query.search) params.set('search', query.search)
   if (query.status) params.set('status', query.status)
+  if (query.per_page) params.set('per_page', String(query.per_page))
+  return params.toString()
+}
+
+function billingQueryString(query: BillingQuery): string {
+  const params = new URLSearchParams({ page: String(query.page) })
+  if (query.search) params.set('search', query.search)
+  if (query.per_page) params.set('per_page', String(query.per_page))
+  return params.toString()
+}
+
+function paymentQueryString(query: PaymentQuery): string {
+  const params = new URLSearchParams({ page: String(query.page) })
+  if (query.search) params.set('search', query.search)
+  if (query.status) params.set('status', query.status)
+  if (query.payment_method) params.set('payment_method', query.payment_method)
+  if (query.paid_from) params.set('paid_from', query.paid_from)
+  if (query.paid_to) params.set('paid_to', query.paid_to)
   if (query.per_page) params.set('per_page', String(query.per_page))
   return params.toString()
 }
@@ -790,6 +933,47 @@ export async function transitionQuotation(
   await initializeCsrf()
   const response = await requestV1(`/quotations/${id}/${transition}`, { method: 'POST' })
   return quotationSchema.parse(await response.json())
+}
+
+export async function getBillings(query: BillingQuery): Promise<BillingPage> {
+  const response = await requestV1(`/billings?${billingQueryString(query)}`)
+  return billingPageSchema.parse(await response.json())
+}
+
+export async function getBilling(id: number): Promise<Billing> {
+  const response = await requestV1(`/billings/${id}`)
+  return billingSchema.parse(await response.json())
+}
+
+export async function getBillingPayments(id: number, query: PaymentQuery): Promise<PaymentPage> {
+  const response = await requestV1(`/billings/${id}/payments?${paymentQueryString(query)}`)
+  return paymentPageSchema.parse(await response.json())
+}
+
+export async function getPayments(query: PaymentQuery): Promise<PaymentPage> {
+  const response = await requestV1(`/payments?${paymentQueryString(query)}`)
+  return paymentPageSchema.parse(await response.json())
+}
+
+export async function recordQuotationPayment(
+  quotationId: number,
+  input: RecordPaymentInput,
+): Promise<PaymentMutationResult> {
+  await initializeCsrf()
+  const response = await requestV1(`/quotations/${quotationId}/payments`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  return paymentMutationResultSchema.parse(await response.json())
+}
+
+export async function voidPayment(id: number, voidReason: string): Promise<PaymentMutationResult> {
+  await initializeCsrf()
+  const response = await requestV1(`/payments/${id}/void`, {
+    method: 'POST',
+    body: JSON.stringify({ void_reason: voidReason }),
+  })
+  return paymentMutationResultSchema.parse(await response.json())
 }
 
 export async function createBooking(input: SaveBookingInput): Promise<Booking> {
