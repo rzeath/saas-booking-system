@@ -2,17 +2,19 @@ import { X } from 'lucide-react'
 import { type PropsWithChildren, type ReactNode, useEffect, useId, useRef } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 type ModalProps = PropsWithChildren<{
   title: string
   description?: string
   footer?: ReactNode
+  size?: 'default' | 'large'
   onClose: () => void
 }>
 
 const focusableSelector = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
-export function Modal({ title, description, footer, onClose, children }: ModalProps) {
+export function Modal({ title, description, footer, size = 'default', onClose, children }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null)
   const titleId = useId()
   const descriptionId = useId()
@@ -26,6 +28,8 @@ export function Modal({ title, description, footer, onClose, children }: ModalPr
     document.body.style.overflow = 'hidden'
 
     const handleKeyDown = (event: KeyboardEvent) => {
+      const openDialogs = [...document.querySelectorAll<HTMLElement>('[role="dialog"][aria-modal="true"]')]
+      if (openDialogs.at(-1) !== dialog) return
       if (event.key === 'Escape') onClose()
       if (event.key !== 'Tab' || !dialog) return
 
@@ -69,7 +73,10 @@ export function Modal({ title, description, footer, onClose, children }: ModalPr
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
         tabIndex={-1}
-        className="my-8 w-full max-w-2xl overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl outline-none"
+        className={cn(
+          'my-8 w-full overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl outline-none',
+          size === 'large' ? 'max-w-6xl' : 'max-w-2xl',
+        )}
       >
         <header className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
           <div>
@@ -81,7 +88,7 @@ export function Modal({ title, description, footer, onClose, children }: ModalPr
           </Button>
         </header>
         <div className="max-h-[calc(100vh-12rem)] overflow-y-auto px-6 py-5">{children}</div>
-        {footer ? <footer className="flex justify-end gap-3 border-t border-border bg-surface-subtle px-6 py-4">{footer}</footer> : null}
+        {footer ? <footer className="flex flex-wrap justify-end gap-3 border-t border-border bg-surface-subtle px-6 py-4">{footer}</footer> : null}
       </div>
     </div>
   )

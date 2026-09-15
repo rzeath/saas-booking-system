@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
 
 import { GuestRoute, ProtectedRoute } from '@/components/auth/auth-guards'
 import { AuthenticatedLayout } from '@/components/layout/authenticated-layout'
@@ -10,12 +10,8 @@ import { BookingEditRoute } from '@/routes/booking-edit'
 import { BookingNewRoute } from '@/routes/booking-new'
 import { BookingsRoute } from '@/routes/bookings'
 import { CustomersRoute } from '@/routes/customers'
-import { EventTypesRoute } from '@/routes/event-types'
 import { HomeRoute } from '@/routes/home'
-import { PackagesRoute } from '@/routes/packages'
-import { ServiceRatesRoute } from '@/routes/service-rates'
-import { ServicesRoute } from '@/routes/services'
-import { StaffRoute } from '@/routes/staff'
+import { MasterDataRoute } from '@/routes/master-data'
 
 export default function App() {
   return (
@@ -23,11 +19,12 @@ export default function App() {
       <Route element={<ProtectedRoute><AuthenticatedLayout /></ProtectedRoute>}>
         <Route path="/" element={<HomeRoute />} />
         <Route path="/customers" element={<CustomersRoute />} />
-        <Route path="/event-types" element={<EventTypesRoute />} />
-        <Route path="/services" element={<ServicesRoute />} />
-        <Route path="/packages" element={<PackagesRoute />} />
-        <Route path="/service-rates" element={<ServiceRatesRoute />} />
-        <Route path="/staff" element={<StaffRoute />} />
+        <Route path="/master-data" element={<MasterDataRoute />} />
+        <Route path="/event-types" element={<Navigate to="/master-data?tab=event-types" replace />} />
+        <Route path="/services" element={<Navigate to="/master-data?tab=services" replace />} />
+        <Route path="/packages" element={<Navigate to="/master-data?tab=packages" replace />} />
+        <Route path="/service-rates" element={<Navigate to="/master-data?tab=services" replace />} />
+        <Route path="/staff" element={<Navigate to="/master-data?tab=staff" replace />} />
         <Route path="/bookings" element={<BookingsRoute />} />
         <Route path="/bookings/new" element={<BookingNewRoute />} />
         <Route path="/bookings/:bookingId" element={<BookingDetailRoute />} />

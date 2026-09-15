@@ -89,7 +89,7 @@ function EventTypeForm({
 
 const initialQuery: MasterDataQuery = { page: 1, search: '', status: 'all' }
 
-export function EventTypesRoute() {
+export function EventTypesRoute({ embedded = false }: { embedded?: boolean } = {}) {
   const queryClient = useQueryClient()
   const [query, setQuery] = useState<MasterDataQuery>(initialQuery)
   const [search, setSearch] = useState('')
@@ -118,8 +118,8 @@ export function EventTypesRoute() {
     <section>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-sm font-semibold tracking-[0.08em] text-cyan-400">Master data</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight">Event Types</h1>
+          {!embedded ? <p className="text-sm font-semibold tracking-[0.08em] text-cyan-400">Master data</p> : null}
+          {embedded ? <h2 className="text-lg font-semibold">Event Types</h2> : <h1 className="mt-2 text-3xl font-semibold tracking-tight">Event Types</h1>}
           <p className="mt-2 text-sm text-slate-400">Manage the event classifications used by future bookings and rates.</p>
         </div>
         <button type="button" onClick={() => setEditingEventType(null)} className="inline-flex items-center gap-2 rounded-lg bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-cyan-400">
@@ -127,7 +127,7 @@ export function EventTypesRoute() {
         </button>
       </div>
 
-      <div className="mt-8 rounded-2xl border border-slate-800 bg-slate-900 shadow-xl shadow-black/10">
+      <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900 shadow-xl shadow-black/10">
         <form
           role="search"
           className="grid gap-4 border-b border-slate-800 p-5 md:grid-cols-[1fr_12rem_auto] md:items-end"

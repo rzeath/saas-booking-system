@@ -1,15 +1,11 @@
 import {
-  BookOpen,
-  BriefcaseBusiness,
   CalendarDays,
+  Database,
   Gauge,
   LogOut,
   Menu,
-  PackageOpen,
   Settings,
-  Tags,
   Users,
-  UserRound,
   X,
 } from 'lucide-react'
 import { type KeyboardEvent, type RefObject } from 'react'
@@ -24,21 +20,15 @@ const navigation = [
   { label: 'Operations', items: [{ to: '/bookings', label: 'Bookings', icon: CalendarDays, end: false }] },
   {
     label: 'People',
-    items: [
-      { to: '/customers', label: 'Customers', icon: Users, end: false },
-      { to: '/staff', label: 'Staff', icon: UserRound, end: false },
-    ],
+    items: [{ to: '/customers', label: 'Customers', icon: Users, end: false }],
   },
   {
-    label: 'Catalog',
+    label: 'Configuration',
     items: [
-      { to: '/services', label: 'Services', icon: BriefcaseBusiness, end: false },
-      { to: '/packages', label: 'Packages', icon: PackageOpen, end: false },
-      { to: '/event-types', label: 'Event Types', icon: Tags, end: false },
-      { to: '/service-rates', label: 'Service Rates', icon: BookOpen, end: false },
+      { to: '/master-data', label: 'Master Data', icon: Database, end: false },
+      { to: '/settings/business', label: 'Business Settings', icon: Settings, end: false },
     ],
   },
-  { label: 'Settings', items: [{ to: '/settings/business', label: 'Business Settings', icon: Settings, end: false }] },
 ] as const
 
 function initials(name: string): string {

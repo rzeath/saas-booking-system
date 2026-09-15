@@ -39,6 +39,9 @@ test('opens and dismisses grouped navigation at a mobile viewport', async () => 
   expect(within(drawer).getByRole('link', { name: 'Dashboard' })).toHaveAttribute('aria-current', 'page')
   expect(within(drawer).getByText('Operations')).toBeInTheDocument()
   expect(within(drawer).getByRole('link', { name: 'Bookings' })).toHaveAttribute('href', '/bookings')
+  expect(within(drawer).getByText('Configuration')).toBeInTheDocument()
+  expect(within(drawer).getByRole('link', { name: 'Master Data' })).toHaveAttribute('href', '/master-data')
+  expect(within(drawer).queryByRole('link', { name: 'Service Rates' })).not.toBeInTheDocument()
   expect(within(drawer).getByText('Erica Admin')).toBeInTheDocument()
 
   fireEvent.keyDown(document, { key: 'Escape' })

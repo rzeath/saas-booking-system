@@ -51,7 +51,7 @@ function PackageForm({ packageItem, onSaved, onCancel }: {
   </form>
 }
 
-export function PackagesRoute() {
+export function PackagesRoute({ embedded = false }: { embedded?: boolean } = {}) {
   const queryClient = useQueryClient()
   const [query, setQuery] = useState<MasterDataQuery>(initialQuery)
   const [search, setSearch] = useState('')
@@ -64,8 +64,8 @@ export function PackagesRoute() {
   })
 
   return <section>
-    <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-sm font-semibold tracking-[0.08em] text-cyan-400">Catalog</p><h1 className="mt-2 text-3xl font-semibold">Packages</h1><p className="mt-2 text-sm text-slate-400">Manage reusable packages independently from service assignments.</p></div><button type="button" onClick={() => setEditing(null)} className="inline-flex items-center gap-2 rounded-lg bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-slate-950"><Plus className="size-4" /> New package</button></div>
-    <div className="mt-8 rounded-2xl border border-slate-800 bg-slate-900">
+    <div className="flex flex-wrap items-end justify-between gap-4"><div>{!embedded ? <p className="text-sm font-semibold tracking-[0.08em] text-cyan-400">Catalog</p> : null}{embedded ? <h2 className="text-lg font-semibold">Packages</h2> : <h1 className="mt-2 text-3xl font-semibold">Packages</h1>}<p className="mt-2 text-sm text-slate-400">Manage reusable packages independently from service assignments.</p></div><button type="button" onClick={() => setEditing(null)} className="inline-flex items-center gap-2 rounded-lg bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-slate-950"><Plus className="size-4" /> New package</button></div>
+    <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900">
       <form role="search" className="grid gap-4 border-b border-slate-800 p-5 md:grid-cols-[1fr_12rem_auto] md:items-end" onSubmit={(event) => { event.preventDefault(); setQuery({ ...query, page: 1, search: search.trim() }) }}><FormField label="Search packages" id="package-search" value={search} onChange={(event) => setSearch(event.target.value)} /><SelectField label="Status filter" id="package-status-filter" value={query.status} onChange={(event) => setQuery({ ...query, page: 1, status: event.target.value as MasterDataStatus })}><option value="all">All</option><option value="active">Active</option><option value="inactive">Inactive</option></SelectField><button type="submit" className="rounded-lg border border-slate-700 px-4 py-2.5 text-sm">Search</button></form>
       {message ? <p role="status" className="px-5 pt-4 text-sm text-emerald-300">{message}</p> : null}
       {packages.isPending ? <p role="status" className="p-8 text-center text-slate-400">Loading packages…</p> : null}
