@@ -25,7 +25,7 @@ return new class extends Migration
             $table->text('customer_address')->nullable();
             $table->string('event_type_name');
             $table->string('event_name');
-            $table->date('event_date');
+            $table->dateTime('start_at', 6);
             $table->string('venue_name');
             $table->text('venue_address')->nullable();
             $table->string('contact_person');
@@ -62,8 +62,8 @@ return new class extends Migration
                 ->restrictOnDelete();
             $table->unique(['organization_id', 'booking_number'], 'bookings_tenant_number_unique');
             $table->unique(['organization_id', 'id'], 'bookings_tenant_id_unique');
-            $table->index(['organization_id', 'status', 'event_date'], 'bookings_tenant_status_date_index');
-            $table->index(['organization_id', 'customer_id', 'event_date'], 'bookings_tenant_customer_date_index');
+            $table->index(['organization_id', 'status', 'start_at'], 'bookings_tenant_status_start_index');
+            $table->index(['organization_id', 'customer_id', 'start_at'], 'bookings_tenant_customer_start_index');
             $table->index(['organization_id', 'event_type_id'], 'bookings_tenant_event_type_index');
         });
 

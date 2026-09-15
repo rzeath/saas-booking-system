@@ -35,7 +35,7 @@ class BookingFactory extends Factory
             'customer_address' => fake()->address(),
             'event_type_name' => $eventTypeName,
             'event_name' => fake()->words(3, true),
-            'event_date' => '2027-06-15',
+            'start_at' => '2027-06-15 18:00:00',
             'venue_name' => fake()->company(),
             'venue_address' => fake()->address(),
             'contact_person' => fake()->name(),

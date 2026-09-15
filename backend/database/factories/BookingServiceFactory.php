@@ -37,8 +37,6 @@ class BookingServiceFactory extends Factory
 
                 return $package->id;
             },
-            'start_at' => '2027-06-15 18:00:00',
-            'end_at' => '2027-06-15 21:00:00',
             'duration_minutes' => 180,
             'quantity' => 1,
             'service_name' => $serviceName,

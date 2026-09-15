@@ -60,7 +60,6 @@ Supporting composite unique indexes such as `(organization_id, id)` are intentio
 | `booking_services` | Direct | Required to enforce same-tenant Booking, Service, and Package relationships and support availability queries. |
 | `booking_service_staff_assignments` | Direct | Required to enforce same-tenant Booking Service and Staff relationships. |
 | `booking_reschedules` | Direct | Immutable tenant audit stream with Booking/admin consistency. |
-| `booking_reschedule_items` | Derived through reschedule | Single parent; no second tenant-owned parent creates ambiguity. |
 | `quotations` | Direct | Aggregate/document root, numbering scope, and same-tenant Booking enforcement. |
 | `quotation_items` | Derived through quotation | Immutable child snapshot. The source Booking Service is lineage, not ownership. |
 | `payments` | Direct | Financial query/isolation boundary and same-tenant Quotation/admin enforcement. |
@@ -230,7 +229,7 @@ Purpose: tenant-owned aggregate root for one customer event.
 Important fields:
 
 - `id`, `organization_id`, `booking_number`, `customer_id`, `event_type_id`.
-- `event_name`, `event_date` (Philippine business `DATE`).
+- `event_name`, required `start_at` (Asia/Manila wall-clock `DATETIME(6)`).
 - required `venue_name`, nullable `venue_address`.
 - required `contact_person`, `contact_number`.
 - Customer snapshots: `customer_name`, nullable `customer_email`, `customer_phone`, `customer_address`.
@@ -245,21 +244,20 @@ Constraints and indexes:
 - Unique `(organization_id, booking_number)` and composite unique `(organization_id, id)`.
 - Supporting unique `(id, organization_id)`/scope indexes should follow the exact column order required by child composite foreign keys; migration review must avoid creating duplicate indexes that differ only semantically.
 - Composite tenant-safe foreign keys to Customer and Event Type; composite tenant-safe admin audit foreign keys.
-- Indexes `(organization_id, status, event_date)`, `(organization_id, customer_id, event_date)`, and `(organization_id, event_type_id)`.
+- Indexes `(organization_id, status, start_at)`, `(organization_id, customer_id, start_at)`, and `(organization_id, event_type_id)`.
 - Status and audit-field consistency is primarily a transition-service invariant, supplemented by feasible checks (for example, cancellation metadata is present only for `CANCELLED`).
 - Restrict master, Organization, and User deletion. Booking deletion is not a normal application operation.
 
-The Booking snapshot is the first historical boundary: Customer or Event Type master edits do not change an existing event. Before quotation acceptance, explicit Booking edits may intentionally refresh relevant snapshots and prices in one domain operation. After acceptance, commercial fields are locked. A confirmed reschedule may change only `event_date` and Booking Service timestamps while preserving commercial snapshots.
+The Booking snapshot is the first historical boundary: Customer or Event Type master edits do not change an existing event. Before quotation acceptance, explicit Booking edits may intentionally refresh relevant snapshots and prices in one domain operation. After acceptance, commercial fields are locked. A confirmed reschedule may change only the Booking's shared `start_at` while preserving commercial snapshots.
 
 ### Booking Service (`booking_services`, V1)
 
-Purpose: one purchased Service/Package line with its own schedule, quantity, and authoritative price snapshot.
+Purpose: one purchased Service/Package line with its own duration, quantity, and authoritative price snapshot.
 
 Important fields:
 
 - `id`, `organization_id`, `booking_id`, `service_id`, `package_id`.
-- `start_at`, `end_at` (Asia/Manila wall-clock `DATETIME(6)`).
-- `duration_minutes` (`INT UNSIGNED`).
+- `duration_minutes` (`INT UNSIGNED`, 1 through 10,080).
 - `quantity` (`INT UNSIGNED`).
 - `service_name`, `package_name` snapshots.
 - `unit_rate` and `line_total` (`DECIMAL(13,2)`) snapshots.
@@ -270,13 +268,14 @@ Constraints and indexes:
 - Composite tenant-safe foreign key to Booking.
 - Composite foreign key `(organization_id, service_id, package_id)` to `service_package` proves that the selected pair is mapped for the tenant.
 - A tenant-safe Service foreign key is retained because Service is the capacity target.
-- Checks: `start_at < end_at`, `duration_minutes > 0`, `quantity > 0`, `unit_rate >= 0`, and `line_total = unit_rate * quantity`.
-- Backend validation additionally guarantees `end_at = start_at + duration_minutes`; that cross-column temporal calculation should not rely solely on database portability.
+- Checks: `duration_minutes BETWEEN 1 AND 10080`, `quantity > 0`, `unit_rate >= 0`, and `line_total = unit_rate * quantity`.
 - Supporting unique `(booking_id, id)` and `(organization_id, id)` keys enable same-Booking and same-tenant child constraints.
-- Index `(organization_id, service_id, start_at, end_at, booking_id)` for overlap candidates; index `(organization_id, booking_id, sort_order)` for aggregate loading.
+- Index `(organization_id, service_id, booking_id)` supports service reservation lookup; index `(organization_id, booking_id, sort_order)` supports aggregate loading.
 - Restrict Booking, Service, and Package deletion. A pre-acceptance line may be removed only through an aggregate action that first handles draft quotation items/assignments; accepted lines are immutable.
 
-`event_date` is not duplicated here. Full Asia/Manila start/end values safely represent cross-midnight schedules and support direct overlap predicates. The backend constructs them from the Booking's `event_date` and each line's start time without UTC conversion. JavaScript must treat these API values as business wall-clock strings rather than parsing them as UTC instants.
+Operational intervals are derived without duplicating schedule columns: service start is `booking.start_at`, service end is the shared start plus `duration_minutes`, and Booking end is the shared start plus the maximum service duration. Availability queries must derive those intervals while preserving `[start, end)` semantics. JavaScript must treat API schedule values as Asia/Manila business wall-clock strings rather than parsing them as UTC instants.
+
+The target write contract accepts Booking-level `event_date` and `start_time`, then combines them into `bookings.start_at`. Booking Service writes accept duration but no service-level start or end. A later API phase may expose derived Booking `event_date`, `start_time`, and `end_at`, plus read-only derived Booking Service `start_at`/`end_at`; none of those convenience fields are additional persistence sources.
 
 ### Booking Service Staff Assignment (`booking_service_staff_assignments`, V1)
 
@@ -297,7 +296,7 @@ No assignment count is required. Staff conflicts are checked only when assigning
 
 Purpose: immutable header for one confirmed-booking reschedule operation.
 
-Fields: `id`, `organization_id`, `booking_id`, `previous_event_date`, `new_event_date`, nullable `reason`, `changed_by`, `changed_at` (UTC).
+Fields: `id`, `organization_id`, `booking_id`, `previous_start_at`, `new_start_at`, nullable `reason`, `changed_by`, `changed_at` (UTC).
 
 Constraints and indexes:
 
@@ -306,20 +305,7 @@ Constraints and indexes:
 - Index `(organization_id, booking_id, changed_at)`.
 - Restrict all parent deletion. No update/delete endpoint exists.
 
-### Booking Reschedule Item (`booking_reschedule_items`, V1)
-
-Purpose: immutable per-line schedule delta belonging to a Booking Reschedule.
-
-Fields: `id`, `booking_id` (scope key), `booking_reschedule_id`, `booking_service_id`, `previous_start_at`, `previous_end_at`, `new_start_at`, `new_end_at`.
-
-Constraints and indexes:
-
-- Composite foreign keys through `booking_id` to Booking Reschedule and Booking Service ensure both belong to the same Booking; unique `(booking_reschedule_id, booking_service_id)`.
-- Checks that each start precedes its corresponding end.
-- Index `(booking_service_id, booking_reschedule_id)`.
-- Restrict deletion. Tenant ownership derives from the immutable Reschedule aggregate; `booking_id` is present for relational integrity, not as a second ownership root.
-
-The two-table shape avoids opaque JSON while remaining much smaller than generic event sourcing. Duration does not change during a V1 reschedule, so old/new duration fields are unnecessary.
+The shared schedule makes per-line reschedule rows unnecessary. Booking Service durations do not change during a V1 reschedule, so every derived service interval moves from the recorded previous start to the recorded new start.
 
 ## Commercial documents
 
@@ -362,11 +348,11 @@ Fields: `id`, `booking_id` (scope key), `quotation_id`, `booking_service_id`, `s
 Constraints and indexes:
 
 - Composite foreign keys through `booking_id` to Quotation and source Booking Service ensure the item source belongs to the quoted Booking; unique `(quotation_id, booking_service_id)`.
-- Checks mirror Booking Service temporal, quantity, and exact-total constraints.
+- Checks preserve explicit interval validity, positive duration/quantity, and exact totals independently of operational Booking Service storage.
 - Supporting unique `(quotation_id, id)` and index `(quotation_id, sort_order)`.
 - Restrict source/parent deletion after send. Draft item replacement is performed explicitly within the aggregate transaction.
 
-Quotation Items copy, rather than recompute, Booking Service snapshots. They cannot independently edit Service, Package, schedule, duration, quantity, or base price. An accepted Quotation remains historically unchanged when a confirmed Booking is later rescheduled.
+Quotation Items snapshot explicit `start_at`/`end_at` values derived at creation from the Booking's shared start and each Booking Service duration. They cannot independently edit Service, Package, schedule, duration, quantity, or base price. An accepted Quotation remains historically unchanged when a confirmed Booking is later rescheduled. Billing Items copy those explicit Quotation Item schedule snapshots.
 
 ## Financial records
 
@@ -462,11 +448,10 @@ Unless a field is explicitly described as nullable in its domain section, it is 
 | `service_package` | Organization and tenant-safe Service/Package both RESTRICT | unique `(organization_id, service_id, package_id)`; reverse package index | All fields required. |
 | `service_rates` | Organization, tenant-safe Event Type, and tenant-safe Service/Package mapping all RESTRICT | unique explicit Rate tuple; pricing lookup index | `duration_minutes > 0`; `unit_rate >= 0`. |
 | `staff` | Organization RESTRICT | `(organization_id, id)`; active-name list index | Email/notes nullable; name/phone required. |
-| `bookings` | Organization, tenant-safe Customer/Event Type/Admin references all RESTRICT | unique tenant booking number; tenant/scope keys; status-date, customer-date, Event Type indexes | Customer contact snapshots, venue address, notes, and lifecycle audit fields nullable; status allow-list and lifecycle consistency. |
-| `booking_services` | Organization, tenant-safe Booking/Service/Package pair all RESTRICT | `(organization_id, id)`, `(booking_id, id)`; Booking-order and Service-overlap indexes | Positive duration/quantity; ordered endpoints; non-negative money; exact line total. |
+| `bookings` | Organization, tenant-safe Customer/Event Type/Admin references all RESTRICT | unique tenant booking number; tenant/scope keys; status-start, customer-start, Event Type indexes | Customer contact snapshots, venue address, notes, and lifecycle audit fields nullable; required shared start; status allow-list and lifecycle consistency. |
+| `booking_services` | Organization, tenant-safe Booking/Service/Package pair all RESTRICT | `(organization_id, id)`, `(booking_id, id)`; Booking-order and Service/Booking indexes | Duration 1 through 10,080 minutes; positive quantity; non-negative money; exact line total. |
 | `booking_service_staff_assignments` | Organization RESTRICT; Booking Service CASCADE only for an allowed pre-acceptance line removal; tenant-safe Staff/Admin RESTRICT | unique `(booking_service_id, staff_id)`; Staff-conflict index | All fields required. |
-| `booking_reschedules` | Organization, tenant-safe Booking/Admin all RESTRICT | `(organization_id, id)`, `(booking_id, id)`; Booking history index | Reason nullable; append-only. |
-| `booking_reschedule_items` | same-Booking composite Reschedule and Booking Service references RESTRICT | unique `(booking_reschedule_id, booking_service_id)`; Booking Service history index | Both intervals ordered; at least one schedule value changes (application invariant). |
+| `booking_reschedules` | Organization, tenant-safe Booking/Admin all RESTRICT | `(organization_id, id)`, `(booking_id, id)`; Booking history index | Previous/new shared starts differ; reason nullable; append-only. |
 | `quotations` | Organization, tenant-safe Booking/Admin all RESTRICT | unique tenant quotation number; `(organization_id, id)`, `(booking_id, id)`; generated active and accepted slot uniques; Booking/status and expiry indexes | Valid-until and lifecycle timestamps nullable as state permits; snapshot contacts nullable; allowed status; exact/non-negative totals; positive total required before send. |
 | `quotation_items` | same-Booking composite Quotation and Booking Service references RESTRICT | unique `(quotation_id, booking_service_id)`, `(quotation_id, id)`; item-order index | Positive duration/quantity; ordered endpoints; non-negative money; exact line total. |
 | `payments` | Organization, tenant-safe Quotation/creator/voider all RESTRICT | Quotation-status-paid-at and tenant-paid-at indexes | Reference/notes/void data nullable until void; positive amount; status allow-list and void metadata consistency. |

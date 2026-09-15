@@ -14,12 +14,14 @@ class BookingService extends Model
     /** @use HasFactory<BookingServiceFactory> */
     use HasFactory;
 
+    public const int MIN_DURATION_MINUTES = 1;
+
+    public const int MAX_DURATION_MINUTES = 10_080;
+
     protected $fillable = [
         'organization_id',
         'service_id',
         'package_id',
-        'start_at',
-        'end_at',
         'duration_minutes',
         'quantity',
         'service_name',
@@ -32,8 +34,6 @@ class BookingService extends Model
     protected function casts(): array
     {
         return [
-            'start_at' => 'immutable_datetime',
-            'end_at' => 'immutable_datetime',
             'duration_minutes' => 'integer',
             'quantity' => 'integer',
             'unit_rate' => 'decimal:2',

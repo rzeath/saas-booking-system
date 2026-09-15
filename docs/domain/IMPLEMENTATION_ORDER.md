@@ -130,7 +130,7 @@ Tables:
 Backend scope:
 
 - Create/update Booking aggregate with customer/event/service/package snapshots.
-- Combine the Philippine event date and per-line start time into explicit Asia/Manila `start_at`/`end_at` values.
+- Combine the Philippine event date and shared start time into the Booking's Asia/Manila `start_at`; derive each service end from its duration.
 - Resolve prices server-side and calculate exact line totals.
 - Allocate Booking numbers transactionally.
 - Implement pooled Service capacity with ordered Service-row locks and in-transaction re-checks.
@@ -149,7 +149,7 @@ Tests:
 
 Frontend scope:
 
-- Booking list/detail/create/edit forms with multiple independently scheduled lines.
+- Booking list/detail/create/edit forms with one shared start and independently selected service durations.
 - Typed availability feedback and optional manual Staff assignment.
 - Explicit state actions with confirmation; no public booking flow.
 
@@ -223,13 +223,12 @@ Dependencies: Accepted Quotation from Phase 7; Billing numbering from Phase 2B.
 Tables:
 
 - `booking_reschedules`
-- `booking_reschedule_items`
 
 Backend scope:
 
 - Dedicated confirmed-only Reschedule action.
 - Lock Services and assigned Staff deterministically; exclude the Booking's current reservations and re-check proposed schedule.
-- Atomically append immutable old/new history and update only event date and line endpoints.
+- Atomically append immutable previous/new shared-start history and update only Booking `start_at`.
 - Preserve accepted Quotation, Billing, Payments, commercial fields, and CONFIRMED status.
 
 Tests:
@@ -252,7 +251,7 @@ Tables: none by default.
 Backend scope:
 
 - Tenant-scoped read endpoints/query services over existing source-of-truth tables.
-- Calendar uses current Booking Service schedules and relevant statuses.
+- Calendar uses one event per Booking from its shared start through its longest derived Booking Service end.
 - Dashboard derives operational and financial summaries without mutating history.
 
 Tests:

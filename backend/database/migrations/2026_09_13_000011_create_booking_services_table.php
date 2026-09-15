@@ -15,8 +15,6 @@ return new class extends Migration
             $table->unsignedBigInteger('booking_id');
             $table->unsignedBigInteger('service_id');
             $table->unsignedBigInteger('package_id');
-            $table->dateTime('start_at', 6);
-            $table->dateTime('end_at', 6);
             $table->unsignedInteger('duration_minutes');
             $table->unsignedInteger('quantity');
             $table->string('service_name');
@@ -43,8 +41,8 @@ return new class extends Migration
             $table->unique(['organization_id', 'id'], 'booking_services_tenant_id_unique');
             $table->unique(['booking_id', 'id'], 'booking_services_booking_id_unique');
             $table->index(
-                ['organization_id', 'service_id', 'start_at', 'end_at', 'booking_id'],
-                'booking_services_availability_index',
+                ['organization_id', 'service_id', 'booking_id'],
+                'booking_services_service_booking_index',
             );
             $table->index(
                 ['organization_id', 'booking_id', 'sort_order'],
@@ -55,18 +53,39 @@ return new class extends Migration
         if (DB::connection()->getDriverName() === 'mysql') {
             DB::statement(<<<'SQL'
                 ALTER TABLE booking_services
-                    ADD CONSTRAINT booking_services_interval_valid CHECK (start_at < end_at),
-                    ADD CONSTRAINT booking_services_duration_positive CHECK (duration_minutes > 0),
+                    ADD CONSTRAINT booking_services_duration_valid
+                        CHECK (duration_minutes BETWEEN 1 AND 10080),
                     ADD CONSTRAINT booking_services_quantity_positive CHECK (quantity > 0),
                     ADD CONSTRAINT booking_services_unit_rate_non_negative CHECK (unit_rate >= 0),
                     ADD CONSTRAINT booking_services_line_total_exact
                         CHECK (line_total >= 0 AND line_total = unit_rate * quantity)
                 SQL);
+
+            return;
+        }
+
+        if (DB::connection()->getDriverName() === 'sqlite') {
+            $this->createSqliteConstraintTriggers();
         }
     }
 
     public function down(): void
     {
         Schema::dropIfExists('booking_services');
+    }
+
+    private function createSqliteConstraintTriggers(): void
+    {
+        $violation = <<<'SQL'
+            NEW.duration_minutes < 1
+            OR NEW.duration_minutes > 10080
+            OR NEW.quantity <= 0
+            OR NEW.unit_rate < 0
+            OR NEW.line_total < 0
+            OR ROUND(NEW.line_total, 2) != ROUND(NEW.unit_rate * NEW.quantity, 2)
+            SQL;
+
+        DB::unprepared("CREATE TRIGGER booking_services_constraints_insert BEFORE INSERT ON booking_services WHEN {$violation} BEGIN SELECT RAISE(ABORT, 'booking service constraints violated'); END");
+        DB::unprepared("CREATE TRIGGER booking_services_constraints_update BEFORE UPDATE ON booking_services WHEN {$violation} BEGIN SELECT RAISE(ABORT, 'booking service constraints violated'); END");
     }
 };

@@ -26,8 +26,11 @@ class BookingTest extends TestCase
     public function test_canonical_schema_uses_manila_native_booking_schedules(): void
     {
         $this->assertSame('Asia/Manila', config('app.timezone'));
-        $this->assertTrue(Schema::hasColumn('booking_services', 'start_at'));
-        $this->assertTrue(Schema::hasColumn('booking_services', 'end_at'));
+        $this->assertTrue(Schema::hasColumn('bookings', 'start_at'));
+        $this->assertFalse(Schema::hasColumn('bookings', 'event_date'));
+        $this->assertFalse(Schema::hasColumn('bookings', 'end_at'));
+        $this->assertFalse(Schema::hasColumn('booking_services', 'start_at'));
+        $this->assertFalse(Schema::hasColumn('booking_services', 'end_at'));
         $this->assertFalse(Schema::hasColumn('booking_services', 'start_at_utc'));
         $this->assertFalse(Schema::hasColumn('booking_services', 'end_at_utc'));
         $this->assertFalse(Schema::hasColumn('bookings', 'timezone'));

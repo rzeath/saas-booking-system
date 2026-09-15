@@ -28,7 +28,7 @@ class Booking extends Model
         'customer_address',
         'event_type_name',
         'event_name',
-        'event_date',
+        'start_at',
         'venue_name',
         'venue_address',
         'contact_person',
@@ -46,7 +46,7 @@ class Booking extends Model
     protected function casts(): array
     {
         return [
-            'event_date' => 'date:Y-m-d',
+            'start_at' => 'immutable_datetime',
             'status' => BookingStatus::class,
             'completed_at' => 'immutable_datetime',
             'cancelled_at' => 'immutable_datetime',

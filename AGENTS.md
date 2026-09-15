@@ -467,7 +467,7 @@ Expected Booking-level information includes:
 - customer
 - event type
 - event name / occasion
-- event date
+- shared event start
 - venue name
 - venue address
 - contact person
@@ -481,11 +481,10 @@ Actual purchased Services belong in Booking Services, not directly as columns on
 
 ```text
 Booking
+├── Start At
 └── Booking Services
     ├── Service
     ├── Package
-    ├── Start At
-    ├── End At
     ├── Duration
     ├── Quantity
     ├── Unit Price Snapshot
@@ -503,28 +502,28 @@ The approved scheduling persistence model is:
 
 ```text
 Booking
-└── event_date (Philippine business date)
+└── start_at (Asia/Manila date-time)
 
 Booking Service
-├── start_at
-├── end_at
 └── duration_minutes
 ```
 
-Each Booking Service has its own:
+All Booking Services begin at the Booking's shared `start_at`. Each Booking Service has its own:
 
-- Asia/Manila start and end date-times
 - duration in minutes
 - quantity
 
-Different Booking Services within the same Booking may:
+Operational service intervals are derived rather than persisted:
 
-- start at different times
-- have different durations
+```text
+service_start = booking.start_at
+service_end = booking.start_at + booking_service.duration_minutes
+booking_end = booking.start_at + MAX(booking_service.duration_minutes)
+```
 
-Do not assume one shared duration or start time for all Booking Services.
+Booking Services must not accept or persist independent schedules. Quotation Items and Billing Items retain explicit start/end/duration snapshots for historical documents.
 
-The Booking's event date provides the Philippine event-day context. Scheduling is stored and presented directly in Asia/Manila without tenant timezone conversion.
+Scheduling is stored and presented directly in Asia/Manila without tenant timezone conversion. The write API accepts an event date and shared start time, combines them once, and stores the resulting Booking `start_at`.
 
 ---
 
@@ -757,8 +756,7 @@ Rescheduling is a dedicated operation, not ordinary commercial editing.
 
 V1 rescheduling may change:
 
-- event date
-- Booking Service start times
+- the Booking's shared `start_at`
 
 It does not change:
 

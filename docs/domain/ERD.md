@@ -90,7 +90,7 @@ erDiagram
         bigint customer_id FK
         bigint event_type_id FK
         varchar booking_number UK
-        date event_date
+        datetime start_at
         varchar status
         bigint created_by FK
     }
@@ -100,8 +100,6 @@ erDiagram
         bigint booking_id FK
         bigint service_id FK
         bigint package_id FK
-        datetime start_at
-        datetime end_at
         int duration_minutes
         int quantity
         decimal unit_rate
@@ -119,20 +117,10 @@ erDiagram
         bigint id PK
         bigint organization_id FK
         bigint booking_id FK
-        date previous_event_date
-        date new_event_date
+        datetime previous_start_at
+        datetime new_start_at
         bigint changed_by FK
         datetime changed_at
-    }
-    BOOKING_RESCHEDULE_ITEMS {
-        bigint id PK
-        bigint booking_id FK
-        bigint booking_reschedule_id FK
-        bigint booking_service_id FK
-        datetime previous_start_at
-        datetime previous_end_at
-        datetime new_start_at
-        datetime new_end_at
     }
 
     QUOTATIONS {
@@ -225,9 +213,6 @@ erDiagram
     USERS ||--o{ BOOKING_SERVICE_STAFF_ASSIGNMENTS : "assigns"
     BOOKINGS ||--o{ BOOKING_RESCHEDULES : "records changes"
     USERS ||--o{ BOOKING_RESCHEDULES : "changes"
-    BOOKING_RESCHEDULES ||--|{ BOOKING_RESCHEDULE_ITEMS : "contains deltas"
-    BOOKINGS ||--o{ BOOKING_RESCHEDULE_ITEMS : "scopes deltas"
-    BOOKING_SERVICES ||--o{ BOOKING_RESCHEDULE_ITEMS : "tracks schedule"
 
     ORGANIZATIONS ||--o{ QUOTATIONS : "owns"
     BOOKINGS ||--o{ QUOTATIONS : "has revisions"
@@ -267,8 +252,9 @@ The Mermaid attributes are intentionally concise. Snapshot columns, audit column
 
 - Booking belongs to one Customer and one Event Type and contains one or more Booking Services.
 - Booking Service belongs to one Service and one Package; the database must ensure that pair has a tenant-safe mapping.
+- Booking stores one shared Asia/Manila start. Every Booking Service starts there and derives its end from its own duration.
 - Booking Service has zero or more optional Staff assignments.
-- A confirmed Booking has zero or more immutable Reschedule headers, each with one or more per-Booking-Service schedule deltas.
+- A confirmed Booking has zero or more immutable Reschedule records containing its previous and new shared starts.
 
 ### Commercial
 
@@ -283,4 +269,4 @@ The Mermaid attributes are intentionally concise. Snapshot columns, audit column
 
 ## Domain boundaries not represented as tables
 
-Calendar and Dashboard are read models over Booking, Booking Service, Staff assignment, Quotation, Payment, and Billing data. They do not require V1 persistence tables. Availability is calculated transactionally from Service capacity and overlapping Booking Services; it is not cached as inventory rows.
+Calendar and Dashboard are read models over Booking, Booking Service, Staff assignment, Quotation, Payment, and Billing data. They do not require V1 persistence tables. Calendar will use one event per Booking from its shared start through its longest service end. Availability is calculated transactionally from Service capacity and derived Booking Service intervals; it is not cached as inventory rows.

@@ -26,9 +26,9 @@ This is the concise implementation checklist for the approved V1 invariants. Det
 
 ## Scheduling and availability
 
-1. Booking stores the Philippine `event_date`. Each Booking Service stores Asia/Manila `start_at`/`end_at` wall-clock date-times plus positive `duration_minutes`.
-2. Backend schedule construction combines the explicit event date and start time directly in the globally configured `Asia/Manila` application timezone. There is no tenant timezone or UTC conversion for business schedules.
-3. Full endpoints support cross-midnight services. The backend enforces `end = start + duration`.
+1. Booking stores one required Asia/Manila `start_at`. Booking Services store `duration_minutes`, not independent start/end fields; duration is between 1 and 10,080 minutes.
+2. The API write boundary combines the explicit event date and shared start time directly in the globally configured `Asia/Manila` application timezone. There is no tenant timezone or UTC conversion for business schedules.
+3. Every service starts at `booking.start_at`; its end is that start plus its duration. Booking end is the shared start plus the longest service duration. These derived intervals support overnight and multi-day services.
 4. Intervals are half-open: `[start, end)`. They overlap only when `existing.start < requested.end AND existing.end > requested.start`; back-to-back intervals do not overlap.
 5. `PENDING`, `QUOTED`, and `CONFIRMED` Bookings reserve capacity. `COMPLETED` and `CANCELLED` do not.
 6. Availability requires `sum(overlapping quantity) + requested quantity <= Service.total_units` for each Service.
@@ -43,7 +43,7 @@ This is the concise implementation checklist for the approved V1 invariants. Det
 1. Statuses are `PENDING`, `QUOTED`, `CONFIRMED`, `COMPLETED`, `CANCELLED`.
 2. Normal flow is `PENDING -> QUOTED -> CONFIRMED -> COMPLETED`.
 3. Cancellation is allowed from PENDING, QUOTED, or CONFIRMED. Completion is an explicit action, never time-driven.
-4. Booking holds customer/event snapshots; Booking Service holds Service/Package/price/quantity/schedule snapshots.
+4. Booking holds customer/event and shared-schedule data; Booking Service holds Service/Package/price/quantity/duration snapshots.
 5. Before Quotation acceptance, commercial edits are explicit aggregate operations that re-resolve pricing and update affected Booking snapshots.
 6. If commercial details change while a SENT Quotation exists, that Quotation becomes `OUTDATED` and Booking becomes `PENDING` atomically.
 7. Once a Quotation is ACCEPTED, normal edits to customer, Event Type, Service, Package, duration, quantity, rate, and commercial fees are blocked.
@@ -77,10 +77,10 @@ This is the concise implementation checklist for the approved V1 invariants. Det
 ## Confirmed rescheduling
 
 1. Only a CONFIRMED Booking uses the dedicated reschedule action.
-2. V1 reschedule may change Booking `event_date` and Booking Service start/end timestamps only. Service, Package, duration, quantity, price, fees, accepted Quotation, Billing, and Payments remain unchanged.
-3. The action locks affected Services and Staff deterministically, excludes the Booking's old reservations/assignments, re-checks capacity and Staff conflicts, writes an immutable Reschedule header/items, updates current schedules, and keeps status CONFIRMED in one transaction.
-4. Each history row preserves old/new event dates, old/new line endpoints, optional reason, acting Admin User, and change time.
-5. Accepted Quotation and Billing retain the originally accepted schedule snapshots. Current operational schedule comes from Booking/Booking Services; change history explains the difference.
+2. V1 reschedule may change only Booking `start_at`. Service, Package, duration, quantity, price, fees, accepted Quotation, Billing, and Payments remain unchanged.
+3. The action locks affected Services and Staff deterministically, excludes the Booking's old reservations/assignments, re-checks capacity and Staff conflicts, writes immutable old/new shared starts, updates the Booking, and keeps status CONFIRMED in one transaction.
+4. Each history row preserves old/new Booking starts, optional reason, acting Admin User, and change time.
+5. Accepted Quotation and Billing retain the originally accepted explicit schedule snapshots. Current operational schedule derives from Booking `start_at` plus each Booking Service duration; change history explains the difference.
 
 ## Historical and deletion integrity
 
@@ -88,7 +88,7 @@ This is the concise implementation checklist for the approved V1 invariants. Det
 2. Exact prices, quantities, durations, Service/Package names, customer/event details, and seller identity are not recomputed on historical documents.
 3. Historical/financial parent foreign keys restrict deletion. Master records with references are deactivated.
 4. Cascades are limited to configuration/counter rows on Organization deletion and removable Staff assignments when a pre-acceptance Booking Service is explicitly removed.
-5. Calendar and Dashboard are queries/read models, not V1 source-of-truth tables.
+5. Calendar and Dashboard are queries/read models, not V1 source-of-truth tables. Calendar will represent one event per Booking from its shared start through its longest service end.
 
 ## Document numbering
 
