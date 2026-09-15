@@ -18,7 +18,14 @@
         .document-header td { vertical-align: top; }
         .brand-cell { width: 58%; }
         .document-cell { width: 42%; text-align: right; }
-        .logo { max-width: 105px; max-height: 62px; margin-bottom: 9px; }
+        .logo {
+            display: block;
+            width: auto;
+            height: auto;
+            max-width: 105px;
+            max-height: 62px;
+            margin-bottom: 9px;
+        }
         .business-name { margin: 0 0 5px; color: #171a1f; font-size: 18px; line-height: 1.15; }
         .contact-line { color: #5d6570; }
         .document-title { margin: 0 0 5px; font-size: 24px; letter-spacing: 1.2px; }

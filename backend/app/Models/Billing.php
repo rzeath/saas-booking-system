@@ -2,31 +2,22 @@
 
 namespace App\Models;
 
-use App\Enums\QuotationStatus;
-use Database\Factories\QuotationFactory;
+use Database\Factories\BillingFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 
-class Quotation extends Model
+class Billing extends Model
 {
-    /** @use HasFactory<QuotationFactory> */
+    /** @use HasFactory<BillingFactory> */
     use HasFactory;
-
-    protected $attributes = [
-        'status' => QuotationStatus::Draft,
-    ];
 
     protected $fillable = [
         'booking_id',
+        'quotation_id',
+        'billing_number',
         'quotation_number',
-        'status',
-        'valid_until',
-        'sent_at',
-        'accepted_at',
-        'closed_at',
         'business_display_name',
         'business_email',
         'business_phone',
@@ -54,11 +45,6 @@ class Quotation extends Model
     protected function casts(): array
     {
         return [
-            'status' => QuotationStatus::class,
-            'valid_until' => 'immutable_date:Y-m-d',
-            'sent_at' => 'immutable_datetime',
-            'accepted_at' => 'immutable_datetime',
-            'closed_at' => 'immutable_datetime',
             'event_date' => 'immutable_date:Y-m-d',
             'subtotal' => 'decimal:2',
             'transportation_fee' => 'decimal:2',
@@ -78,6 +64,11 @@ class Quotation extends Model
         return $this->belongsTo(Booking::class);
     }
 
+    public function quotation(): BelongsTo
+    {
+        return $this->belongsTo(Quotation::class);
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
@@ -85,12 +76,7 @@ class Quotation extends Model
 
     public function items(): HasMany
     {
-        return $this->hasMany(QuotationItem::class)->orderBy('sort_order')->orderBy('id');
-    }
-
-    public function billing(): HasOne
-    {
-        return $this->hasOne(Billing::class);
+        return $this->hasMany(BillingItem::class)->orderBy('sort_order')->orderBy('id');
     }
 
     public function payments(): HasMany

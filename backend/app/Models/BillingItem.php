@@ -2,20 +2,20 @@
 
 namespace App\Models;
 
-use Database\Factories\QuotationItemFactory;
+use Database\Factories\BillingItemFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 
-class QuotationItem extends Model
+class BillingItem extends Model
 {
-    /** @use HasFactory<QuotationItemFactory> */
+    /** @use HasFactory<BillingItemFactory> */
     use HasFactory;
 
     protected $fillable = [
         'booking_id',
-        'booking_service_id',
+        'quotation_id',
+        'quotation_item_id',
         'service_name',
         'package_name',
         'start_at',
@@ -40,18 +40,28 @@ class QuotationItem extends Model
         ];
     }
 
+    public function organization(): BelongsTo
+    {
+        return $this->belongsTo(Organization::class);
+    }
+
+    public function booking(): BelongsTo
+    {
+        return $this->belongsTo(Booking::class);
+    }
+
     public function quotation(): BelongsTo
     {
         return $this->belongsTo(Quotation::class);
     }
 
-    public function bookingService(): BelongsTo
+    public function billing(): BelongsTo
     {
-        return $this->belongsTo(BookingService::class);
+        return $this->belongsTo(Billing::class);
     }
 
-    public function billingItem(): HasOne
+    public function quotationItem(): BelongsTo
     {
-        return $this->hasOne(BillingItem::class);
+        return $this->belongsTo(QuotationItem::class);
     }
 }

@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Quotations;
 
+use App\Actions\BusinessSettings\UpdateBusinessSettings;
+use App\Actions\Quotations\CreateQuotation;
 use App\Models\Booking;
 use App\Models\BookingService;
 use App\Models\EventType;
@@ -11,7 +13,9 @@ use App\Models\QuotationItem;
 use App\Models\User;
 use App\Support\Documents\QuotationPdfPresenter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class QuotationPdfTest extends TestCase
@@ -126,6 +130,86 @@ class QuotationPdfTest extends TestCase
             ->assertHeader('content-type', 'application/pdf');
     }
 
+    #[DataProvider('managedLogoFormats')]
+    public function test_new_quotation_snapshots_and_embeds_configured_managed_logo(
+        string $extension,
+        string $mimeType,
+    ): void {
+        Storage::fake('public');
+        [$user, $organization] = $this->tenant();
+        $settings = $organization->businessSetting;
+        $settings = app(UpdateBusinessSettings::class)->handle(
+            $settings,
+            [],
+            UploadedFile::fake()->image("configured-logo.{$extension}", 320, 160),
+            false,
+        );
+        $snapshotPath = $settings->logo_path;
+        $booking = $this->booking($organization, $user);
+        BookingService::factory()->forBooking($booking)->create();
+
+        $quotation = app(CreateQuotation::class)->handle($user, $booking->id);
+        $beforeSettingsChange = app(QuotationPdfPresenter::class)->present($quotation);
+
+        $this->assertSame($snapshotPath, $quotation->business_logo_path);
+        $this->assertStringStartsWith("data:{$mimeType};base64,", $beforeSettingsChange['logoDataUri']);
+
+        $settings = app(UpdateBusinessSettings::class)->handle(
+            $settings,
+            [],
+            UploadedFile::fake()->image('replacement-logo.png', 160, 160),
+            false,
+        );
+
+        $this->assertNotSame($snapshotPath, $settings->logo_path);
+        $this->assertSame($snapshotPath, $quotation->fresh()->business_logo_path);
+        Storage::disk('public')->assertExists($snapshotPath);
+        $this->assertSame(
+            $beforeSettingsChange['logoDataUri'],
+            app(QuotationPdfPresenter::class)->present($quotation->fresh('items'))['logoDataUri'],
+        );
+    }
+
+    public function test_quotation_created_without_logo_uses_business_name_fallback(): void
+    {
+        Storage::fake('public');
+        [$user, $organization] = $this->tenant();
+        $organization->businessSetting->update([
+            'display_name' => 'No Logo Events',
+            'logo_path' => null,
+        ]);
+        $booking = $this->booking($organization, $user);
+        BookingService::factory()->forBooking($booking)->create();
+
+        $quotation = app(CreateQuotation::class)->handle($user, $booking->id);
+        $presented = app(QuotationPdfPresenter::class)->present($quotation);
+        $html = view('pdf.quotation', $presented)->render();
+
+        $this->assertNull($quotation->business_logo_path);
+        $this->assertNull($presented['logoDataUri']);
+        $this->assertStringContainsString('No Logo Events', $html);
+        $this->assertStringNotContainsString('<img', $html);
+    }
+
+    public function test_pdf_presenter_rejects_another_tenants_managed_logo_path(): void
+    {
+        Storage::fake('public');
+        [$user, $organization] = $this->tenant();
+        [, $foreignOrganization] = $this->tenant();
+        $foreignPath = "business-logos/{$foreignOrganization->id}/foreign-logo.png";
+        Storage::disk('public')->put(
+            $foreignPath,
+            UploadedFile::fake()->image('foreign-logo.png')->getContent(),
+        );
+        $quotation = $this->quotation($organization, $user, [
+            'business_logo_path' => $foreignPath,
+        ]);
+
+        $this->assertNull(
+            app(QuotationPdfPresenter::class)->present($quotation->fresh('items'))['logoDataUri'],
+        );
+    }
+
     public function test_outdated_and_accepted_quotations_remain_renderable(): void
     {
         [$user, $organization] = $this->tenant();
@@ -172,9 +256,19 @@ class QuotationPdfTest extends TestCase
     /** @return array{User, Organization} */
     private function tenant(): array
     {
-        $organization = Organization::factory()->create();
+        $organization = Organization::factory()->withBusinessSettings()->create();
 
         return [User::factory()->for($organization)->create(), $organization];
+    }
+
+    /** @return array<string, array{string, string}> */
+    public static function managedLogoFormats(): array
+    {
+        return [
+            'JPG' => ['jpg', 'image/jpeg'],
+            'PNG' => ['png', 'image/png'],
+            'WebP' => ['webp', 'image/webp'],
+        ];
     }
 
     private function booking(Organization $organization, User $user): Booking
