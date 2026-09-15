@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\Auth\CurrentUserController;
 use App\Http\Controllers\Api\Auth\RegisteredUserController;
 use App\Http\Controllers\Api\V1\BillingController;
 use App\Http\Controllers\Api\V1\BillingPaymentController;
+use App\Http\Controllers\Api\V1\BillingPdfController;
 use App\Http\Controllers\Api\V1\BookingController;
 use App\Http\Controllers\Api\V1\BookingQuotationController;
 use App\Http\Controllers\Api\V1\BookingServiceStaffController;
@@ -117,6 +118,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
         Route::get('/billings/{billing}/payments', [BillingPaymentController::class, 'index'])
             ->name('billings.payments.index');
+        Route::get('/billings/{billing}/pdf', BillingPdfController::class)
+            ->name('billings.pdf');
         Route::apiResource('billings', BillingController::class)->only(['index', 'show']);
 
         Route::post('/payments/{payment}/void', PaymentVoidController::class)

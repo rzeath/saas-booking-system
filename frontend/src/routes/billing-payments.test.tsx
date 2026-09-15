@@ -266,6 +266,30 @@ test('Billing detail uses snapshots and retains POSTED and VOIDED payment histor
   expect(screen.getAllByRole('button', { name: /Void/ })).toHaveLength(1)
 })
 
+test('downloads the customer-facing PDF from Billing detail', async () => {
+  const createObjectURL = vi.fn(() => 'blob:billing-pdf')
+  const revokeObjectURL = vi.fn()
+  const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
+  class MockUrl extends URL {
+    static createObjectURL = createObjectURL
+    static revokeObjectURL = revokeObjectURL
+  }
+  vi.stubGlobal('URL', MockUrl)
+  const fetchMock = renderRoute('/billings/41', financialFetch((url) => {
+    if (url.endsWith('/api/v1/billings/41/pdf')) {
+      return new Response('%PDF-billing', { headers: { 'Content-Type': 'application/pdf' } })
+    }
+  }))
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Download PDF' }))
+
+  await waitFor(() => expect(fetchMock.mock.calls.some(([input]) => String(input).endsWith('/api/v1/billings/41/pdf'))).toBe(true))
+  expect(createObjectURL).toHaveBeenCalledOnce()
+  expect(click).toHaveBeenCalledOnce()
+  expect(click.mock.instances[0]).toHaveAttribute('download', 'INV-2026-000001.pdf')
+  expect(revokeObjectURL).toHaveBeenCalledWith('blob:billing-pdf')
+})
+
 test('Void dialog requires a reason and refreshes the derived balance', async () => {
   let billingState = billing
   let paymentsState: Record<string, unknown>[] = [postedPayment, voidedPayment]

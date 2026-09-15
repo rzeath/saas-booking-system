@@ -945,6 +945,14 @@ export async function getBilling(id: number): Promise<Billing> {
   return billingSchema.parse(await response.json())
 }
 
+export async function getBillingPdf(id: number): Promise<Blob> {
+  const response = await requestV1(`/billings/${id}/pdf`, {
+    headers: { Accept: 'application/pdf' },
+  })
+
+  return response.blob()
+}
+
 export async function getBillingPayments(id: number, query: PaymentQuery): Promise<PaymentPage> {
   const response = await requestV1(`/billings/${id}/payments?${paymentQueryString(query)}`)
   return paymentPageSchema.parse(await response.json())

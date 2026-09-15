@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Ban, CreditCard } from 'lucide-react'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { ArrowLeft, Ban, CreditCard, Download } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
@@ -10,7 +10,7 @@ import { RecordPaymentDialog } from '@/components/payments/record-payment-dialog
 import { VoidPaymentDialog } from '@/components/payments/void-payment-dialog'
 import { Button } from '@/components/ui/button'
 import { BillingPaymentStatusBadge, BookingStatusBadge, PaymentStatusBadge, StatusBadge } from '@/components/ui/status-badge'
-import { getBilling, getBillingPayments, type Payment, type PaymentQuery } from '@/lib/api'
+import { ApiError, getBilling, getBillingPayments, getBillingPdf, type Payment, type PaymentQuery } from '@/lib/api'
 import { moneyToCents, paymentMethodLabel } from '@/lib/billing-format'
 import { billingDetailQueryKey, billingPaymentsQueryKey } from '@/lib/billings-query'
 import { durationLabel, formatMoney } from '@/lib/booking-format'
@@ -28,8 +28,26 @@ export function BillingDetailRoute() {
   const [recording, setRecording] = useState(false)
   const [voiding, setVoiding] = useState<Payment>()
   const [message, setMessage] = useState<string>()
+  const [pdfError, setPdfError] = useState<string>()
   const billing = useQuery({ queryKey: billingDetailQueryKey(billingId), queryFn: () => getBilling(billingId), enabled: Number.isInteger(billingId) && billingId > 0 })
   const payments = useQuery({ queryKey: billingPaymentsQueryKey(billingId, { ...historyQuery, page: paymentPage }), queryFn: () => getBillingPayments(billingId, { ...historyQuery, page: paymentPage }), enabled: Number.isInteger(billingId) && billingId > 0 })
+  const pdfMutation = useMutation({
+    mutationFn: () => getBillingPdf(billingId),
+    onSuccess: (pdf) => {
+      const objectUrl = URL.createObjectURL(pdf)
+      const link = document.createElement('a')
+      link.href = objectUrl
+      link.download = `${billing.data?.billing_number ?? `billing-${billingId}`}.pdf`
+      link.click()
+      URL.revokeObjectURL(objectUrl)
+    },
+    onError: (error) => {
+      const message = error instanceof ApiError
+        ? Object.values(error.fieldErrors).flat()[0] ?? error.message
+        : error instanceof Error ? error.message : 'Unable to download the Billing PDF.'
+      setPdfError(message)
+    },
+  })
 
   if (!Number.isInteger(billingId) || billingId < 1) return <p role="alert" className="text-danger">Invalid Billing.</p>
   if (billing.isPending) return <LoadingState label="Loading Billing..." />
@@ -53,10 +71,14 @@ export function BillingDetailRoute() {
             <BookingStatusBadge status={item.booking.status} />
           </div>
         </div>
-        {canRecord ? <Button onClick={() => { setRecording(true); setMessage(undefined) }}><CreditCard className="size-4" aria-hidden="true" /> Record Payment</Button> : null}
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" disabled={pdfMutation.isPending} onClick={() => { setPdfError(undefined); pdfMutation.mutate() }}><Download className="size-4" aria-hidden="true" /> {pdfMutation.isPending ? 'Preparing PDF...' : 'Download PDF'}</Button>
+          {canRecord ? <Button onClick={() => { setRecording(true); setMessage(undefined) }}><CreditCard className="size-4" aria-hidden="true" /> Record Payment</Button> : null}
+        </div>
       </div>
 
       {message ? <p role="status" className="mt-5 rounded-lg border border-green-200 bg-success-soft p-4 text-sm text-success">{message}</p> : null}
+      {pdfError ? <p role="alert" className="mt-4 text-sm text-danger">{pdfError}</p> : null}
 
       <div className="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="space-y-6">
