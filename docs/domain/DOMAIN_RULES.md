@@ -9,6 +9,7 @@ This is the concise implementation checklist for the approved V1 invariants. Det
 3. Every tenant-owned query and route binding is tenant-scoped. Derived child records are loaded through their scoped aggregate.
 4. Operational Staff are not Users, cannot log in, and are never created automatically from Users.
 5. `organizations.name` is canonical tenant identity. `business_settings.display_name` owns editable display/document identity.
+6. Business Settings owns the tenant logo and curated theme accent. Timezone is globally `Asia/Manila`. All monetary values are Philippine Peso; neither timezone nor currency is tenant-configurable or persisted as a document option.
 
 ## Master data and pricing
 
@@ -84,7 +85,7 @@ This is the concise implementation checklist for the approved V1 invariants. Det
 ## Historical and deletion integrity
 
 1. Snapshot lineage is Master Data -> Booking -> Quotation -> Billing. Each boundary copies the data required to render that record without current master data.
-2. Exact prices, quantities, durations, Service/Package names, customer/event details, currency, and seller identity are not recomputed on historical documents.
+2. Exact prices, quantities, durations, Service/Package names, customer/event details, and seller identity are not recomputed on historical documents.
 3. Historical/financial parent foreign keys restrict deletion. Master records with references are deactivated.
 4. Cascades are limited to configuration/counter rows on Organization deletion and removable Staff assignments when a pre-acceptance Booking Service is explicitly removed.
 5. Calendar and Dashboard are queries/read models, not V1 source-of-truth tables.

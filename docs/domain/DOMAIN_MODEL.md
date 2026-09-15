@@ -32,7 +32,7 @@ No additional authentication, membership, role, or tenant table is proposed.
 - Primary and foreign keys are unsigned `BIGINT` values.
 - Audit and financial timestamps are stored as instants using `DATETIME(6)` where domain precision matters. Booking schedules use Asia/Manila wall-clock `DATETIME(6)` values. Date-only business values use `DATE`.
 - Money uses non-negative `DECIMAL(13,2)`. Backend code must use decimal strings or an exact-money abstraction, never binary floating point.
-- Currency is an ISO 4217 three-letter code. V1 uses one currency per organization, snapshotted onto commercial documents.
+- All TakdaOps monetary values are Philippine Peso. Currency is not tenant-configurable and is not persisted on commercial documents.
 - Statuses are uppercase string codes with database `CHECK` constraints and matching backend enums.
 - Active/inactive master data uses `is_active`; referenced master data is deactivated, not deleted.
 - Human-readable names are `VARCHAR(255)` unless a smaller bound is stated. Notes and addresses are `TEXT` and nullable unless required below.
@@ -98,7 +98,7 @@ Important fields:
 - `id`; `organization_id` (unique).
 - `display_name` (required), initialized from `organizations.name`.
 - nullable `email`, `phone`, `address`, `logo_path`.
-- `currency` (`CHAR(3)`; default `PHP`).
+- `theme_accent` (curated semantic key; default `plum`).
 - `booking_prefix`, `quotation_prefix`, `billing_prefix` (`VARCHAR(10)`; defaults `BK`, `QT`, `INV`).
 - timestamps.
 
@@ -108,7 +108,7 @@ Constraints and indexes:
 
 - Unique `organization_id` gives exactly one settings row per Organization once provisioned.
 - Prefixes must be non-empty and limited to an implementation-approved uppercase character set.
-- Timezone and currency validity are backend-authoritative; the database can enforce length/non-empty shape but not the IANA registry.
+- Theme accent is restricted to the curated allow-list in both backend validation and the database.
 - Organization deletion may cascade to this configuration-only row, but operational Organization deletion is restricted by business records.
 
 ### Document Sequence (`document_sequences`, V1)
@@ -335,7 +335,7 @@ Important fields:
 - Seller snapshots: `business_display_name`, nullable business email/phone/address/logo path. A snapshotted logo path must address an immutable/versioned asset; replacing bytes at the same path would break history.
 - Customer snapshots: name and nullable email/phone/address.
 - Event snapshots: Event Type name, event name/date, venue name/address, contact person/number.
-- `currency`, `subtotal`, `transportation_fee`, `crew_meal_fee`, `discount_amount`, `total` (`DECIMAL(13,2)`).
+- `subtotal`, `transportation_fee`, `crew_meal_fee`, `discount_amount`, `total` (`DECIMAL(13,2)`).
 - generated nullable `active_slot`: `1` for `DRAFT`/`SENT`, otherwise `NULL`.
 - generated nullable `accepted_slot`: `1` for `ACCEPTED`, otherwise `NULL`.
 - `created_by`, timestamps.
@@ -394,7 +394,7 @@ Important fields:
 
 - `id`, `organization_id`, `quotation_id` (unique), `billing_number`, `issued_at` (UTC).
 - The same seller, customer, and event snapshot groups as Quotation.
-- `currency`, `subtotal`, `transportation_fee`, `crew_meal_fee`, `discount_amount`, `total`.
+- `subtotal`, `transportation_fee`, `crew_meal_fee`, `discount_amount`, `total`.
 - `created_by`, timestamps.
 
 Constraints and indexes:
@@ -453,7 +453,7 @@ Unless a field is explicitly described as nullable in its domain section, it is 
 
 | Table | Foreign keys and delete action | Uniques and key indexes | Checks / nullability notes |
 | --- | --- | --- | --- |
-| `business_settings` | Organization CASCADE | unique Organization | Contact/address/logo nullable; currency/prefixes required and non-empty. |
+| `business_settings` | Organization CASCADE | unique Organization | Contact/address/logo nullable; theme accent allow-list; prefixes required and non-empty. |
 | `document_sequences` | Organization CASCADE | unique `(organization_id, document_type, year)` | Type allow-list; `year >= 2000`; `next_number >= 1`. |
 | `customers` | Organization RESTRICT | `(organization_id, id)`; list index `(organization_id, is_active, name)` | Email/phone/address/notes nullable. |
 | `event_types` | Organization RESTRICT | unique `(organization_id, name)` and `(organization_id, id)`; active-name list index | Name required. |

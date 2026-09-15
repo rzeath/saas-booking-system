@@ -6,7 +6,7 @@ import type { Booking } from '@/lib/api'
 import { formatMoney } from '@/lib/booking-format'
 import { formatBusinessDate, relevantQuotationDate } from '@/lib/quotation-format'
 
-export function QuotationHistory({ booking, currency }: { booking: Booking; currency: string }) {
+export function QuotationHistory({ booking }: { booking: Booking }) {
   const quotations = booking.quotations ?? []
   const hasBlockingQuotation = quotations.some((quotation) => ['DRAFT', 'SENT', 'ACCEPTED'].includes(quotation.status))
   const canOfferCreate = booking.status === 'PENDING' && !hasBlockingQuotation
@@ -38,7 +38,7 @@ export function QuotationHistory({ booking, currency }: { booking: Booking; curr
                   <tr key={quotation.id}>
                     <td className="px-5 py-4 font-semibold">{quotation.quotation_number}</td>
                     <td className="px-5 py-4"><QuotationStatusBadge status={quotation.status} /></td>
-                    <td className="px-5 py-4 tabular-nums">{formatMoney(quotation.total, currency)}</td>
+                    <td className="px-5 py-4 tabular-nums">{formatMoney(quotation.total)}</td>
                     <td className="px-5 py-4">{formatBusinessDate(quotation.valid_until)}</td>
                     <td className="px-5 py-4"><span className="block text-xs text-muted">{lifecycle.label}</span>{lifecycle.value}</td>
                     <td className="px-5 py-4 text-right"><Link to={`/quotations/${quotation.id}`} className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 font-medium hover:bg-surface-subtle"><Eye className="size-4" aria-hidden="true" /> View</Link></td>

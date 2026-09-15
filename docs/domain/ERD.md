@@ -22,7 +22,8 @@ erDiagram
         bigint id PK
         bigint organization_id FK
         varchar display_name
-        char currency
+        varchar logo_path
+        varchar theme_accent
         varchar booking_prefix
         varchar quotation_prefix
         varchar billing_prefix

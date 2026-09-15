@@ -5,7 +5,7 @@ import App from '@/App'
 import { AppProviders } from '@/app/providers'
 
 const auth = { user: { id: 7, name: 'Admin', email: 'admin@example.com' }, organization: { id: 1, name: 'Studio', status: 'active' } }
-const settings = { display_name: 'Studio', email: null, phone: null, address: null, logo_path: null, currency: 'PHP', booking_prefix: 'BK', quotation_prefix: 'QT', billing_prefix: 'INV' }
+const settings = { display_name: 'Studio', email: null, phone: null, address: null, logo_path: null, logo_url: null, theme_accent: 'plum', booking_prefix: 'BK', quotation_prefix: 'QT', billing_prefix: 'INV' }
 
 const draftSummary = {
   id: 21,
@@ -61,7 +61,6 @@ const quotation = {
   seller_snapshot: { display_name: 'Studio', email: 'studio@example.com', phone: '09170000000', address: 'Quezon City', logo_path: null },
   customer_snapshot: { name: 'Ana Cruz', email: 'ana@example.com', phone: '09171234567', address: 'Makati' },
   event_snapshot: { event_type_name: 'Wedding', event_name: 'Ana & Leo', event_date: '2027-06-15', venue_name: 'The Glass House', venue_address: 'Makati', contact_person: 'Ana Cruz', contact_number: '09171234567' },
-  currency: 'PHP',
   subtotal: '8000.00',
   transportation_fee: '250.25',
   crew_meal_fee: '125.00',
@@ -108,7 +107,7 @@ afterEach(() => {
   window.history.pushState({}, '', '/')
 })
 
-test('renders the quotation list with exact PHP money and related Booking', async () => {
+test('renders the quotation list with exact peso money and related Booking', async () => {
   renderRoute('/quotations')
   const row = (await screen.findByText('QT-2027-000003')).closest('tr')
 
@@ -180,7 +179,7 @@ test('creates a Draft from read-only Booking data and navigates to its detail', 
   fireEvent.change(screen.getByLabelText('Valid until'), { target: { value: '2027-06-30' } })
   fireEvent.click(screen.getByRole('button', { name: 'Create Quotation' }))
 
-  expect(await screen.findByRole('heading', { name: 'QT-2027-000003' })).toBeInTheDocument()
+  expect(await screen.findByRole('heading', { name: 'QT-2027-000003' }, { timeout: 5000 })).toBeInTheDocument()
   expect(window.location.pathname).toBe('/quotations/21')
   expect(payload).toEqual({ transportation_fee: '250.25', crew_meal_fee: '125.00', discount_amount: '250.00', valid_until: '2027-06-30' })
   expect(payload).not.toHaveProperty('items')

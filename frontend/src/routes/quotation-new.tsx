@@ -4,10 +4,9 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { QuotationAdjustmentsForm } from '@/components/quotations/quotation-adjustments-form'
 import { QuotationItemsTable } from '@/components/quotations/quotation-items-table'
-import { createQuotation, getBooking, getBusinessSettings } from '@/lib/api'
+import { createQuotation, getBooking } from '@/lib/api'
 import { formatMoney, sumMoney } from '@/lib/booking-format'
 import { bookingDetailQueryKey } from '@/lib/bookings-query'
-import { businessSettingsQueryKey } from '@/lib/business-settings-query'
 import { quotationDetailQueryKey, quotationListsQueryKey } from '@/lib/quotations-query'
 
 function Detail({ label, value }: { label: string; value: string | null }) {
@@ -19,7 +18,6 @@ export function QuotationNewRoute() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const booking = useQuery({ queryKey: bookingDetailQueryKey(bookingId), queryFn: () => getBooking(bookingId), enabled: Number.isInteger(bookingId) && bookingId > 0 })
-  const settings = useQuery({ queryKey: businessSettingsQueryKey, queryFn: getBusinessSettings })
   const mutation = useMutation({
     mutationFn: (input: Parameters<typeof createQuotation>[1]) => createQuotation(bookingId, input),
     onSuccess: (quotation) => {
@@ -31,11 +29,10 @@ export function QuotationNewRoute() {
   })
 
   if (!Number.isInteger(bookingId) || bookingId < 1) return <p role="alert" className="text-danger">Invalid Booking.</p>
-  if (booking.isPending || settings.isPending) return <p role="status" className="text-muted">Loading Booking...</p>
-  if (booking.isError || settings.isError) return <div><p role="alert" className="text-danger">We could not prepare this quotation.</p><button type="button" onClick={() => { void booking.refetch(); void settings.refetch() }} className="mt-4 rounded-lg border border-border px-4 py-2 text-sm">Try again</button></div>
+  if (booking.isPending) return <p role="status" className="text-muted">Loading Booking...</p>
+  if (booking.isError) return <div><p role="alert" className="text-danger">We could not prepare this quotation.</p><button type="button" onClick={() => { void booking.refetch() }} className="mt-4 rounded-lg border border-border px-4 py-2 text-sm">Try again</button></div>
 
   const item = booking.data
-  const currency = settings.data.currency
   const servicesTotal = sumMoney(item.booking_services.map((line) => line.line_total))
 
   return (
@@ -61,7 +58,7 @@ export function QuotationNewRoute() {
         </section>
         <section className="rounded-lg border border-border bg-surface p-6">
           <h2 className="text-lg font-semibold">Commercial adjustments</h2>
-          <p className="mt-1 text-sm text-muted">Services subtotal: <strong className="text-foreground">{formatMoney(servicesTotal, currency)}</strong></p>
+          <p className="mt-1 text-sm text-muted">Services subtotal: <strong className="text-foreground">{formatMoney(servicesTotal)}</strong></p>
           <div className="mt-5">
             <QuotationAdjustmentsForm submitLabel="Create Quotation" isPending={mutation.isPending} error={mutation.error} onSubmit={(input) => mutation.mutate(input)} />
           </div>
@@ -70,7 +67,7 @@ export function QuotationNewRoute() {
 
       <section className="mt-6 rounded-lg border border-border bg-surface">
         <div className="border-b border-border p-6"><h2 className="text-lg font-semibold">Booking Services</h2><p className="mt-1 text-sm text-muted">Saved schedule and pricing.</p></div>
-        <QuotationItemsTable currency={currency} items={item.booking_services.map((line) => ({ id: line.id, serviceName: line.service.name, packageName: line.package.name, startAt: line.start_at, endAt: line.end_at, durationMinutes: line.duration_minutes, quantity: line.quantity, unitRate: line.unit_rate, lineTotal: line.line_total }))} />
+        <QuotationItemsTable items={item.booking_services.map((line) => ({ id: line.id, serviceName: line.service.name, packageName: line.package.name, startAt: line.start_at, endAt: line.end_at, durationMinutes: line.duration_minutes, quantity: line.quantity, unitRate: line.unit_rate, lineTotal: line.line_total }))} />
       </section>
     </section>
   )

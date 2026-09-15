@@ -5,7 +5,7 @@ import App from '@/App'
 import { AppProviders } from '@/app/providers'
 
 const auth = { user: { id: 7, name: 'Admin', email: 'admin@example.com' }, organization: { id: 1, name: 'Studio', status: 'active' } }
-const settings = { display_name: 'Studio', email: null, phone: null, address: null, logo_path: null, currency: 'PHP', booking_prefix: 'BK', quotation_prefix: 'QT', billing_prefix: 'INV' }
+const settings = { display_name: 'Studio', email: null, phone: null, address: null, logo_path: null, logo_url: null, theme_accent: 'plum', booking_prefix: 'BK', quotation_prefix: 'QT', billing_prefix: 'INV' }
 const customer = { id: 2, name: 'Ana Cruz', email: 'ana@example.com', phone: '09171234567', address: 'Makati', notes: null, is_active: true, created_at: '2026-01-01', updated_at: '2026-01-01' }
 const eventType = { id: 3, name: 'Wedding', is_active: true, created_at: '2026-01-01', updated_at: '2026-01-01' }
 const service = { id: 4, name: 'Mirror Booth', total_units: 2, is_active: true, created_at: '2026-01-01', updated_at: '2026-01-01' }

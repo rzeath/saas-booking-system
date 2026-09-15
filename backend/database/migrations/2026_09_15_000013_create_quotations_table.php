@@ -35,7 +35,6 @@ return new class extends Migration
             $table->text('venue_address')->nullable();
             $table->string('contact_person');
             $table->string('contact_number', 50);
-            $table->char('currency', 3);
             $table->decimal('subtotal', 13, 2);
             $table->decimal('transportation_fee', 13, 2)->default(0);
             $table->decimal('crew_meal_fee', 13, 2)->default(0);

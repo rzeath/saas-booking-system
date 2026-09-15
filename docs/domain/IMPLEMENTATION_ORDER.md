@@ -23,14 +23,14 @@ Tables:
 Backend scope:
 
 - Provision one Business Settings row with an Organization/Admin registration without changing one-admin semantics.
-- Tenant-scoped settings read/update action with currency and prefix validation.
+- Tenant-scoped settings read/update action with branding and prefix validation.
 - Transaction-safe, year-aware number allocator for Booking/Quotation/Billing types.
 
 Tests:
 
 - Registration atomically creates one settings row with defaults.
 - Tenant isolation and ignored caller tenant IDs.
-- Prefix/currency validation.
+- Branding/prefix validation.
 - Concurrent allocation uniqueness, year/type/tenant separation, formatting, rollback behavior, and acceptable gaps.
 
 Frontend scope:
@@ -95,7 +95,7 @@ Frontend scope:
 - Service/Package management and Rate matrix/list editing.
 - Only expose active bookable combinations to later Booking forms.
 
-Dependencies: Event Types from Phase 3; settings currency from Phase 2B.
+Dependencies: Event Types from Phase 3; the Philippine Peso money invariant.
 
 ## Phase 5 — Staff
 

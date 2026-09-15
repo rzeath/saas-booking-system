@@ -65,7 +65,6 @@ class QuotationPersistenceTest extends TestCase
             'venue_address',
             'contact_person',
             'contact_number',
-            'currency',
             'subtotal',
             'transportation_fee',
             'crew_meal_fee',
@@ -77,6 +76,7 @@ class QuotationPersistenceTest extends TestCase
             'created_at',
             'updated_at',
         ]));
+        $this->assertFalse(Schema::hasColumn('quotations', 'currency'));
         $this->assertFalse(Schema::hasColumn('quotations', 'tax'));
         $this->assertFalse(Schema::hasColumn('quotations', 'notes'));
         $this->assertFalse(Schema::hasColumn('quotations', 'terms'));

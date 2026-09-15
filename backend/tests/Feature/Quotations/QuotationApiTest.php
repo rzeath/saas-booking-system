@@ -48,7 +48,6 @@ class QuotationApiTest extends TestCase
             ->assertJsonPath('seller_snapshot.display_name', $organization->businessSetting->display_name)
             ->assertJsonPath('customer_snapshot.name', $booking->customer_name)
             ->assertJsonPath('event_snapshot.event_name', $booking->event_name)
-            ->assertJsonPath('currency', 'PHP')
             ->assertJsonPath('subtotal', '15000.50')
             ->assertJsonPath('transportation_fee', '100.10')
             ->assertJsonPath('crew_meal_fee', '50.20')
@@ -60,6 +59,7 @@ class QuotationApiTest extends TestCase
             ->assertJsonPath('items.0.end_at', '2027-06-15 21:00')
             ->assertJsonPath('items.0.unit_rate', '7500.25')
             ->assertJsonPath('items.0.line_total', '15000.50')
+            ->assertJsonMissingPath('currency')
             ->assertJsonMissingPath('organization_id')
             ->assertJsonMissingPath('booking_id');
 
@@ -80,6 +80,7 @@ class QuotationApiTest extends TestCase
             'items' => [['line_total' => '0.01']],
             'subtotal' => '0.01',
             'total' => '0.01',
+            'currency' => 'USD',
             'customer_snapshot' => ['name' => 'Hostile Customer'],
             'event_snapshot' => ['event_name' => 'Hostile Event'],
             'service_id' => 999999,
@@ -93,6 +94,7 @@ class QuotationApiTest extends TestCase
                 'items',
                 'subtotal',
                 'total',
+                'currency',
                 'customer_snapshot',
                 'event_snapshot',
                 'service_id',

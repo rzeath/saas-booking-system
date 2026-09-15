@@ -67,7 +67,7 @@ export function QuotationsRoute() {
                       <td className="px-5 py-4 font-semibold text-primary">{quotation.quotation_number}</td>
                       <td className="px-5 py-4">{quotation.booking ? <Link to={`/bookings/${quotation.booking.id}`} className="font-medium hover:text-primary">{quotation.booking.booking_number}</Link> : <span className="text-muted">Unavailable</span>}</td>
                       <td className="px-5 py-4">{quotation.customer_name}</td>
-                      <td className="px-5 py-4 font-medium tabular-nums">{formatMoney(quotation.total, 'PHP')}</td>
+                      <td className="px-5 py-4 font-medium tabular-nums">{formatMoney(quotation.total)}</td>
                       <td className="px-5 py-4">{formatBusinessDate(quotation.valid_until)}</td>
                       <td className="px-5 py-4"><QuotationStatusBadge status={quotation.status} /></td>
                       <td className="px-5 py-4"><span className="block text-xs text-muted">{lifecycle.label}</span>{lifecycle.value}</td>

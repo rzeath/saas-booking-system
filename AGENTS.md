@@ -927,15 +927,15 @@ Likely settings include:
 - phone
 - address
 - logo
-- currency
+- theme accent
 - booking number prefix
 - quotation number prefix
 - billing number prefix
 
-Initial expected defaults may include:
+Initial expected defaults include:
 
 ```text
-currency = PHP
+theme accent = plum
 booking prefix = BK
 quotation prefix = QT
 billing prefix = INV
@@ -980,6 +980,10 @@ Business and event schedules are stored, calculated, and presented directly as A
 Avoid unsafe JavaScript Date parsing/formatting behavior that can shift calendar dates unintentionally.
 
 ### Money
+
+All TakdaOps monetary values are Philippine Peso. Currency is a domain invariant, not a configurable setting or persisted document field.
+
+Future Billing, Payments, and PDF work must not introduce currency columns, API fields, or selectors unless the product scope explicitly changes.
 
 Do not use binary floating-point values for monetary persistence or financial calculations.
 

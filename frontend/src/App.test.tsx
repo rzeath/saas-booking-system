@@ -47,7 +47,7 @@ test('renders the authenticated user and only their organization context', async
     organization: { id: 12, name: 'Rzeath Events', status: 'active' },
   }))
 
-  expect((await screen.findAllByText('TakdaOps')).length).toBeGreaterThan(0)
+    expect((await screen.findAllByText('Powered by TakdaOps')).length).toBeGreaterThan(0)
   expect(screen.getAllByText('Rzeath Events').length).toBeGreaterThan(0)
   expect(screen.getAllByText('Erica Admin').length).toBeGreaterThan(0)
   expect(screen.getAllByText('erica@example.com').length).toBeGreaterThan(0)

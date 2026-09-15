@@ -102,7 +102,6 @@ class QuotationDraftActionsTest extends TestCase
             'phone' => '+63 917 111 2222',
             'address' => 'Seller Address',
             'logo_path' => 'logos/snapshot-v1.png',
-            'currency' => 'PHP',
         ]);
         [$booking] = $this->bookingWithServices($organization, $user);
         $booking->customer->update([
@@ -118,7 +117,6 @@ class QuotationDraftActionsTest extends TestCase
         $this->assertSame($settings->phone, $quotation->business_phone);
         $this->assertSame($settings->address, $quotation->business_address);
         $this->assertSame($settings->logo_path, $quotation->business_logo_path);
-        $this->assertSame('PHP', $quotation->currency);
         $this->assertSame('Booked Customer', $quotation->customer_name);
         $this->assertSame('booked@example.test', $quotation->customer_email);
         $this->assertSame('Booked Event Type', $quotation->event_type_name);

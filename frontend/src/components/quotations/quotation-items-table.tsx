@@ -13,7 +13,7 @@ export type QuotationDisplayItem = {
   lineTotal: string
 }
 
-export function QuotationItemsTable({ items, currency }: { items: QuotationDisplayItem[]; currency: string }) {
+export function QuotationItemsTable({ items }: { items: QuotationDisplayItem[] }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-left text-sm">
@@ -27,8 +27,8 @@ export function QuotationItemsTable({ items, currency }: { items: QuotationDispl
               <td className="px-5 py-4"><span className="block">{formatManilaWallClock(item.startAt)}</span><span className="text-muted">to {formatManilaWallClock(item.endAt)}</span></td>
               <td className="px-5 py-4">{durationLabel(item.durationMinutes)}</td>
               <td className="px-5 py-4">{item.quantity}</td>
-              <td className="px-5 py-4 tabular-nums">{formatMoney(item.unitRate, currency)}</td>
-              <td className="px-5 py-4 text-right font-semibold tabular-nums">{formatMoney(item.lineTotal, currency)}</td>
+              <td className="px-5 py-4 tabular-nums">{formatMoney(item.unitRate)}</td>
+              <td className="px-5 py-4 text-right font-semibold tabular-nums">{formatMoney(item.lineTotal)}</td>
             </tr>
           ))}
         </tbody>

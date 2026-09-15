@@ -1,4 +1,5 @@
 import type { BookingStatus } from '@/lib/api'
+import { SYSTEM_LOCALE } from '@/lib/system-config'
 
 export function bookingStatusLabel(status: BookingStatus): string {
   return status.charAt(0) + status.slice(1).toLowerCase()
@@ -13,12 +14,13 @@ export function durationLabel(minutes: number): string {
   return `${minutes} minutes`
 }
 
-export function formatMoney(value: string, currency: string): string {
-  return new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency,
+export function formatMoney(value: string): string {
+  const amount = new Intl.NumberFormat(SYSTEM_LOCALE, {
     minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(Number(value))
+
+  return `₱${amount}`
 }
 
 export function sumMoney(values: string[]): string {

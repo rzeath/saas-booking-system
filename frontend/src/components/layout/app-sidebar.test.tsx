@@ -4,8 +4,8 @@ import { afterEach, expect, test, vi } from 'vitest'
 import App from '@/App'
 import { AppProviders } from '@/app/providers'
 
-const auth = { user: { id: 7, name: 'Erica Admin', email: 'erica@example.com' }, organization: { id: 12, name: 'Rzeath Events', status: 'active' } }
-const settings = { display_name: 'Rzeath Events', email: null, phone: null, address: null, logo_path: null, currency: 'PHP', booking_prefix: 'BK', quotation_prefix: 'QT', billing_prefix: 'INV' }
+const auth = { user: { id: 7, name: 'Erica Admin', email: 'erica@example.com' }, organization: { id: 12, name: 'Canonical Tenant', status: 'active' } }
+const settings = { display_name: 'Rzeath Events', email: null, phone: null, address: null, logo_path: null, logo_url: null, theme_accent: 'plum', booking_prefix: 'BK', quotation_prefix: 'QT', billing_prefix: 'INV' }
 
 function response(body: unknown) {
   return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } })
@@ -42,11 +42,30 @@ test('opens and dismisses grouped navigation at a mobile viewport', async () => 
   expect(within(drawer).getByText('Configuration')).toBeInTheDocument()
   expect(within(drawer).getByRole('link', { name: 'Master Data' })).toHaveAttribute('href', '/master-data')
   expect(within(drawer).queryByRole('link', { name: 'Service Rates' })).not.toBeInTheDocument()
+  expect(within(drawer).getByRole('link', { name: 'Rzeath Events' })).toBeInTheDocument()
+  expect(within(drawer).getByLabelText('RE business initials')).toBeInTheDocument()
+  expect(within(drawer).getByText('Powered by TakdaOps')).toBeInTheDocument()
   expect(within(drawer).getByText('Erica Admin')).toBeInTheDocument()
 
   fireEvent.keyDown(document, { key: 'Escape' })
   expect(screen.queryByRole('complementary', { name: 'Mobile navigation' })).not.toBeInTheDocument()
   expect(trigger).toHaveFocus()
+})
+
+test('shows the tenant logo and Business Settings name separately from owner identity', async () => {
+  const brandedSettings = { ...settings, logo_path: 'business-logos/12/brand.png', logo_url: '/storage/business-logos/12/brand.png' }
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url.endsWith('/api/me')) return response(auth)
+    if (url.endsWith('/api/v1/business-settings')) return response(brandedSettings)
+    return response(emptyPage())
+  }))
+  render(<AppProviders><App /></AppProviders>)
+
+  expect((await screen.findAllByAltText('Rzeath Events logo')).length).toBeGreaterThan(0)
+  expect(screen.getAllByText('Rzeath Events').length).toBeGreaterThan(0)
+  expect(screen.getByText('Erica Admin')).toBeInTheDocument()
+  expect(screen.queryByText('Canonical Tenant')).not.toBeInTheDocument()
 })
 
 test('signs out from the anchored account control and returns to login', async () => {

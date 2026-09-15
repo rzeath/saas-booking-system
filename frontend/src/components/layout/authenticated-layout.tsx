@@ -3,8 +3,9 @@ import { useEffect, useRef, useState } from 'react'
 import { Outlet, useNavigate } from 'react-router-dom'
 
 import { AppSidebar } from '@/components/layout/app-sidebar'
-import { getCurrentAuth, logout } from '@/lib/api'
+import { getBusinessSettings, getCurrentAuth, logout, type ThemeAccent } from '@/lib/api'
 import { authQueryKey } from '@/lib/auth-query'
+import { businessSettingsQueryKey } from '@/lib/business-settings-query'
 
 export function AuthenticatedLayout() {
   const navigate = useNavigate()
@@ -13,6 +14,12 @@ export function AuthenticatedLayout() {
   const menuButtonRef = useRef<HTMLButtonElement>(null)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
   const authQuery = useQuery({ queryKey: authQueryKey, queryFn: getCurrentAuth })
+  const settingsQuery = useQuery({
+    queryKey: businessSettingsQueryKey,
+    queryFn: getBusinessSettings,
+    enabled: Boolean(authQuery.data),
+  })
+  const themeAccent: ThemeAccent = settingsQuery.data?.theme_accent ?? 'plum'
   const logoutMutation = useMutation({
     mutationFn: logout,
     onSuccess: () => {
@@ -39,6 +46,17 @@ export function AuthenticatedLayout() {
     }
   }, [mobileOpen])
 
+  useEffect(() => {
+    const root = document.documentElement
+    const previous = root.dataset.themeAccent
+    root.dataset.themeAccent = themeAccent
+
+    return () => {
+      if (previous) root.dataset.themeAccent = previous
+      else delete root.dataset.themeAccent
+    }
+  }, [themeAccent])
+
   if (!authQuery.data) return null
 
   const closeMobile = () => {
@@ -51,6 +69,11 @@ export function AuthenticatedLayout() {
       <a href="#main-content" className="fixed left-4 top-4 z-[60] -translate-y-24 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-lg transition-transform focus:translate-y-0">Skip to main content</a>
       <AppSidebar
         auth={authQuery.data}
+        branding={settingsQuery.data ?? {
+          display_name: authQuery.data.organization.name,
+          logo_url: null,
+          theme_accent: 'plum',
+        }}
         mobileOpen={mobileOpen}
         onMobileOpen={() => setMobileOpen(true)}
         onMobileClose={closeMobile}

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ThemeAccent;
 use Database\Factories\BusinessSettingFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -12,20 +13,23 @@ class BusinessSetting extends Model
     /** @use HasFactory<BusinessSettingFactory> */
     use HasFactory;
 
-    public const DEFAULT_CURRENCY = 'PHP';
-
     public const DEFAULT_BOOKING_PREFIX = 'BK';
 
     public const DEFAULT_QUOTATION_PREFIX = 'QT';
 
     public const DEFAULT_BILLING_PREFIX = 'INV';
 
+    protected $attributes = [
+        'theme_accent' => ThemeAccent::Plum->value,
+    ];
+
     protected $fillable = [
         'display_name',
         'email',
         'phone',
         'address',
-        'currency',
+        'logo_path',
+        'theme_accent',
         'booking_prefix',
         'quotation_prefix',
         'billing_prefix',
@@ -36,10 +40,18 @@ class BusinessSetting extends Model
     {
         return [
             'display_name' => $displayName,
-            'currency' => self::DEFAULT_CURRENCY,
+            'theme_accent' => ThemeAccent::Plum->value,
             'booking_prefix' => self::DEFAULT_BOOKING_PREFIX,
             'quotation_prefix' => self::DEFAULT_QUOTATION_PREFIX,
             'billing_prefix' => self::DEFAULT_BILLING_PREFIX,
+        ];
+    }
+
+    /** @return array<string, string> */
+    protected function casts(): array
+    {
+        return [
+            'theme_accent' => ThemeAccent::class,
         ];
     }
 

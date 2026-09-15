@@ -7,13 +7,23 @@ const authContextSchema = z.object({
   organization: z.object({ id: z.number(), name: z.string(), status: z.string() }),
 })
 
+const themeAccentSchema = z.enum([
+  'plum',
+  'forest',
+  'terracotta',
+  'teal',
+  'indigo',
+  'graphite',
+])
+
 const businessSettingSchema = z.object({
   display_name: z.string(),
   email: z.string().nullable(),
   phone: z.string().nullable(),
   address: z.string().nullable(),
   logo_path: z.string().nullable(),
-  currency: z.string(),
+  logo_url: z.string().nullable(),
+  theme_accent: themeAccentSchema,
   booking_prefix: z.string(),
   quotation_prefix: z.string(),
   billing_prefix: z.string(),
@@ -169,7 +179,6 @@ const quotationSchema = z.object({
     contact_person: z.string(),
     contact_number: z.string(),
   }),
-  currency: z.string(),
   subtotal: z.string(),
   transportation_fee: z.string(),
   crew_meal_fee: z.string(),
@@ -280,8 +289,12 @@ const errorResponseSchema = z.object({
 })
 
 export type AuthContext = z.infer<typeof authContextSchema>
+export type ThemeAccent = z.infer<typeof themeAccentSchema>
 export type BusinessSetting = z.infer<typeof businessSettingSchema>
-export type UpdateBusinessSettingInput = Omit<BusinessSetting, 'logo_path'>
+export type UpdateBusinessSettingInput = Omit<BusinessSetting, 'logo_path' | 'logo_url'> & {
+  logo?: File
+  remove_logo?: boolean
+}
 export type Customer = z.infer<typeof customerSchema>
 export type CustomerPage = z.infer<typeof customerPageSchema>
 export type SaveCustomerInput = Omit<Customer, 'id' | 'created_at' | 'updated_at'>
@@ -417,12 +430,13 @@ function csrfToken(): string | undefined {
 
 async function request(path: string, init: RequestInit = {}): Promise<Response> {
   const token = csrfToken()
+  const isFormData = init.body instanceof FormData
   const response = await fetch(`${apiBaseUrl}${path}`, {
     ...init,
     credentials: 'same-origin',
     headers: {
       Accept: 'application/json',
-      ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(init.body && !isFormData ? { 'Content-Type': 'application/json' } : {}),
       ...(token ? { 'X-XSRF-TOKEN': token } : {}),
       ...init.headers,
     },
@@ -486,9 +500,22 @@ export async function updateBusinessSettings(
   input: UpdateBusinessSettingInput,
 ): Promise<BusinessSetting> {
   await initializeCsrf()
+  const formData = new FormData()
+  formData.set('_method', 'PUT')
+  formData.set('display_name', input.display_name)
+  formData.set('email', input.email ?? '')
+  formData.set('phone', input.phone ?? '')
+  formData.set('address', input.address ?? '')
+  formData.set('theme_accent', input.theme_accent)
+  formData.set('booking_prefix', input.booking_prefix)
+  formData.set('quotation_prefix', input.quotation_prefix)
+  formData.set('billing_prefix', input.billing_prefix)
+  if (input.logo) formData.set('logo', input.logo)
+  if (input.remove_logo) formData.set('remove_logo', '1')
+
   const response = await requestV1('/business-settings', {
-    method: 'PUT',
-    body: JSON.stringify(input),
+    method: 'POST',
+    body: formData,
   })
 
   return businessSettingSchema.parse(await response.json())

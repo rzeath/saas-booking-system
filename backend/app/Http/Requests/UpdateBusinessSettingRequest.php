@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\ThemeAccent;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateBusinessSettingRequest extends FormRequest
 {
@@ -18,7 +20,6 @@ class UpdateBusinessSettingRequest extends FormRequest
             'email' => $this->nullableTrimmed('email'),
             'phone' => $this->nullableTrimmed('phone'),
             'address' => $this->nullableTrimmed('address'),
-            'currency' => mb_strtoupper($this->trimmed('currency')),
             'booking_prefix' => mb_strtoupper($this->trimmed('booking_prefix')),
             'quotation_prefix' => mb_strtoupper($this->trimmed('quotation_prefix')),
             'billing_prefix' => mb_strtoupper($this->trimmed('billing_prefix')),
@@ -33,10 +34,17 @@ class UpdateBusinessSettingRequest extends FormRequest
             'email' => ['nullable', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
             'address' => ['nullable', 'string', 'max:2000'],
-            'currency' => ['required', 'string', 'size:3', 'regex:/\A[A-Z]{3}\z/'],
+            'theme_accent' => ['required', Rule::enum(ThemeAccent::class)],
+            'logo' => ['sometimes', 'nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'remove_logo' => ['sometimes', 'boolean'],
             'booking_prefix' => $this->prefixRules(),
             'quotation_prefix' => $this->prefixRules(),
             'billing_prefix' => $this->prefixRules(),
+            'organization_id' => ['prohibited'],
+            'currency' => ['prohibited'],
+            'timezone' => ['prohibited'],
+            'logo_path' => ['prohibited'],
+            'logo_url' => ['prohibited'],
         ];
     }
 

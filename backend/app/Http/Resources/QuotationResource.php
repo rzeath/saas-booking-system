@@ -47,7 +47,6 @@ class QuotationResource extends JsonResource
                 'contact_person' => $this->resource->contact_person,
                 'contact_number' => $this->resource->contact_number,
             ],
-            'currency' => $this->resource->currency,
             'subtotal' => $this->resource->subtotal,
             'transportation_fee' => $this->resource->transportation_fee,
             'crew_meal_fee' => $this->resource->crew_meal_fee,

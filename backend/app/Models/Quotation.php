@@ -42,7 +42,6 @@ class Quotation extends Model
         'venue_address',
         'contact_person',
         'contact_number',
-        'currency',
         'subtotal',
         'transportation_fee',
         'crew_meal_fee',

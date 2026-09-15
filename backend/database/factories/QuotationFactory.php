@@ -37,7 +37,6 @@ class QuotationFactory extends Factory
             'venue_address' => fn (array $attributes): ?string => $this->booking($attributes)->venue_address,
             'contact_person' => fn (array $attributes): string => $this->booking($attributes)->contact_person,
             'contact_number' => fn (array $attributes): string => $this->booking($attributes)->contact_number,
-            'currency' => 'PHP',
             'subtotal' => '7500.00',
             'transportation_fee' => '500.00',
             'crew_meal_fee' => '250.00',

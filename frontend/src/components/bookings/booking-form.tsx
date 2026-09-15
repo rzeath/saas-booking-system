@@ -13,7 +13,6 @@ import {
   checkBookingAvailability,
   checkStaffAvailability,
   createBooking,
-  getBusinessSettings,
   getEventTypes,
   getServicePackageOptions,
   getServiceRates,
@@ -29,7 +28,6 @@ import {
 } from '@/lib/api'
 import { durationLabel, formatMoney, multiplyMoney } from '@/lib/booking-format'
 import { bookingListsQueryKey, staffAvailabilityQueryKey } from '@/lib/bookings-query'
-import { businessSettingsQueryKey } from '@/lib/business-settings-query'
 import { eventTypeListQueryKey } from '@/lib/event-types-query'
 import { servicePackageListQueryKey } from '@/lib/packages-query'
 import { serviceRateListQueryKey } from '@/lib/service-rates-query'
@@ -131,7 +129,6 @@ function BookingServiceFields({
   fieldKey,
   services,
   eventTypeId,
-  currency,
   savedLine,
   eventDate,
   onRemove,
@@ -142,7 +139,6 @@ function BookingServiceFields({
   fieldKey: string
   services: Service[]
   eventTypeId: number
-  currency: string
   savedLine?: BookingService
   eventDate: string
   onRemove: () => void
@@ -237,9 +233,9 @@ function BookingServiceFields({
         <FormField label="Quantity" id={`booking-quantity-${fieldKey}`} type="number" min="1" max={selectedService?.total_units} error={errors?.quantity?.message} {...quantityRegistration} onChange={(event) => { onScheduleChange(); void quantityRegistration.onChange(event) }} />
         <div className="rounded-lg border border-slate-800 p-3 text-sm">
           <span className="block text-slate-400">Current configured price</span>
-          <strong className="mt-1 block text-slate-100">{selectedRate ? formatMoney(selectedRate.unit_rate, currency) : 'Unavailable'}</strong>
-          {selectedRate && Number.isInteger(quantity) && quantity > 0 ? <span className="text-slate-400">Estimated line total: {formatMoney(multiplyMoney(selectedRate.unit_rate, quantity), currency)}</span> : null}
-          {savedLine ? <span className="mt-2 block text-xs text-slate-500">Saved snapshot: {formatMoney(savedLine.unit_rate, currency)} each · {formatMoney(savedLine.line_total, currency)} total</span> : null}
+          <strong className="mt-1 block text-slate-100">{selectedRate ? formatMoney(selectedRate.unit_rate) : 'Unavailable'}</strong>
+          {selectedRate && Number.isInteger(quantity) && quantity > 0 ? <span className="text-slate-400">Estimated line total: {formatMoney(multiplyMoney(selectedRate.unit_rate, quantity))}</span> : null}
+          {savedLine ? <span className="mt-2 block text-xs text-slate-500">Saved snapshot: {formatMoney(savedLine.unit_rate)} each · {formatMoney(savedLine.line_total)} total</span> : null}
         </div>
       </div>
       <div className="mt-5 border-t border-slate-800 pt-5">
@@ -284,12 +280,10 @@ export function BookingForm({ booking }: { booking?: Booking }) {
   const eventDate = useWatch({ control: form.control, name: 'event_date' })
   const eventTypes = useQuery({ queryKey: eventTypeListQueryKey(selectorQuery), queryFn: () => getEventTypes(selectorQuery) })
   const services = useQuery({ queryKey: serviceListQueryKey(selectorQuery), queryFn: () => getServices(selectorQuery) })
-  const settings = useQuery({ queryKey: businessSettingsQueryKey, queryFn: getBusinessSettings })
   const currentEventType: EventType | undefined = booking ? { ...booking.event_type, created_at: '', updated_at: '' } : undefined
   const eventTypeOptions = appendCurrent(eventTypes.data?.data ?? [], currentEventType)
   const savedServiceOptions = booking?.booking_services.map((line) => ({ id: line.service.id, name: line.service.name, total_units: 0, is_active: false, created_at: '', updated_at: '' })) ?? []
   const serviceOptions = savedServiceOptions.reduce((items, service) => appendCurrent(items, service), services.data?.data ?? [])
-  const currency = settings.data?.currency ?? 'PHP'
   const savedCustomer = customerFromBooking(booking)
   const selectedCustomer = chosenCustomer?.id === customerId
     ? chosenCustomer
@@ -332,8 +326,8 @@ export function BookingForm({ booking }: { booking?: Booking }) {
     onError: (error) => setMessage(error instanceof Error ? error.message : 'Unable to check availability.'),
   })
 
-  const loadingOptions = eventTypes.isPending || services.isPending || settings.isPending
-  const optionError = eventTypes.isError || services.isError || settings.isError
+  const loadingOptions = eventTypes.isPending || services.isPending
+  const optionError = eventTypes.isError || services.isError
   const rootServiceError = form.formState.errors.booking_services?.root?.message ?? form.formState.errors.booking_services?.message
   const eventDateRegistration = form.register('event_date')
 
@@ -381,7 +375,7 @@ export function BookingForm({ booking }: { booking?: Booking }) {
 
       <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
         <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-semibold">Booking services</h2><p className="mt-1 text-sm text-slate-400">Prices shown are estimates. The server resolves and saves the authoritative rate.</p></div><button type="button" onClick={() => { setAvailabilityIsStale(true); fields.append(blankService()) }} className="inline-flex items-center gap-2 rounded-lg border border-cyan-800 px-3 py-2 text-sm text-cyan-300"><Plus className="size-4" aria-hidden="true" /> Add service</button></div>
-        <div className="mt-5 space-y-5">{fields.fields.map((field, index) => <BookingServiceFields key={field.id} form={form} index={index} fieldKey={field.id} services={serviceOptions} eventTypeId={eventTypeId} eventDate={eventDate} currency={currency} savedLine={booking?.booking_services.find((line) => line.id === form.getValues(`booking_services.${index}.id`))} onScheduleChange={() => setAvailabilityIsStale(true)} onRemove={() => { setAvailabilityIsStale(true); fields.remove(index) }} />)}</div>
+        <div className="mt-5 space-y-5">{fields.fields.map((field, index) => <BookingServiceFields key={field.id} form={form} index={index} fieldKey={field.id} services={serviceOptions} eventTypeId={eventTypeId} eventDate={eventDate} savedLine={booking?.booking_services.find((line) => line.id === form.getValues(`booking_services.${index}.id`))} onScheduleChange={() => setAvailabilityIsStale(true)} onRemove={() => { setAvailabilityIsStale(true); fields.remove(index) }} />)}</div>
         {rootServiceError ? <p role="alert" className="mt-3 text-sm text-rose-300">{rootServiceError}</p> : null}
       </div>
 

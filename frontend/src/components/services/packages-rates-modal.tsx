@@ -265,7 +265,7 @@ function PricingPanel({
                         <tr key={rate.id}>
                           <td className="px-3 py-3 font-medium text-foreground">{durationLabel(rate.duration_minutes)}</td>
                           <td className="px-3 py-3">
-                            <span className="block font-medium text-foreground">{formatMoney(rate.unit_rate, 'PHP')}</span>
+                            <span className="block font-medium text-foreground">{formatMoney(rate.unit_rate)}</span>
                             {!rate.is_active ? <span className="text-xs text-muted">Inactive</span> : null}
                           </td>
                           <td className="px-3 py-3">

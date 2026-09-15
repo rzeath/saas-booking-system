@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\BusinessSettings\UpdateBusinessSettings;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UpdateBusinessSettingRequest;
 use App\Http\Resources\BusinessSettingResource;
@@ -19,10 +20,15 @@ class BusinessSettingController extends Controller
     public function update(
         UpdateBusinessSettingRequest $request,
         TenantContext $tenant,
+        UpdateBusinessSettings $updateBusinessSettings,
     ): BusinessSettingResource {
         $settings = $tenant->organization()->businessSetting()->firstOrFail();
-        $settings->update($request->validated());
 
-        return new BusinessSettingResource($settings->refresh());
+        return new BusinessSettingResource($updateBusinessSettings->handle(
+            $settings,
+            $request->validated(),
+            $request->file('logo'),
+            $request->boolean('remove_logo'),
+        ));
     }
 }

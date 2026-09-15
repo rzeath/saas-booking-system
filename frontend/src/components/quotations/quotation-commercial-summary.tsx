@@ -14,12 +14,12 @@ export function QuotationCommercialSummary({ quotation }: { quotation: Quotation
       {rows.map(([label, value]) => (
         <div key={label} className="flex items-center justify-between gap-6 border-b border-border py-3 text-sm">
           <dt className="text-muted">{label}</dt>
-          <dd className="font-medium tabular-nums">{label === 'Discount' && value !== '0.00' ? '-' : ''}{formatMoney(value, quotation.currency)}</dd>
+          <dd className="font-medium tabular-nums">{label === 'Discount' && value !== '0.00' ? '-' : ''}{formatMoney(value)}</dd>
         </div>
       ))}
       <div className="flex items-center justify-between gap-6 pt-4">
         <dt className="font-semibold">Total</dt>
-        <dd className="text-xl font-bold tabular-nums">{formatMoney(quotation.total, quotation.currency)}</dd>
+        <dd className="text-xl font-bold tabular-nums">{formatMoney(quotation.total)}</dd>
       </div>
     </dl>
   )

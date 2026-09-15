@@ -13,7 +13,8 @@ import { type KeyboardEvent, type RefObject } from 'react'
 import { NavLink } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
-import type { AuthContext } from '@/lib/api'
+import type { AuthContext, BusinessSetting } from '@/lib/api'
+import { businessInitials } from '@/lib/business-branding'
 import { cn } from '@/lib/utils'
 
 const navigation = [
@@ -38,17 +39,9 @@ const navigation = [
   },
 ] as const
 
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join('') || 'A'
-}
-
 type SidebarContentProps = {
   auth: AuthContext
+  branding: Pick<BusinessSetting, 'display_name' | 'logo_url' | 'theme_accent'>
   logoutPending: boolean
   logoutError: boolean
   onLogout: () => void
@@ -57,17 +50,26 @@ type SidebarContentProps = {
   closeButtonRef?: RefObject<HTMLButtonElement | null>
 }
 
-function SidebarContent({ auth, logoutPending, logoutError, onLogout, onNavigate, onClose, closeButtonRef }: SidebarContentProps) {
+function BusinessMark({ branding, compact = false }: { branding: SidebarContentProps['branding']; compact?: boolean }) {
+  const size = compact ? 'size-9' : 'size-10'
+
+  return branding.logo_url ? (
+    <img src={branding.logo_url} alt={`${branding.display_name} logo`} className={`${size} shrink-0 rounded-lg border border-border bg-surface object-contain`} />
+  ) : (
+    <span className={`grid ${size} shrink-0 place-items-center rounded-lg bg-primary-soft text-xs font-bold text-primary`} aria-label={`${businessInitials(branding.display_name)} business initials`}>
+      {businessInitials(branding.display_name)}
+    </span>
+  )
+}
+
+function SidebarContent({ auth, branding, logoutPending, logoutError, onLogout, onNavigate, onClose, closeButtonRef }: SidebarContentProps) {
   return (
     <div className="flex h-full flex-col bg-surface">
       <div className="flex min-h-20 items-center gap-3 border-b border-border px-5">
-        <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground shadow-sm" aria-hidden="true">
-          <CalendarDays className="size-5" />
-        </div>
+        <BusinessMark branding={branding} />
         <div className="min-w-0 flex-1">
-          <NavLink to="/" onClick={onNavigate} className="block truncate text-base font-bold tracking-tight text-foreground">TakdaOps</NavLink>
-          <p className="truncate text-xs font-medium text-muted">{auth.organization.name}</p>
-          <p className="truncate text-[10px] uppercase tracking-wider text-muted">Event Booking Management</p>
+          <NavLink to="/" onClick={onNavigate} className="block truncate text-base font-bold text-foreground">{branding.display_name}</NavLink>
+          <p className="truncate text-[10px] font-medium text-muted">Powered by TakdaOps</p>
         </div>
         {onClose ? (
           <Button ref={closeButtonRef} variant="ghost" size="icon" onClick={onClose} aria-label="Close navigation" className="lg:hidden">
@@ -110,7 +112,7 @@ function SidebarContent({ auth, logoutPending, logoutError, onLogout, onNavigate
         <div className="rounded-xl bg-surface-subtle p-3">
           <div className="flex items-center gap-3">
             <span className="grid size-9 shrink-0 place-items-center rounded-full bg-primary-soft text-xs font-bold text-primary" aria-hidden="true">
-              {initials(auth.user.name)}
+              {businessInitials(auth.user.name)}
             </span>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-foreground">{auth.user.name}</p>
@@ -154,8 +156,8 @@ export function AppSidebar({ auth, mobileOpen, onMobileOpen, onMobileClose, menu
     <>
       <header className="sticky top-0 z-30 flex min-h-16 items-center justify-between border-b border-border bg-surface/95 px-4 backdrop-blur lg:hidden">
         <div className="flex items-center gap-2.5">
-          <div className="grid size-9 place-items-center rounded-lg bg-primary text-primary-foreground" aria-hidden="true"><CalendarDays className="size-4" /></div>
-          <div><p className="text-sm font-bold text-foreground">TakdaOps</p><p className="max-w-48 truncate text-xs text-muted">{auth.organization.name}</p></div>
+          <BusinessMark branding={accountProps.branding} compact />
+          <div><p className="max-w-48 truncate text-sm font-bold text-foreground">{accountProps.branding.display_name}</p><p className="text-[10px] text-muted">Powered by TakdaOps</p></div>
         </div>
         <Button ref={menuButtonRef} variant="ghost" size="icon" onClick={onMobileOpen} aria-label="Open navigation" aria-expanded={mobileOpen} aria-controls="mobile-sidebar">
           <Menu className="size-5" aria-hidden="true" />

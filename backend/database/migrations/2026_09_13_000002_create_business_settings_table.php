@@ -21,7 +21,7 @@ return new class extends Migration
             $table->string('phone', 50)->nullable();
             $table->text('address')->nullable();
             $table->string('logo_path', 2048)->nullable();
-            $table->char('currency', 3)->default('PHP');
+            $table->string('theme_accent', 20)->default('plum');
             $table->string('booking_prefix', 10)->default('BK');
             $table->string('quotation_prefix', 10)->default('QT');
             $table->string('billing_prefix', 10)->default('INV');
@@ -33,8 +33,8 @@ return new class extends Migration
                 ALTER TABLE business_settings
                     ADD CONSTRAINT business_settings_display_name_not_blank
                         CHECK (CHAR_LENGTH(TRIM(display_name)) > 0),
-                    ADD CONSTRAINT business_settings_currency_format
-                        CHECK (REGEXP_LIKE(currency, '^[A-Z]{3}$', 'c')),
+                    ADD CONSTRAINT business_settings_theme_accent_valid
+                        CHECK (theme_accent IN ('plum', 'forest', 'terracotta', 'teal', 'indigo', 'graphite')),
                     ADD CONSTRAINT business_settings_prefixes_valid
                         CHECK (
                             REGEXP_LIKE(booking_prefix, '^[A-Z0-9]+$', 'c')
@@ -52,7 +52,7 @@ return new class extends Migration
                 $settings = $organizations->map(fn (object $organization): array => [
                     'organization_id' => $organization->id,
                     'display_name' => $organization->name,
-                    'currency' => 'PHP',
+                    'theme_accent' => 'plum',
                     'booking_prefix' => 'BK',
                     'quotation_prefix' => 'QT',
                     'billing_prefix' => 'INV',

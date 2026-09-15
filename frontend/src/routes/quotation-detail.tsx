@@ -128,7 +128,7 @@ export function QuotationDetailRoute() {
 
           <section className="rounded-lg border border-border bg-surface">
             <div className="border-b border-border p-6"><h2 className="text-lg font-semibold">Quotation Items</h2></div>
-            <QuotationItemsTable currency={item.currency} items={item.items.map((line) => ({ id: line.id, serviceName: line.service_name, packageName: line.package_name, startAt: line.start_at, endAt: line.end_at, durationMinutes: line.duration_minutes, quantity: line.quantity, unitRate: line.unit_rate, lineTotal: line.line_total }))} />
+            <QuotationItemsTable items={item.items.map((line) => ({ id: line.id, serviceName: line.service_name, packageName: line.package_name, startAt: line.start_at, endAt: line.end_at, durationMinutes: line.duration_minutes, quantity: line.quantity, unitRate: line.unit_rate, lineTotal: line.line_total }))} />
           </section>
         </div>
 

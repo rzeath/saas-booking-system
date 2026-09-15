@@ -28,7 +28,6 @@ class QuotationSnapshotBuilder
             'venue_address' => $booking->venue_address,
             'contact_person' => $booking->contact_person,
             'contact_number' => $booking->contact_number,
-            'currency' => $settings->currency,
         ];
     }
 
