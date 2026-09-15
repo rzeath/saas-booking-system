@@ -103,6 +103,7 @@ function renderRoute(path: string, fetchMock = fetchApi()) {
 }
 
 afterEach(() => {
+  vi.restoreAllMocks()
   vi.unstubAllGlobals()
   window.history.pushState({}, '', '/')
 })
@@ -207,6 +208,47 @@ test('renders quotation snapshots, items, totals, and lifecycle detail', async (
   expect(screen.getByText('Mirror Booth')).toBeInTheDocument()
   expect(screen.getAllByText('₱8,000.00').length).toBeGreaterThan(0)
   expect(screen.getByText('₱8,125.25')).toBeInTheDocument()
+})
+
+test('downloads the customer-facing PDF from quotation detail', async () => {
+  const createObjectUrl = vi.fn(() => 'blob:quotation-pdf')
+  const revokeObjectUrl = vi.fn()
+  const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
+  class MockUrl extends URL {
+    static createObjectURL = createObjectUrl
+    static revokeObjectURL = revokeObjectUrl
+  }
+  vi.stubGlobal('URL', MockUrl)
+  const fetchMock = fetchApi((url) => {
+    if (url.endsWith('/api/v1/quotations/21/pdf')) {
+      return new Response(new Blob(['%PDF-1.7'], { type: 'application/pdf' }), {
+        headers: { 'Content-Type': 'application/pdf' },
+      })
+    }
+  })
+  renderRoute('/quotations/21', fetchMock)
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Download PDF' }))
+
+  await waitFor(() => expect(createObjectUrl).toHaveBeenCalledTimes(1))
+  expect(fetchMock).toHaveBeenCalledWith('/api/v1/quotations/21/pdf', expect.objectContaining({
+    headers: expect.objectContaining({ Accept: 'application/pdf' }),
+  }))
+  expect(click).toHaveBeenCalledTimes(1)
+  expect(click.mock.instances[0]).toHaveAttribute('download', 'QT-2027-000003.pdf')
+  expect(revokeObjectUrl).toHaveBeenCalledWith('blob:quotation-pdf')
+})
+
+test('surfaces quotation PDF download failures', async () => {
+  renderRoute('/quotations/21', fetchApi((url) => {
+    if (url.endsWith('/api/v1/quotations/21/pdf')) {
+      return response({ message: 'The quotation PDF could not be generated.' }, 500)
+    }
+  }))
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Download PDF' }))
+
+  expect(await screen.findByRole('alert')).toHaveTextContent('The quotation PDF could not be generated.')
 })
 
 test('edits only Draft adjustments and refreshes authoritative totals', async () => {

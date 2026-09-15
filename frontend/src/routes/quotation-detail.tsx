@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Check, Pencil, Send, XCircle } from 'lucide-react'
+import { ArrowLeft, Check, Download, Pencil, Send, XCircle } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
@@ -9,7 +9,7 @@ import { QuotationItemsTable } from '@/components/quotations/quotation-items-tab
 import { Button } from '@/components/ui/button'
 import { Modal } from '@/components/ui/modal'
 import { BookingStatusBadge, QuotationStatusBadge, StatusBadge } from '@/components/ui/status-badge'
-import { ApiError, getQuotation, transitionQuotation, type QuotationTransition, updateQuotation } from '@/lib/api'
+import { ApiError, getQuotation, getQuotationPdf, transitionQuotation, type QuotationTransition, updateQuotation } from '@/lib/api'
 import { bookingDetailQueryKey, bookingListsQueryKey } from '@/lib/bookings-query'
 import { formatBusinessDate, formatLifecycleTimestamp } from '@/lib/quotation-format'
 import { quotationDetailQueryKey, quotationListsQueryKey } from '@/lib/quotations-query'
@@ -40,6 +40,7 @@ export function QuotationDetailRoute() {
   const [editing, setEditing] = useState(false)
   const [pendingTransition, setPendingTransition] = useState<QuotationTransition>()
   const [message, setMessage] = useState<string>()
+  const [pdfError, setPdfError] = useState<string>()
   const quotation = useQuery({ queryKey: quotationDetailQueryKey(quotationId), queryFn: () => getQuotation(quotationId), enabled: Number.isInteger(quotationId) && quotationId > 0 })
   const updateMutation = useMutation({
     mutationFn: (input: Parameters<typeof updateQuotation>[1]) => updateQuotation(quotationId, input),
@@ -66,6 +67,26 @@ export function QuotationDetailRoute() {
       setMessage(errorMessage(error, 'Unable to update the quotation status.'))
     },
   })
+  const pdfMutation = useMutation({
+    mutationFn: () => getQuotationPdf(quotationId),
+    onSuccess: (pdf) => {
+      const objectUrl = URL.createObjectURL(pdf)
+      const filename = `${quotation.data?.quotation_number ?? `quotation-${quotationId}`}.pdf`
+        .replace(/[^A-Za-z0-9._-]+/g, '-')
+      const link = document.createElement('a')
+
+      link.href = objectUrl
+      link.download = filename
+      document.body.append(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(objectUrl)
+      setPdfError(undefined)
+    },
+    onError: (error) => {
+      setPdfError(errorMessage(error, 'Unable to download the quotation PDF.'))
+    },
+  })
 
   if (!Number.isInteger(quotationId) || quotationId < 1) return <p role="alert" className="text-danger">Invalid quotation.</p>
   if (quotation.isPending) return <p role="status" className="text-muted">Loading quotation...</p>
@@ -89,6 +110,7 @@ export function QuotationDetailRoute() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" disabled={pdfMutation.isPending} onClick={() => { setPdfError(undefined); pdfMutation.mutate() }}><Download className="size-4" aria-hidden="true" /> {pdfMutation.isPending ? 'Preparing PDF...' : 'Download PDF'}</Button>
           {isDraft ? <Button variant="secondary" onClick={() => { setEditing(true); setMessage(undefined) }}><Pencil className="size-4" aria-hidden="true" /> Edit adjustments</Button> : null}
           {isDraft ? <Button onClick={() => { setPendingTransition('send'); setMessage(undefined) }}><Send className="size-4" aria-hidden="true" /> Send</Button> : null}
           {isSent ? <Button onClick={() => { setPendingTransition('accept'); setMessage(undefined) }}><Check className="size-4" aria-hidden="true" /> Accept</Button> : null}
@@ -97,6 +119,7 @@ export function QuotationDetailRoute() {
         </div>
       </div>
 
+      {pdfError ? <p role="alert" className="mt-5 rounded-lg border border-red-200 bg-danger-soft p-4 text-sm text-danger">{pdfError}</p> : null}
       {message ? <p role={transitionMutation.isError ? 'alert' : 'status'} className={`mt-5 rounded-lg border p-4 text-sm ${transitionMutation.isError ? 'border-red-200 bg-danger-soft text-danger' : 'border-green-200 bg-success-soft text-success'}`}>{message}</p> : null}
       {item.status === 'OUTDATED' ? <p className="mt-5 rounded-lg border border-amber-200 bg-warning-soft p-4 text-sm text-warning">This quotation no longer reflects the current Booking details. Create a new quotation from the Booking to issue an updated revision.</p> : null}
       {item.status === 'ACCEPTED' ? <p className="mt-5 rounded-lg border border-green-200 bg-success-soft p-4 text-sm text-success">Accepted on {formatLifecycleTimestamp(item.accepted_at)}. The related Booking remains {item.booking.status === 'QUOTED' ? 'Quoted' : item.booking.status.charAt(0) + item.booking.status.slice(1).toLowerCase()}.</p> : null}

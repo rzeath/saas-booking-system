@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\CustomerController;
 use App\Http\Controllers\Api\V1\EventTypeController;
 use App\Http\Controllers\Api\V1\PackageController;
 use App\Http\Controllers\Api\V1\QuotationController;
+use App\Http\Controllers\Api\V1\QuotationPdfController;
 use App\Http\Controllers\Api\V1\QuotationStatusController;
 use App\Http\Controllers\Api\V1\ServiceController;
 use App\Http\Controllers\Api\V1\ServicePackageController;
@@ -101,6 +102,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
             ->name('quotations.reject');
         Route::post('/quotations/{quotation}/cancel', [QuotationStatusController::class, 'cancel'])
             ->name('quotations.cancel');
+        Route::get('/quotations/{quotation}/pdf', QuotationPdfController::class)
+            ->name('quotations.pdf');
         Route::apiResource('quotations', QuotationController::class)->only([
             'index', 'show', 'update',
         ]);

@@ -751,6 +751,14 @@ export async function getQuotation(id: number): Promise<Quotation> {
   return quotationSchema.parse(await response.json())
 }
 
+export async function getQuotationPdf(id: number): Promise<Blob> {
+  const response = await requestV1(`/quotations/${id}/pdf`, {
+    headers: { Accept: 'application/pdf' },
+  })
+
+  return response.blob()
+}
+
 export async function createQuotation(
   bookingId: number,
   input: SaveDraftQuotationInput,
