@@ -13,6 +13,7 @@ class BillingItem extends Model
     use HasFactory;
 
     protected $fillable = [
+        'organization_id',
         'booking_id',
         'quotation_id',
         'quotation_item_id',

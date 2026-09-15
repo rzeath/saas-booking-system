@@ -19,6 +19,7 @@ class Payment extends Model
     ];
 
     protected $fillable = [
+        'organization_id',
         'booking_id',
         'quotation_id',
         'billing_id',
