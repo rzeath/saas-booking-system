@@ -55,31 +55,31 @@ export function CustomerPicker({
   return (
     <div className="md:col-span-2">
       <div className="flex items-center justify-between gap-3">
-        <span className="text-sm font-medium text-foreground">Customer</span>
+        <span className="sr-only">Customer</span>
         {selectedCustomer && !isChoosing ? (
           <Button variant="ghost" size="small" disabled={disabled} onClick={() => setIsChanging(true)}>Change</Button>
         ) : null}
       </div>
 
       {selectedCustomer && !isChoosing ? (
-        <div className="mt-2 flex min-h-20 items-center justify-between gap-4 rounded-lg border border-border bg-surface-subtle px-4 py-3">
+        <div className="mt-2 flex min-h-14 items-center justify-between gap-4 rounded-lg bg-surface-subtle px-3.5 py-2.5">
           <div className="min-w-0">
             <strong className="block truncate text-sm text-foreground">{selectedCustomer.name}</strong>
             <p className="mt-1 truncate text-sm text-muted">
-              {[selectedCustomer.phone, selectedCustomer.email].filter(Boolean).join(' · ') || 'No contact details'}
+              {[selectedCustomer.email, selectedCustomer.phone].filter(Boolean).join(' · ') || 'No contact details'}
             </p>
             {!selectedCustomer.is_active ? <span className="mt-1 block text-xs text-warning">Inactive customer</span> : null}
           </div>
         </div>
       ) : (
-        <div className="mt-2 rounded-lg border border-border bg-surface-subtle p-4">
+        <div className="mt-2">
           <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
             <FormField
               label="Search customer"
               id="booking-customer-search"
               value={search}
               disabled={disabled}
-              placeholder="Name, email, or phone"
+              placeholder="Search by name, email, or phone"
               onChange={(event) => setSearch(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key !== 'Enter') return

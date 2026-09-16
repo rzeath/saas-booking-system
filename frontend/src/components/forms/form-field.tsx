@@ -31,7 +31,7 @@ export function FormField({ label, error, id, ...inputProps }: FormFieldProps) {
 
 type TextAreaFieldProps = TextareaHTMLAttributes<HTMLTextAreaElement> & { label: string; error?: string }
 
-export function TextAreaField({ label, error, id, ...textareaProps }: TextAreaFieldProps) {
+export function TextAreaField({ label, error, id, className, ...textareaProps }: TextAreaFieldProps) {
   const errorId = error && id ? `${id}-error` : undefined
 
   return (
@@ -42,7 +42,7 @@ export function TextAreaField({ label, error, id, ...textareaProps }: TextAreaFi
         id={id}
         aria-invalid={Boolean(error)}
         aria-describedby={errorId}
-        className={`${controlClassName} min-h-24 resize-y`}
+        className={`${controlClassName} min-h-24 resize-y ${className ?? ''}`}
       />
       {error ? <span id={errorId} className={errorClassName}>{error}</span> : null}
     </div>

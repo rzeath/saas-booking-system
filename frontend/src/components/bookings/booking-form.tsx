@@ -1,13 +1,15 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Controller, useFieldArray, useForm, useWatch, type UseFormReturn } from 'react-hook-form'
 import { Link, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 
 import { CustomerPicker } from '@/components/bookings/customer-picker'
 import { FormField, SelectField, TextAreaField } from '@/components/forms/form-field'
+import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button-variants'
 import {
   ApiError,
   checkBookingAvailability,
@@ -26,10 +28,11 @@ import {
   type Service,
   updateBooking,
 } from '@/lib/api'
-import { durationLabel, formatMoney, multiplyMoney } from '@/lib/booking-format'
+import { durationLabel, formatMoney, multiplyMoney, sumMoney } from '@/lib/booking-format'
 import { bookingListsQueryKey, staffAvailabilityQueryKey } from '@/lib/bookings-query'
 import { eventTypeListQueryKey } from '@/lib/event-types-query'
 import { servicePackageListQueryKey } from '@/lib/packages-query'
+import { formatBusinessDate, formatManilaTime } from '@/lib/quotation-format'
 import { serviceRateListQueryKey } from '@/lib/service-rates-query'
 import { serviceListQueryKey } from '@/lib/services-query'
 
@@ -57,6 +60,7 @@ const bookingFormSchema = z.object({
 })
 
 type BookingFormValues = z.infer<typeof bookingFormSchema>
+type ServicePricing = { unitRate: string; lineTotal: string }
 const selectorQuery = { page: 1, search: '', status: 'active' as const, per_page: 100 }
 const blankService = (): BookingFormValues['booking_services'][number] => ({
   service_id: 0,
@@ -122,6 +126,50 @@ function availabilityInput(values: BookingFormValues, bookingId?: number) {
   }
 }
 
+function derivedEnd(eventDate: string, startTime: string, durationMinutes: number): { date: string; time: string } | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(eventDate) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(startTime) || durationMinutes < 1) return null
+
+  const [year, month, day] = eventDate.split('-').map(Number)
+  const [hour, minute] = startTime.split(':').map(Number)
+  const end = new Date(Date.UTC(year, month - 1, day, hour, minute + durationMinutes))
+
+  return {
+    date: end.toISOString().slice(0, 10),
+    time: end.toISOString().slice(11, 16),
+  }
+}
+
+function BookingSummarySchedule({ eventDate, startTime, durationMinutes }: { eventDate: string; startTime: string; durationMinutes: number }) {
+  if (!eventDate || !startTime) return <p className="text-sm text-muted">Add the event date and start time.</p>
+
+  const end = derivedEnd(eventDate, startTime, durationMinutes)
+  if (!end) {
+    return (
+      <div>
+        <p className="font-medium text-foreground">{formatBusinessDate(eventDate)}</p>
+        <p className="mt-0.5 text-sm text-muted">{formatManilaTime(startTime)}</p>
+        <p className="mt-1 text-xs text-muted">Select a service duration to calculate the end.</p>
+      </div>
+    )
+  }
+
+  if (end.date === eventDate) {
+    return (
+      <div>
+        <p className="font-medium text-foreground">{formatBusinessDate(eventDate)}</p>
+        <p className="mt-0.5 text-sm text-muted">{formatManilaTime(startTime)} – {formatManilaTime(end.time)}</p>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <p className="font-medium text-foreground">{formatBusinessDate(eventDate)} · {formatManilaTime(startTime)}</p>
+      <p className="mt-0.5 text-sm text-muted">→ {formatBusinessDate(end.date)} · {formatManilaTime(end.time)}</p>
+    </div>
+  )
+}
+
 function BookingServiceFields({
   form,
   index,
@@ -133,6 +181,7 @@ function BookingServiceFields({
   startTime,
   onRemove,
   onScheduleChange,
+  onPricingChange,
 }: {
   form: UseFormReturn<BookingFormValues>
   index: number
@@ -144,6 +193,7 @@ function BookingServiceFields({
   startTime: string
   onRemove: () => void
   onScheduleChange: () => void
+  onPricingChange: (fieldKey: string, pricing?: ServicePricing) => void
 }) {
   const serviceId = useWatch({ control: form.control, name: `booking_services.${index}.service_id` })
   const packageId = useWatch({ control: form.control, name: `booking_services.${index}.package_id` })
@@ -196,11 +246,33 @@ function BookingServiceFields({
     (options, staff) => appendCurrent(options, { ...staff, available: true }),
     activeStaff,
   ) ?? activeStaff
+  const matchesSavedSelection = Boolean(
+    savedLine
+    && savedLine.service.id === serviceId
+    && savedLine.package.id === packageId
+    && savedLine.duration_minutes === duration
+    && savedLine.quantity === quantity,
+  )
+  const unitRate = selectedRate?.unit_rate ?? (matchesSavedSelection ? savedLine?.unit_rate : undefined)
+  const lineTotal = selectedRate && Number.isInteger(quantity) && quantity > 0
+    ? multiplyMoney(selectedRate.unit_rate, quantity)
+    : matchesSavedSelection ? savedLine?.line_total : undefined
+
+  useEffect(() => {
+    onPricingChange(fieldKey, unitRate && lineTotal ? { unitRate, lineTotal } : undefined)
+    return () => onPricingChange(fieldKey, undefined)
+  }, [fieldKey, lineTotal, onPricingChange, unitRate])
 
   return (
-    <fieldset className="rounded-xl border border-slate-700 bg-slate-950/40 p-5">
-      <legend className="px-2 text-sm font-semibold text-slate-300">Service {index + 1}</legend>
-      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+    <fieldset className="rounded-xl border border-border bg-surface p-4">
+      <legend className="sr-only">Service {index + 1}</legend>
+      <div className="mb-3 flex items-center justify-between gap-3 border-b border-border pb-2.5">
+        <h3 className="text-sm font-semibold text-foreground">Service {index + 1}</h3>
+        <Button variant="ghost" size="small" onClick={onRemove} className="text-danger hover:bg-danger-soft hover:text-danger">
+          <Trash2 className="size-3.5" aria-hidden="true" /> Remove
+        </Button>
+      </div>
+      <div className="grid gap-3.5 sm:grid-cols-2">
         <Controller name={`booking_services.${index}.service_id`} control={form.control} render={({ field }) => (
           <SelectField label="Service" id={`booking-service-${fieldKey}`} error={errors?.service_id?.message} {...field} onChange={(event) => {
             onScheduleChange()
@@ -228,25 +300,19 @@ function BookingServiceFields({
             {durations.map((minutes) => <option key={minutes} value={minutes}>{durationLabel(minutes)}{availableRates.some((rate) => rate.duration_minutes === minutes) ? '' : ' (saved; unavailable)'}</option>)}
           </SelectField>
         )} />
-        <FormField label="Quantity" id={`booking-quantity-${fieldKey}`} type="number" min="1" max={selectedService?.total_units} error={errors?.quantity?.message} {...quantityRegistration} onChange={(event) => { onScheduleChange(); void quantityRegistration.onChange(event) }} />
-        <div className="rounded-lg border border-slate-800 p-3 text-sm">
-          <span className="block text-slate-400">Current configured price</span>
-          <strong className="mt-1 block text-slate-100">{selectedRate ? formatMoney(selectedRate.unit_rate) : 'Unavailable'}</strong>
-          {selectedRate && Number.isInteger(quantity) && quantity > 0 ? <span className="text-slate-400">Estimated line total: {formatMoney(multiplyMoney(selectedRate.unit_rate, quantity))}</span> : null}
-          {savedLine ? <span className="mt-2 block text-xs text-slate-500">Saved snapshot: {formatMoney(savedLine.unit_rate)} each · {formatMoney(savedLine.line_total)} total</span> : null}
-        </div>
+        <div className="max-w-36"><FormField label="Quantity" id={`booking-quantity-${fieldKey}`} type="number" min="1" max={selectedService?.total_units} error={errors?.quantity?.message} {...quantityRegistration} onChange={(event) => { onScheduleChange(); void quantityRegistration.onChange(event) }} /></div>
       </div>
-      <div className="mt-5 border-t border-slate-800 pt-5">
+      <div className="mt-3.5 border-t border-border pt-3.5">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="text-sm font-medium text-slate-200">Assigned staff</span>
-          {staffAvailability.isPending ? <span role="status" className="text-xs text-slate-500">Checking availability…</span> : null}
+          <span className="text-[13px] font-medium text-foreground">Staff</span>
+          {staffAvailability.isPending ? <span role="status" className="text-xs text-muted">Loading staff options…</span> : null}
         </div>
-        {staffAvailability.isError ? <p role="alert" className="mt-2 text-sm text-rose-300">Staff availability could not be loaded.</p> : null}
+        {staffAvailability.isError ? <p role="alert" className="mt-2 text-sm text-danger">Staff availability could not be loaded.</p> : null}
         {staffOptions.length > 0 ? <Controller name={`booking_services.${index}.staff_ids`} control={form.control} render={({ field }) => (
-          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
             {staffOptions.map((staff) => {
               const selected = staffIds.includes(staff.id)
-              return <label key={staff.id} className={`flex min-h-11 items-center gap-3 rounded-lg border px-3 py-2 text-sm ${staff.available || selected ? 'border-slate-700 text-slate-200' : 'border-slate-800 text-slate-500'}`}><input type="checkbox" checked={selected} disabled={!staff.available && !selected} onChange={(event) => {
+              return <label key={staff.id} className={`flex min-h-10 items-center gap-2.5 rounded-lg border px-3 py-2 text-sm ${staff.available || selected ? 'border-border bg-surface text-foreground' : 'border-border bg-surface-subtle text-muted'}`}><input type="checkbox" className="size-4 accent-primary" checked={selected} disabled={!staff.available && !selected} onChange={(event) => {
                 const next = event.target.checked
                   ? [...field.value, staff.id]
                   : field.value.filter((id) => id !== staff.id)
@@ -254,11 +320,19 @@ function BookingServiceFields({
               }} /> <span>{staff.name}{staff.is_active ? '' : ' (current; inactive)'}{staff.available ? '' : ' · Unavailable'}</span></label>
             })}
           </div>
-        )} /> : !staffAvailability.isPending && staffAvailability.isFetched ? <p className="mt-2 text-sm text-slate-500">No active staff records are available.</p> : null}
-        {errors?.staff_ids?.message ? <p role="alert" className="mt-2 text-sm text-rose-300">{errors.staff_ids.message}</p> : null}
+        )} /> : !staffAvailability.isPending && staffAvailability.isFetched ? <p className="mt-2 text-sm text-muted">No active staff records are available.</p> : null}
+        {errors?.staff_ids?.message ? <p role="alert" className="mt-2 text-sm text-danger">{errors.staff_ids.message}</p> : null}
       </div>
-      <div className="mt-4 flex justify-end">
-        <button type="button" onClick={onRemove} className="inline-flex items-center gap-2 rounded-lg border border-rose-900 px-3 py-2 text-sm text-rose-300 hover:bg-rose-950/40"><Trash2 className="size-4" aria-hidden="true" /> Remove service</button>
+      <div className="mt-3 grid grid-cols-2 gap-4 rounded-lg bg-surface-subtle px-3.5 py-2.5">
+        <div>
+          <p className="text-xs font-medium text-muted">Rate</p>
+          <p className="mt-1 font-semibold tabular-nums text-foreground">{unitRate ? formatMoney(unitRate) : 'Unavailable'}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-xs font-medium text-muted">Line Total</p>
+          <p className="mt-1 font-semibold tabular-nums text-foreground">{lineTotal ? formatMoney(lineTotal) : 'Unavailable'}</p>
+        </div>
+        {savedLine ? <p className="col-span-2 border-t border-border pt-2 text-xs text-muted">Saved snapshot: {formatMoney(savedLine.unit_rate)} each · {formatMoney(savedLine.line_total)} total</p> : null}
       </div>
     </fieldset>
   )
@@ -271,12 +345,14 @@ export function BookingForm({ booking }: { booking?: Booking }) {
   const [availability, setAvailability] = useState<BookingAvailability>()
   const [availabilityIsStale, setAvailabilityIsStale] = useState(false)
   const [chosenCustomer, setChosenCustomer] = useState<Customer>()
+  const [servicePricing, setServicePricing] = useState<Record<string, ServicePricing>>({})
   const form = useForm<BookingFormValues>({ resolver: zodResolver(bookingFormSchema), defaultValues: valuesFromBooking(booking) })
   const fields = useFieldArray({ control: form.control, name: 'booking_services' })
   const customerId = useWatch({ control: form.control, name: 'customer_id' })
   const eventTypeId = useWatch({ control: form.control, name: 'event_type_id' })
   const eventDate = useWatch({ control: form.control, name: 'event_date' })
   const startTime = useWatch({ control: form.control, name: 'start_time' })
+  const serviceLines = useWatch({ control: form.control, name: 'booking_services' })
   const eventTypes = useQuery({ queryKey: eventTypeListQueryKey(selectorQuery), queryFn: () => getEventTypes(selectorQuery) })
   const services = useQuery({ queryKey: serviceListQueryKey(selectorQuery), queryFn: () => getServices(selectorQuery) })
   const currentEventType: EventType | undefined = booking ? { ...booking.event_type, created_at: '', updated_at: '' } : undefined
@@ -287,6 +363,25 @@ export function BookingForm({ booking }: { booking?: Booking }) {
   const selectedCustomer = chosenCustomer?.id === customerId
     ? chosenCustomer
     : savedCustomer?.id === customerId ? savedCustomer : undefined
+  const updateServicePricing = useCallback((fieldKey: string, pricing?: ServicePricing) => {
+    setServicePricing((current) => {
+      if (!pricing) {
+        if (!(fieldKey in current)) return current
+        const next = { ...current }
+        delete next[fieldKey]
+        return next
+      }
+
+      if (current[fieldKey]?.unitRate === pricing.unitRate && current[fieldKey]?.lineTotal === pricing.lineTotal) return current
+      return { ...current, [fieldKey]: pricing }
+    })
+  }, [])
+  const maximumDuration = Math.max(0, ...serviceLines.map((line) => line.duration_minutes || 0))
+  const configuredServiceCount = serviceLines.filter((line) => line.service_id > 0).length
+  const activeLineTotals = fields.fields.map((field) => servicePricing[field.id]?.lineTotal).filter((value): value is string => Boolean(value))
+  const summaryTotal = fields.fields.length > 0 && activeLineTotals.length === fields.fields.length
+    ? formatMoney(sumMoney(activeLineTotals))
+    : '—'
 
   useEffect(() => {
     form.reset(valuesFromBooking(booking))
@@ -332,62 +427,157 @@ export function BookingForm({ booking }: { booking?: Booking }) {
   const startTimeRegistration = form.register('start_time')
 
   return (
-    <form noValidate className="mt-8 space-y-6" onSubmit={form.handleSubmit((values) => {
+    <form noValidate className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start" onSubmit={form.handleSubmit((values) => {
       setMessage(undefined)
       saveMutation.mutate({ ...values, venue_address: values.venue_address || null, internal_notes: values.internal_notes || null })
     })}>
-      {optionError ? <p role="alert" className="rounded-lg border border-rose-900 bg-rose-950/30 p-4 text-sm text-rose-300">Some booking choices could not be loaded. Refresh before continuing.</p> : null}
-      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-        <h2 className="text-lg font-semibold">Event details</h2>
-        <div className="mt-5 grid gap-5 md:grid-cols-2">
-          <Controller name="customer_id" control={form.control} render={({ field }) => (
-            <CustomerPicker
-              value={field.value}
-              selectedCustomer={selectedCustomer}
-              error={form.formState.errors.customer_id?.message}
-              disabled={saveMutation.isPending}
-              onSelect={(customer) => {
-                field.onChange(customer.id)
-                setChosenCustomer(customer)
-                if (form.getValues('contact_person').trim() === '') {
-                  form.setValue('contact_person', customer.name, { shouldValidate: true })
-                }
-                if (form.getValues('contact_number').trim() === '') {
-                  form.setValue('contact_number', customer.phone ?? '', { shouldValidate: true })
-                }
-              }}
-            />
-          )} />
-          <Controller name="event_type_id" control={form.control} render={({ field }) => <SelectField label="Event type" id="booking-event-type" disabled={loadingOptions} error={form.formState.errors.event_type_id?.message} {...field} onChange={(event) => {
-            setAvailabilityIsStale(true)
-            field.onChange(Number(event.target.value))
-            form.getValues('booking_services').forEach((_, index) => form.setValue(`booking_services.${index}.duration_minutes`, 0, { shouldValidate: true }))
-          }}><option value="0">Select event type</option>{eventTypeOptions.map((item) => <option key={item.id} value={item.id}>{item.name}{item.is_active ? '' : ' (current; inactive)'}</option>)}</SelectField>} />
-          <FormField label="Event date" id="booking-event-date" type="date" error={form.formState.errors.event_date?.message} {...eventDateRegistration} onChange={(event) => { setAvailabilityIsStale(true); void eventDateRegistration.onChange(event) }} />
-          <FormField label="Start time" id="booking-start-time" type="time" error={form.formState.errors.start_time?.message} {...startTimeRegistration} onChange={(event) => { setAvailabilityIsStale(true); void startTimeRegistration.onChange(event) }} />
-          <FormField label="Event name / occasion" id="booking-event-name" error={form.formState.errors.event_name?.message} {...form.register('event_name')} />
-          <FormField label="Venue name" id="booking-venue-name" error={form.formState.errors.venue_name?.message} {...form.register('venue_name')} />
-          <FormField label="Contact person" id="booking-contact-person" error={form.formState.errors.contact_person?.message} {...form.register('contact_person')} />
-          <FormField label="Contact number" id="booking-contact-number" error={form.formState.errors.contact_number?.message} {...form.register('contact_number')} />
-          <div className="md:col-span-2"><TextAreaField label="Venue address" id="booking-venue-address" error={form.formState.errors.venue_address?.message} {...form.register('venue_address')} /></div>
-          <div className="md:col-span-2"><TextAreaField label="Internal notes" id="booking-internal-notes" error={form.formState.errors.internal_notes?.message} {...form.register('internal_notes')} /></div>
+      <div className="min-w-0 overflow-hidden rounded-xl border border-border bg-surface">
+        {optionError ? <p role="alert" className="border-b border-danger/20 bg-danger-soft px-5 py-3 text-sm text-danger">Some booking choices could not be loaded. Refresh before continuing.</p> : null}
+
+        <section aria-labelledby="booking-customer-heading" className="border-b border-border p-5 sm:p-6">
+          <div>
+            <h2 id="booking-customer-heading" className="text-base font-semibold text-foreground">Customer</h2>
+            <p className="mt-1 text-sm text-muted">Select the customer for this booking.</p>
+          </div>
+          <div className="mt-4">
+            <Controller name="customer_id" control={form.control} render={({ field }) => (
+              <CustomerPicker
+                value={field.value}
+                selectedCustomer={selectedCustomer}
+                error={form.formState.errors.customer_id?.message}
+                disabled={saveMutation.isPending}
+                onSelect={(customer) => {
+                  field.onChange(customer.id)
+                  setChosenCustomer(customer)
+                  if (form.getValues('contact_person').trim() === '') {
+                    form.setValue('contact_person', customer.name, { shouldValidate: true })
+                  }
+                  if (form.getValues('contact_number').trim() === '') {
+                    form.setValue('contact_number', customer.phone ?? '', { shouldValidate: true })
+                  }
+                }}
+              />
+            )} />
+          </div>
+        </section>
+
+        <section aria-labelledby="booking-event-heading" className="border-b border-border p-5 sm:p-6">
+          <div>
+            <h2 id="booking-event-heading" className="text-base font-semibold text-foreground">Event Details</h2>
+            <p className="mt-1 text-sm text-muted">Set the shared event schedule and venue.</p>
+          </div>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <Controller name="event_type_id" control={form.control} render={({ field }) => <SelectField label="Event type" id="booking-event-type" disabled={loadingOptions} error={form.formState.errors.event_type_id?.message} {...field} onChange={(event) => {
+              setAvailabilityIsStale(true)
+              field.onChange(Number(event.target.value))
+              form.getValues('booking_services').forEach((_, index) => form.setValue(`booking_services.${index}.duration_minutes`, 0, { shouldValidate: true }))
+            }}><option value="0">Select event type</option>{eventTypeOptions.map((item) => <option key={item.id} value={item.id}>{item.name}{item.is_active ? '' : ' (current; inactive)'}</option>)}</SelectField>} />
+            <FormField label="Event name / occasion" id="booking-event-name" error={form.formState.errors.event_name?.message} {...form.register('event_name')} />
+            <FormField label="Event date" id="booking-event-date" type="date" error={form.formState.errors.event_date?.message} {...eventDateRegistration} onChange={(event) => { setAvailabilityIsStale(true); void eventDateRegistration.onChange(event) }} />
+            <FormField label="Start time" id="booking-start-time" type="time" error={form.formState.errors.start_time?.message} {...startTimeRegistration} onChange={(event) => { setAvailabilityIsStale(true); void startTimeRegistration.onChange(event) }} />
+            <FormField label="Venue name" id="booking-venue-name" error={form.formState.errors.venue_name?.message} {...form.register('venue_name')} />
+            <div className="sm:col-span-2"><TextAreaField label="Venue address" id="booking-venue-address" rows={2} className="!min-h-20" error={form.formState.errors.venue_address?.message} {...form.register('venue_address')} /></div>
+          </div>
+          <div className="mt-5 border-t border-border pt-4">
+            <h3 className="text-sm font-semibold text-foreground">Event contact</h3>
+            <p className="mt-1 text-xs text-muted">Contact details for coordination on this event.</p>
+            <div className="mt-3 grid gap-4 sm:grid-cols-2">
+              <FormField label="Contact person" id="booking-contact-person" error={form.formState.errors.contact_person?.message} {...form.register('contact_person')} />
+              <FormField label="Contact number" id="booking-contact-number" error={form.formState.errors.contact_number?.message} {...form.register('contact_number')} />
+            </div>
+          </div>
+        </section>
+
+        <section aria-labelledby="booking-services-heading" className="border-b border-border p-5 sm:p-6">
+          <div>
+            <h2 id="booking-services-heading" className="text-base font-semibold text-foreground">Services</h2>
+            <p className="mt-1 text-sm text-muted">Add the services included in this booking.</p>
+          </div>
+          <div className="mt-4 space-y-3">
+            {fields.fields.map((field, index) => (
+              <BookingServiceFields
+                key={field.id}
+                form={form}
+                index={index}
+                fieldKey={field.id}
+                services={serviceOptions}
+                eventTypeId={eventTypeId}
+                eventDate={eventDate}
+                startTime={startTime}
+                savedLine={booking?.booking_services.find((line) => line.id === form.getValues(`booking_services.${index}.id`))}
+                onScheduleChange={() => setAvailabilityIsStale(true)}
+                onPricingChange={updateServicePricing}
+                onRemove={() => {
+                  setAvailabilityIsStale(true)
+                  updateServicePricing(field.id, undefined)
+                  fields.remove(index)
+                }}
+              />
+            ))}
+          </div>
+          {rootServiceError ? <p role="alert" className="mt-3 text-sm text-danger">{rootServiceError}</p> : null}
+          <Button variant="secondary" size="small" className="mt-4" onClick={() => { setAvailabilityIsStale(true); fields.append(blankService()) }}>
+            <Plus className="size-4" aria-hidden="true" /> Add Service
+          </Button>
+
+          <div className="mt-4 border-t border-border pt-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Service availability</h3>
+                <p className="mt-1 text-xs text-muted">Check capacity for the configured services. Capacity is validated again when saved.</p>
+              </div>
+              <Button variant="secondary" size="small" disabled={availabilityMutation.isPending} onClick={() => { void form.trigger(['event_date', 'start_time', 'event_type_id', 'booking_services']).then((valid) => { if (valid) availabilityMutation.mutate(availabilityInput(form.getValues(), booking?.id)) }) }}>
+                {availabilityMutation.isPending ? 'Checking…' : 'Check availability'}
+              </Button>
+            </div>
+            {availability && availabilityIsStale ? <p role="status" className="mt-3 text-sm text-warning">Availability is stale because the schedule changed. Check again.</p> : null}
+            {availability && !availabilityIsStale ? (
+              <div role="status" className={`mt-3 rounded-lg border px-4 py-3 text-sm ${availability.available ? 'border-success/20 bg-success-soft text-success' : 'border-danger/20 bg-danger-soft text-danger'}`}>
+                <strong>{availability.available ? 'All requested services are available.' : 'One or more services exceed capacity.'}</strong>
+                <ul className="mt-1.5 space-y-1 text-xs">
+                  {availability.services.map((service) => (
+                    <li key={service.service_id}>
+                      {serviceOptions.find((option) => option.id === service.service_id)?.name ?? 'Service'}: {service.requested_quantity} requested · {service.total_units} total units{service.available ? '' : ` · ${service.over_capacity_by} over capacity`}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+        </section>
+
+        <section aria-labelledby="booking-additional-heading" className="p-5 sm:p-6">
+          <h2 id="booking-additional-heading" className="text-base font-semibold text-foreground">Additional Details</h2>
+          <p className="mt-1 text-sm text-muted">Optional internal information for this booking.</p>
+          <div className="mt-4"><TextAreaField label="Notes" id="booking-internal-notes" error={form.formState.errors.internal_notes?.message} {...form.register('internal_notes')} /></div>
+        </section>
+
+        {message ? <p role="alert" className="border-t border-danger/20 bg-danger-soft px-5 py-3 text-sm text-danger">{message}</p> : null}
+      </div>
+
+      <aside aria-labelledby="booking-summary-heading" className="rounded-xl border border-border bg-surface p-5 xl:sticky xl:top-7">
+        <h2 id="booking-summary-heading" className="text-base font-semibold text-foreground">Booking Summary</h2>
+        <dl className="mt-4 divide-y divide-border">
+          <div className="pb-4">
+            <dt className="text-xs font-medium text-muted">Schedule</dt>
+            <dd className="mt-1.5"><BookingSummarySchedule eventDate={eventDate} startTime={startTime} durationMinutes={maximumDuration} /></dd>
+          </div>
+          <div className="py-4">
+            <dt className="text-xs font-medium text-muted">Services</dt>
+            <dd className="mt-1 font-medium text-foreground">{configuredServiceCount === 0 ? 'No services yet' : `${configuredServiceCount} ${configuredServiceCount === 1 ? 'service' : 'services'}`}</dd>
+          </div>
+          <div className="py-4">
+            <dt className="text-xs font-medium text-muted">Total</dt>
+            <dd className="mt-1 text-xl font-semibold tabular-nums text-foreground">{summaryTotal}</dd>
+          </div>
+        </dl>
+        <div className="mt-1 grid gap-2">
+          <button type="submit" disabled={saveMutation.isPending || loadingOptions || optionError} className={buttonVariants({ className: 'w-full' })}>
+            {saveMutation.isPending ? 'Saving…' : booking ? 'Save Changes' : 'Create Booking'}
+          </button>
+          <Link to={booking ? `/bookings/${booking.id}` : '/bookings'} className={buttonVariants({ variant: 'secondary', className: 'w-full' })}>Cancel</Link>
         </div>
-      </div>
-
-      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-semibold">Booking services</h2><p className="mt-1 text-sm text-slate-400">Prices shown are estimates. The server resolves and saves the authoritative rate.</p></div><button type="button" onClick={() => { setAvailabilityIsStale(true); fields.append(blankService()) }} className="inline-flex items-center gap-2 rounded-lg border border-cyan-800 px-3 py-2 text-sm text-cyan-300"><Plus className="size-4" aria-hidden="true" /> Add service</button></div>
-        <div className="mt-5 space-y-5">{fields.fields.map((field, index) => <BookingServiceFields key={field.id} form={form} index={index} fieldKey={field.id} services={serviceOptions} eventTypeId={eventTypeId} eventDate={eventDate} startTime={startTime} savedLine={booking?.booking_services.find((line) => line.id === form.getValues(`booking_services.${index}.id`))} onScheduleChange={() => setAvailabilityIsStale(true)} onRemove={() => { setAvailabilityIsStale(true); fields.remove(index) }} />)}</div>
-        {rootServiceError ? <p role="alert" className="mt-3 text-sm text-rose-300">{rootServiceError}</p> : null}
-      </div>
-
-      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-        <div className="flex flex-wrap items-center justify-between gap-4"><div><h2 className="text-lg font-semibold">Availability preview</h2><p className="mt-1 text-sm text-slate-400">This preview is advisory. Availability is checked again when the booking is saved.</p></div><button type="button" disabled={availabilityMutation.isPending} onClick={() => { void form.trigger(['event_date', 'start_time', 'event_type_id', 'booking_services']).then((valid) => { if (valid) availabilityMutation.mutate(availabilityInput(form.getValues(), booking?.id)) }) }} className="rounded-lg border border-cyan-800 px-4 py-2 text-sm font-medium text-cyan-300 disabled:opacity-60">{availabilityMutation.isPending ? 'Checking…' : 'Check availability'}</button></div>
-        {availability && availabilityIsStale ? <p role="status" className="mt-4 text-sm text-amber-300">Availability is stale because the schedule changed. Check again.</p> : null}
-        {availability && !availabilityIsStale ? <div role="status" className={`mt-4 rounded-lg border p-4 text-sm ${availability.available ? 'border-emerald-900 bg-emerald-950/30 text-emerald-300' : 'border-rose-900 bg-rose-950/30 text-rose-300'}`}><strong>{availability.available ? 'All requested services are available.' : 'One or more services exceed capacity.'}</strong><ul className="mt-2 list-disc pl-5">{availability.services.map((service) => <li key={service.service_id}>Service {service.service_id}: {service.requested_quantity} requested, {service.total_units} total units{service.available ? '' : `, ${service.over_capacity_by} over capacity`}</li>)}</ul></div> : null}
-      </div>
-
-      {message ? <p role="alert" className="text-sm text-rose-300">{message}</p> : null}
-      <div className="flex justify-end gap-3"><Link to={booking ? `/bookings/${booking.id}` : '/bookings'} className="rounded-lg border border-slate-700 px-4 py-2.5 text-sm">Cancel</Link><button type="submit" disabled={saveMutation.isPending || loadingOptions || optionError} className="rounded-lg bg-cyan-500 px-5 py-2.5 text-sm font-semibold text-slate-950 disabled:opacity-60">{saveMutation.isPending ? 'Saving…' : booking ? 'Save changes' : 'Create booking'}</button></div>
+      </aside>
     </form>
   )
 }

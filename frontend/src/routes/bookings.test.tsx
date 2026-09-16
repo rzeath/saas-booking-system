@@ -157,6 +157,74 @@ test('shows a recoverable list error state', async () => {
   expect(await screen.findByText('No bookings yet.')).toBeInTheDocument()
 })
 
+test('renders the create workflow structure without unsupported schedule or commercial controls', async () => {
+  renderRoute('/bookings/new')
+  expect(await screen.findByRole('heading', { name: 'New Booking' })).toBeInTheDocument()
+  expect(screen.getByText('Create and schedule an event booking.')).toBeInTheDocument()
+  await screen.findByRole('option', { name: 'Ana Cruz' })
+
+  const sectionNames = ['Customer', 'Event Details', 'Services', 'Additional Details', 'Booking Summary']
+  sectionNames.forEach((name) => expect(screen.getByRole('heading', { name })).toBeInTheDocument())
+  expect(screen.getAllByLabelText('Event date')).toHaveLength(1)
+  expect(screen.getAllByLabelText('Start time')).toHaveLength(1)
+  expect(screen.getAllByLabelText('Duration')).toHaveLength(1)
+  expect(screen.queryByLabelText(/end date/i)).not.toBeInTheDocument()
+  expect(screen.queryByLabelText(/end time/i)).not.toBeInTheDocument()
+  expect(screen.queryByLabelText(/booking duration/i)).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: /draft|quotation/i })).not.toBeInTheDocument()
+  expect(screen.getAllByRole('button', { name: 'Create Booking' })).toHaveLength(1)
+
+  const summary = screen.getByRole('heading', { name: 'Booking Summary' }).closest('aside')
+  expect(summary).toHaveClass('xl:sticky', 'xl:top-7')
+  expect(summary?.closest('form')).toHaveClass('xl:grid-cols-[minmax(0,1fr)_20rem]')
+  expect(within(summary!).getByText('No services yet')).toBeInTheDocument()
+  expect(within(summary!).getByText('—')).toBeInTheDocument()
+  expect(within(summary!).getByRole('link', { name: 'Cancel' })).toHaveAttribute('href', '/bookings')
+  expect(screen.getByLabelText('Venue address')).toHaveAttribute('rows', '2')
+  expect(screen.getByLabelText('Venue address')).toHaveClass('!min-h-20')
+  expect(screen.getByRole('heading', { name: 'Service availability' })).toBeInTheDocument()
+})
+
+test('derives the overnight Booking Summary and total from the shared start and service duration', async () => {
+  renderRoute('/bookings/new')
+  await screen.findByRole('option', { name: 'Wedding' })
+  fireEvent.change(screen.getByLabelText('Event type'), { target: { value: '3' } })
+  fireEvent.change(screen.getByLabelText('Event date'), { target: { value: '2027-06-15' } })
+  fireEvent.change(screen.getByLabelText('Start time'), { target: { value: '23:00' } })
+  fireEvent.change(screen.getByLabelText('Service'), { target: { value: '4' } })
+  await screen.findByRole('option', { name: 'Premium' })
+  fireEvent.change(screen.getByLabelText('Package'), { target: { value: '5' } })
+  await screen.findByRole('option', { name: '3 hours' })
+  fireEvent.change(screen.getByLabelText('Duration'), { target: { value: '180' } })
+
+  const summary = screen.getByRole('heading', { name: 'Booking Summary' }).closest('aside')
+  expect(await within(summary!).findByText('Jun 15, 2027 · 11:00 PM')).toBeInTheDocument()
+  expect(within(summary!).getByText('→ Jun 16, 2027 · 2:00 AM')).toBeInTheDocument()
+  expect(within(summary!).getByText('1 service')).toBeInTheDocument()
+  expect(await within(summary!).findByText('₱8,000.00')).toBeInTheDocument()
+})
+
+test('hydrates Edit Booking and derives its effective end from the longest service', async () => {
+  const bookingWithTwoDurations = {
+    ...booking,
+    end_at: '2027-06-15 22:00',
+    booking_services: [
+      booking.booking_services[0],
+      { ...booking.booking_services[0], id: 10, duration_minutes: 240, end_at: '2027-06-15 22:00', sort_order: 1 },
+    ],
+  }
+  renderRoute('/bookings/8/edit', fetchApi((url) => url.endsWith('/api/v1/bookings/8') ? response(bookingWithTwoDurations) : undefined))
+
+  expect(await screen.findByRole('heading', { name: 'Edit Booking' })).toBeInTheDocument()
+  expect(screen.getByText('Update booking details and services.')).toBeInTheDocument()
+  expect(screen.getByLabelText('Event date')).toHaveValue('2027-06-15')
+  expect(screen.getByLabelText('Start time')).toHaveValue('18:00')
+  expect(screen.getAllByLabelText('Duration')).toHaveLength(2)
+  const summary = screen.getByRole('heading', { name: 'Booking Summary' }).closest('aside')
+  expect(within(summary!).getByText('6:00 PM – 10:00 PM')).toBeInTheDocument()
+  expect(within(summary!).getByText('2 services')).toBeInTheDocument()
+})
+
 test('creates a booking with backend-authoritative pricing and availability preview', async () => {
   let submitted: Record<string, unknown> | undefined
   let availabilityPayload: Record<string, unknown> | undefined
@@ -173,7 +241,7 @@ test('creates a booking with backend-authoritative pricing and availability prev
     if (url.endsWith('/api/v1/bookings') && init?.method === 'POST') { submitted = JSON.parse(String(init.body)) as Record<string, unknown>; return response(booking, 201) }
   })
   renderRoute('/bookings/new', fetchMock)
-  await screen.findByRole('heading', { name: 'Create booking' })
+  await screen.findByRole('heading', { name: 'New Booking' })
   await screen.findByRole('option', { name: 'Ana Cruz' })
 
   fireEvent.click(screen.getByRole('option', { name: 'Ana Cruz' }))
@@ -194,7 +262,7 @@ test('creates a booking with backend-authoritative pricing and availability prev
   fireEvent.change(screen.getByLabelText('Start time'), { target: { value: '18:30' } })
   await waitFor(() => expect(staffPayloads.some((payload) => payload.start_time === '18:30')).toBe(true))
   expect(screen.getByRole('checkbox', { name: 'Mia Santos' })).toBeChecked()
-  expect(await screen.findByText(/Estimated line total:/)).toHaveTextContent('₱8,000.00')
+  expect((await screen.findByText('Line Total')).parentElement).toHaveTextContent('₱8,000.00')
   fireEvent.click(screen.getByRole('button', { name: 'Check availability' }))
   expect(await screen.findByText('All requested services are available.')).toBeInTheDocument()
   fireEvent.change(screen.getByLabelText('Start time'), { target: { value: '19:00' } })
@@ -206,7 +274,7 @@ test('creates a booking with backend-authoritative pricing and availability prev
   fireEvent.change(screen.getByLabelText('Quantity'), { target: { value: '2' } })
   expect(await screen.findByText(/Availability is stale because the schedule changed/)).toBeInTheDocument()
   fireEvent.change(screen.getByLabelText('Quantity'), { target: { value: '1' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Create booking' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Create Booking' }))
 
   await waitFor(() => expect(submitted).toBeDefined())
   const payload = submitted as { start_time: string; booking_services: Record<string, unknown>[] }
@@ -220,7 +288,7 @@ test('creates a booking with backend-authoritative pricing and availability prev
 
 test('supports repeated service lines and clears dependent choices', async () => {
   renderRoute('/bookings/new')
-  await screen.findByRole('heading', { name: 'Create booking' })
+  await screen.findByRole('heading', { name: 'New Booking' })
   await screen.findByRole('option', { name: 'Wedding' })
   fireEvent.change(screen.getByLabelText('Event type'), { target: { value: '3' } })
   fireEvent.change(screen.getByLabelText('Service'), { target: { value: '4' } })
@@ -230,7 +298,7 @@ test('supports repeated service lines and clears dependent choices', async () =>
   fireEvent.change(screen.getByLabelText('Duration'), { target: { value: '180' } })
   fireEvent.change(screen.getByLabelText('Package'), { target: { value: '0' } })
   expect(screen.getByLabelText('Duration')).toHaveValue('0')
-  fireEvent.click(screen.getByRole('button', { name: 'Add service' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Add Service' }))
   expect(screen.getAllByLabelText('Service')).toHaveLength(2)
   expect(screen.getAllByLabelText('Event date')).toHaveLength(1)
   expect(screen.getAllByLabelText('Start time')).toHaveLength(1)
@@ -238,7 +306,7 @@ test('supports repeated service lines and clears dependent choices', async () =>
   fireEvent.change(screen.getAllByLabelText('Service')[0], { target: { value: '0' } })
   expect(screen.getAllByLabelText('Package')[0]).toHaveValue('0')
   expect(screen.getAllByLabelText('Duration')[0]).toHaveValue('0')
-  fireEvent.click(screen.getAllByRole('button', { name: 'Remove service' })[1])
+  fireEvent.click(screen.getAllByRole('button', { name: 'Remove' })[1])
   expect(screen.getAllByLabelText('Service')).toHaveLength(1)
 })
 
@@ -282,7 +350,7 @@ test('creates and selects a customer inline without resetting booking values', a
   fireEvent.change(screen.getByLabelText('Venue address'), { target: { value: 'Quezon City' } })
   fireEvent.change(screen.getByLabelText('Contact person'), { target: { value: 'Lia Coordinator' } })
   fireEvent.change(screen.getByLabelText('Contact number'), { target: { value: '09990000000' } })
-  fireEvent.change(screen.getByLabelText('Internal notes'), { target: { value: 'Keep this setup note.' } })
+  fireEvent.change(screen.getByLabelText('Notes'), { target: { value: 'Keep this setup note.' } })
   fireEvent.change(screen.getByLabelText('Service'), { target: { value: '4' } })
   await screen.findByRole('option', { name: 'Premium' })
   fireEvent.change(screen.getByLabelText('Package'), { target: { value: '5' } })
@@ -306,7 +374,7 @@ test('creates and selects a customer inline without resetting booking values', a
   expect(screen.getByLabelText('Venue address')).toHaveValue('Quezon City')
   expect(screen.getByLabelText('Contact person')).toHaveValue('Lia Coordinator')
   expect(screen.getByLabelText('Contact number')).toHaveValue('09990000000')
-  expect(screen.getByLabelText('Internal notes')).toHaveValue('Keep this setup note.')
+  expect(screen.getByLabelText('Notes')).toHaveValue('Keep this setup note.')
   expect(screen.getByLabelText('Service')).toHaveValue('4')
   expect(screen.getByLabelText('Package')).toHaveValue('5')
   expect(screen.getByLabelText('Duration')).toHaveValue('180')
@@ -314,7 +382,7 @@ test('creates and selects a customer inline without resetting booking values', a
   expect(screen.getByLabelText('Quantity')).toHaveValue(2)
   expect(screen.getByRole('checkbox', { name: 'Mia Santos' })).toBeChecked()
 
-  fireEvent.click(screen.getByRole('button', { name: 'Create booking' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Create Booking' }))
   await waitFor(() => expect(bookingPayload).toBeDefined())
   expect(bookingPayload).toMatchObject({
     customer_id: 12,
@@ -331,8 +399,8 @@ test('creates and selects a customer inline without resetting booking values', a
 test('validates required fields and at least one service before create', async () => {
   const fetchMock = renderRoute('/bookings/new')
   await screen.findByRole('option', { name: 'Ana Cruz' })
-  fireEvent.click(screen.getByRole('button', { name: 'Remove service' }))
-  fireEvent.click(screen.getByRole('button', { name: 'Create booking' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Create Booking' }))
   expect(await screen.findByText('Select a customer.')).toBeInTheDocument()
   expect(screen.getByText('Event name is required.')).toBeInTheDocument()
   expect(screen.getByText('Add at least one service.')).toBeInTheDocument()
@@ -374,7 +442,7 @@ test('shows an authoritative capacity conflict when create is submitted', async 
   await screen.findByRole('option', { name: '3 hours' })
   fireEvent.change(screen.getByLabelText('Duration'), { target: { value: '180' } })
   fireEvent.change(screen.getByLabelText('Start time'), { target: { value: '18:00' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Create booking' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Create Booking' }))
   expect(await screen.findByText('The requested schedule exceeds available service capacity.')).toBeInTheDocument()
 })
 
@@ -396,7 +464,7 @@ test('updates a pending booking shared time and retains service line state', asy
   expect(screen.getByLabelText('Service')).toHaveValue('4')
   expect(screen.getByLabelText('Package')).toHaveValue('5')
   expect(screen.getByLabelText('Duration')).toHaveValue('180')
-  fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
   expect(await screen.findByRole('heading', { name: 'BK-2027-000001' })).toBeInTheDocument()
   expect(updatePayload?.event_name).toBe('Updated occasion')
   expect(updatePayload?.start_time).toBe('20:00')
@@ -419,7 +487,7 @@ test('maps backend booking conflicts and represents inactive current dependencie
   expect(screen.getByRole('option', { name: 'Mirror Booth (current; inactive)' })).toBeInTheDocument()
   expect(await screen.findByRole('option', { name: 'Premium (current; inactive)' })).toBeInTheDocument()
   expect(screen.getByRole('option', { name: '3 hours (saved; unavailable)' })).toBeInTheDocument()
-  fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
   expect(await screen.findByText('The requested schedule exceeds available service capacity.')).toBeInTheDocument()
 })
 
@@ -476,5 +544,5 @@ test('blocks the edit UI for a non-pending booking', async () => {
   const confirmed = { ...booking, status: 'CONFIRMED' }
   renderRoute('/bookings/8/edit', fetchApi((url) => url.endsWith('/api/v1/bookings/8') ? response(confirmed) : undefined))
   expect(await screen.findByRole('heading', { name: 'This booking is read-only' })).toBeInTheDocument()
-  expect(screen.queryByRole('button', { name: 'Save changes' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Save Changes' })).not.toBeInTheDocument()
 })
