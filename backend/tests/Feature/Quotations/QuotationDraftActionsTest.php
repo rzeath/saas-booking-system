@@ -11,15 +11,16 @@ use App\Models\BookingService;
 use App\Models\BusinessSetting;
 use App\Models\Organization;
 use App\Models\Quotation;
+use App\Models\QuotationItem;
 use App\Models\ServiceRate;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Validation\ValidationException;
 use PHPUnit\Framework\Attributes\DataProvider;
+use RuntimeException;
 use Tests\TestCase;
 
 class QuotationDraftActionsTest extends TestCase
@@ -54,6 +55,14 @@ class QuotationDraftActionsTest extends TestCase
             $lines[1]->id,
             $lines[0]->id,
         ], $quotation->items->pluck('booking_service_id')->all());
+        $this->assertSame([
+            '2027-06-15 18:00:00',
+            '2027-06-15 18:00:00',
+        ], $quotation->items->map(fn ($item): string => $item->start_at->format('Y-m-d H:i:s'))->all());
+        $this->assertSame([
+            '2027-06-15 19:00:00',
+            '2027-06-15 20:00:00',
+        ], $quotation->items->map(fn ($item): string => $item->end_at->format('Y-m-d H:i:s'))->all());
         $this->assertDatabaseHas('document_sequences', [
             'organization_id' => $organization->id,
             'document_type' => 'QUOTATION',
@@ -92,6 +101,23 @@ class QuotationDraftActionsTest extends TestCase
         $this->assertSame('1000.10', $item->unit_rate);
         $this->assertSame('2000.20', $item->line_total);
         $this->assertSame(1, $item->sort_order);
+    }
+
+    public function test_item_schedules_share_the_booking_start_and_derive_independent_overnight_ends(): void
+    {
+        [$user, $organization] = $this->tenant();
+        [$booking, $lines] = $this->bookingWithServices($organization, $user);
+        $booking->update(['start_at' => '2027-06-15 23:00:00']);
+
+        $quotation = app(CreateQuotation::class)->handle($user, $booking->id);
+        $shortItem = $quotation->items->firstWhere('booking_service_id', $lines[1]->id);
+        $longItem = $quotation->items->firstWhere('booking_service_id', $lines[0]->id);
+
+        $this->assertSame('2027-06-15', $quotation->event_date->format('Y-m-d'));
+        $this->assertSame('2027-06-15 23:00:00', $shortItem->start_at->format('Y-m-d H:i:s'));
+        $this->assertSame('2027-06-16 00:00:00', $shortItem->end_at->format('Y-m-d H:i:s'));
+        $this->assertSame('2027-06-15 23:00:00', $longItem->start_at->format('Y-m-d H:i:s'));
+        $this->assertSame('2027-06-16 01:00:00', $longItem->end_at->format('Y-m-d H:i:s'));
     }
 
     public function test_header_snapshots_come_from_booking_and_tenant_business_settings(): void
@@ -270,13 +296,16 @@ class QuotationDraftActionsTest extends TestCase
     public function test_creation_is_atomic_when_an_item_snapshot_cannot_be_persisted(): void
     {
         [$user, $organization] = $this->tenant();
-        [$booking, $lines] = $this->bookingWithServices($organization, $user);
-        DB::table('booking_services')->where('id', $lines[0]->id)->update(['line_total' => '0.01']);
+        [$booking] = $this->bookingWithServices($organization, $user);
+        Event::listen('eloquent.creating: '.QuotationItem::class, function (): never {
+            throw new RuntimeException('Simulated quotation item persistence failure.');
+        });
 
         try {
             app(CreateQuotation::class)->handle($user, $booking->id);
             $this->fail('An invalid quotation item was persisted.');
-        } catch (QueryException) {
+        } catch (RuntimeException $exception) {
+            $this->assertSame('Simulated quotation item persistence failure.', $exception->getMessage());
             $this->assertDatabaseCount('quotations', 0);
             $this->assertDatabaseCount('quotation_items', 0);
             $this->assertDatabaseMissing('document_sequences', [
@@ -451,7 +480,7 @@ class QuotationDraftActionsTest extends TestCase
             'customer_address' => 'Booked Customer Address',
             'event_type_name' => 'Booked Event Type',
             'event_name' => 'Booked Occasion',
-            'event_date' => '2027-06-15',
+            'start_at' => '2027-06-15 18:00:00',
             'venue_name' => 'Booked Venue',
             'venue_address' => 'Booked Venue Address',
             'contact_person' => 'Booked Contact',
@@ -460,8 +489,6 @@ class QuotationDraftActionsTest extends TestCase
         $first = BookingService::factory()->forBooking($booking)->create([
             'service_name' => 'Stored Service 1',
             'package_name' => 'Stored Package 1',
-            'start_at' => '2027-06-15 18:00:00',
-            'end_at' => '2027-06-15 20:00:00',
             'duration_minutes' => 120,
             'quantity' => 2,
             'unit_rate' => '1000.10',
@@ -474,8 +501,6 @@ class QuotationDraftActionsTest extends TestCase
             ->create([
                 'service_name' => 'Stored Service 2',
                 'package_name' => 'Stored Package 2',
-                'start_at' => '2027-06-15 17:00:00',
-                'end_at' => '2027-06-15 18:00:00',
                 'duration_minutes' => 60,
                 'quantity' => 1,
                 'unit_rate' => '500.05',

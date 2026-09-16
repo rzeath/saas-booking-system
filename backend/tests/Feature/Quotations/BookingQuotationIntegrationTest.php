@@ -76,6 +76,44 @@ class BookingQuotationIntegrationTest extends TestCase
         $this->assertSame(BookingStatus::Pending, $updated->status);
     }
 
+    public function test_shared_start_and_duration_changes_outdate_the_draft_without_rewriting_its_item_snapshot(): void
+    {
+        $context = $this->context();
+        $draft = $this->draft($context['user'], $context['booking']);
+        $item = $draft->items->first();
+        $originalSnapshot = [
+            'start_at' => $item->getRawOriginal('start_at'),
+            'end_at' => $item->getRawOriginal('end_at'),
+            'duration_minutes' => $item->duration_minutes,
+        ];
+        ServiceRate::factory()->forCombination(
+            $context['event_type'],
+            $context['service'],
+            $context['package'],
+        )->create([
+            'duration_minutes' => 240,
+            'unit_rate' => '9000.00',
+        ]);
+        $payload = $this->updatePayload($context['booking']);
+        $payload['start_time'] = '20:00';
+        $payload['booking_services'][0]['duration_minutes'] = 240;
+
+        $updated = app(UpdateBooking::class)->handle(
+            $context['organization'],
+            $context['user'],
+            $context['booking']->id,
+            $payload,
+        );
+
+        $item->refresh();
+        $this->assertSame(QuotationStatus::Outdated, $draft->fresh()->status);
+        $this->assertSame('2027-06-15 20:00:00', $updated->start_at->format('Y-m-d H:i:s'));
+        $this->assertSame(240, $updated->bookingServices->first()->duration_minutes);
+        $this->assertSame($originalSnapshot['start_at'], $item->getRawOriginal('start_at'));
+        $this->assertSame($originalSnapshot['end_at'], $item->getRawOriginal('end_at'));
+        $this->assertSame($originalSnapshot['duration_minutes'], $item->duration_minutes);
+    }
+
     public function test_outdated_transition_is_terminal(): void
     {
         $context = $this->context();
@@ -215,11 +253,12 @@ class BookingQuotationIntegrationTest extends TestCase
     {
         $context = $this->context(withSecondService: true);
         $removedLine = $context['booking']->bookingServices->last();
+        $startAt = $context['booking']->start_at;
         $frozen = [
             'service_name' => $removedLine->service_name,
             'package_name' => $removedLine->package_name,
-            'start_at' => $removedLine->getRawOriginal('start_at'),
-            'end_at' => $removedLine->getRawOriginal('end_at'),
+            'start_at' => $startAt->format('Y-m-d H:i:s'),
+            'end_at' => $startAt->addMinutes($removedLine->duration_minutes)->format('Y-m-d H:i:s'),
             'quantity' => $removedLine->quantity,
             'unit_rate' => $removedLine->unit_rate,
             'line_total' => $removedLine->line_total,

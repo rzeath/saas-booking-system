@@ -43,12 +43,14 @@ class QuotationItemFactory extends Factory
             throw new InvalidArgumentException('The source Booking Service must belong to the quoted Booking.');
         }
 
+        $startAt = $bookingService->booking->start_at;
+
         return $this->forQuotation($quotation)->state(fn (): array => [
             'booking_service_id' => $bookingService->id,
             'service_name' => $bookingService->service_name,
             'package_name' => $bookingService->package_name,
-            'start_at' => $bookingService->start_at,
-            'end_at' => $bookingService->end_at,
+            'start_at' => $startAt,
+            'end_at' => $startAt->addMinutes($bookingService->duration_minutes),
             'duration_minutes' => $bookingService->duration_minutes,
             'quantity' => $bookingService->quantity,
             'unit_rate' => $bookingService->unit_rate,

@@ -62,7 +62,7 @@ class CreateQuotation
                     ->where('organization_id', $organization->id)
                     ->lockForUpdate()
                     ->firstOrFail();
-                $itemSnapshots = $this->snapshots->items($bookingServices);
+                $itemSnapshots = $this->snapshots->items($booking, $bookingServices);
                 $totals = $this->money->calculate(
                     array_column($itemSnapshots, 'line_total'),
                     $input['transportation_fee'] ?? '0.00',

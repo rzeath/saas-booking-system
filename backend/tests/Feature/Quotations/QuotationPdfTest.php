@@ -57,11 +57,10 @@ class QuotationPdfTest extends TestCase
     {
         [$user, $organization] = $this->tenant();
         $booking = $this->booking($organization, $user);
+        $booking->update(['start_at' => '2027-06-15 22:00:00']);
         $source = BookingService::factory()->forBooking($booking)->create([
             'service_name' => 'Snapshot Mirror Booth',
             'package_name' => 'Snapshot Celebration Package',
-            'start_at' => '2027-06-15 22:00:00',
-            'end_at' => '2027-06-16 01:00:00',
             'duration_minutes' => 180,
             'quantity' => 2,
             'unit_rate' => '4000.00',
@@ -87,6 +86,8 @@ class QuotationPdfTest extends TestCase
         QuotationItem::factory()->fromBookingService($quotation, $source)->create();
 
         $booking->customer->update(['name' => 'Changed Current Customer']);
+        $booking->update(['start_at' => '2027-06-20 08:00:00']);
+        $source->update(['duration_minutes' => 60]);
         $source->service->update(['name' => 'Changed Current Service']);
         $source->package->update(['name' => 'Changed Current Package']);
 

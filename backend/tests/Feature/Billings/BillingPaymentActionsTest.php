@@ -10,6 +10,7 @@ use App\Enums\PaymentStatus;
 use App\Enums\QuotationStatus;
 use App\Models\Billing;
 use App\Models\Booking;
+use App\Models\BookingService;
 use App\Models\BusinessSetting;
 use App\Models\DocumentSequence;
 use App\Models\Organization;
@@ -114,7 +115,9 @@ class BillingPaymentActionsTest extends TestCase
             'customer_name' => 'Changed Booking Customer',
             'event_name' => 'Changed Booking Event',
             'venue_name' => 'Changed Booking Venue',
+            'start_at' => '2027-07-20 09:00:00',
         ]);
+        $booking->bookingServices()->update(['duration_minutes' => 60]);
         $organization->businessSetting()->update([
             'display_name' => 'Current Business Name',
             'email' => 'current@example.test',
@@ -122,6 +125,9 @@ class BillingPaymentActionsTest extends TestCase
         ]);
 
         $billing = $this->record($user, $quotation, '1000.00')->billing->fresh('items');
+        $booking->update(['start_at' => '2027-08-25 14:00:00']);
+        $booking->bookingServices()->update(['duration_minutes' => 30]);
+        $billing->refresh();
 
         $this->assertSame('Historical Events Co.', $billing->business_display_name);
         $this->assertSame('historical@example.test', $billing->business_email);
@@ -131,6 +137,12 @@ class BillingPaymentActionsTest extends TestCase
         $this->assertSame('Historical Venue', $billing->venue_name);
         $this->assertSame('Mirror Booth', $billing->items[0]->service_name);
         $this->assertSame('360 Booth', $billing->items[1]->service_name);
+        $this->assertSame('2027-06-15 18:00:00', $billing->items[0]->start_at->format('Y-m-d H:i:s'));
+        $this->assertSame('2027-06-15 20:00:00', $billing->items[0]->end_at->format('Y-m-d H:i:s'));
+        $this->assertSame(120, $billing->items[0]->duration_minutes);
+        $this->assertSame('2027-06-15 21:00:00', $billing->items[1]->start_at->format('Y-m-d H:i:s'));
+        $this->assertSame('2027-06-16 00:00:00', $billing->items[1]->end_at->format('Y-m-d H:i:s'));
+        $this->assertSame(180, $billing->items[1]->duration_minutes);
     }
 
     public function test_partial_payments_reuse_billing_and_derive_exact_financial_states(): void
@@ -485,6 +497,16 @@ class BillingPaymentActionsTest extends TestCase
             'status' => BookingStatus::Quoted,
             'created_by' => $user->id,
         ]);
+        $mirrorSource = BookingService::factory()->forBooking($booking)->create([
+            'duration_minutes' => 120,
+        ]);
+        $videoSource = BookingService::factory()
+            ->forBooking($booking)
+            ->forPackage($mirrorSource->package, $mirrorSource->service)
+            ->create([
+                'duration_minutes' => 180,
+                'sort_order' => 1,
+            ]);
         $quotation = Quotation::factory()->accepted()->forBooking($booking)->create([
             'business_display_name' => 'Historical Events Co.',
             'business_email' => 'historical@example.test',
@@ -509,6 +531,7 @@ class BillingPaymentActionsTest extends TestCase
             'total' => '8000.00',
         ]);
         QuotationItem::factory()->forQuotation($quotation)->create([
+            'booking_service_id' => $mirrorSource->id,
             'service_name' => 'Mirror Booth',
             'package_name' => 'Classic',
             'start_at' => '2027-06-15 18:00:00',
@@ -520,6 +543,7 @@ class BillingPaymentActionsTest extends TestCase
             'sort_order' => 0,
         ]);
         QuotationItem::factory()->forQuotation($quotation)->create([
+            'booking_service_id' => $videoSource->id,
             'service_name' => '360 Booth',
             'package_name' => 'Essential',
             'start_at' => '2027-06-15 21:00:00',

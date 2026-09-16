@@ -79,6 +79,10 @@ class BookingTest extends TestCase
         ])->assertCreated()
             ->assertJsonPath('booking_number', 'BK-2026-000001')
             ->assertJsonPath('status', 'PENDING')
+            ->assertJsonPath('start_at', '2027-06-15 18:00')
+            ->assertJsonPath('event_date', '2027-06-15')
+            ->assertJsonPath('start_time', '18:00')
+            ->assertJsonPath('end_at', '2027-06-15 21:00')
             ->assertJsonPath('customer_snapshot.name', 'Snapshot Customer')
             ->assertJsonPath('event_type_snapshot.name', 'Wedding')
             ->assertJsonPath('booking_services.0.service.name', 'Mirror Booth')
@@ -142,11 +146,16 @@ class BookingTest extends TestCase
         [$customer, $eventType, $service, $package] = $this->catalog($organization);
         $otherService = Service::factory()->for($organization)->create(['name' => '360 Booth', 'total_units' => 5]);
         $otherPackage = Package::factory()->forService($otherService)->create(['name' => 'Deluxe']);
+        $longestService = Service::factory()->for($organization)->create(['name' => 'Telephone Booth', 'total_units' => 5]);
+        $longestPackage = Package::factory()->forService($longestService)->create(['name' => 'Signature']);
         ServiceRate::factory()->forCombination($eventType, $service, $package)->create([
             'duration_minutes' => 180, 'unit_rate' => '7500.00',
         ]);
         ServiceRate::factory()->forCombination($eventType, $otherService, $otherPackage)->create([
             'duration_minutes' => 120, 'unit_rate' => '4000.00',
+        ]);
+        ServiceRate::factory()->forCombination($eventType, $longestService, $longestPackage)->create([
+            'duration_minutes' => 240, 'unit_rate' => '6000.00',
         ]);
 
         $this->actingAs($admin)->postJson('/api/v1/bookings', [
@@ -161,16 +170,26 @@ class BookingTest extends TestCase
             'duration_minutes' => 120,
             'quantity' => 2,
         ];
+        $payload['booking_services'][] = [
+            'service_id' => $longestService->id,
+            'package_id' => $longestPackage->id,
+            'duration_minutes' => 240,
+            'quantity' => 1,
+        ];
 
         $this->actingAs($admin)->postJson('/api/v1/bookings', $payload)
             ->assertCreated()
-            ->assertJsonCount(2, 'booking_services')
+            ->assertJsonCount(3, 'booking_services')
+            ->assertJsonPath('start_at', '2027-06-15 18:00')
+            ->assertJsonPath('end_at', '2027-06-15 22:00')
             ->assertJsonPath('booking_services.0.start_at', '2027-06-15 18:00')
             ->assertJsonPath('booking_services.0.end_at', '2027-06-15 21:00')
             ->assertJsonPath('booking_services.1.start_at', '2027-06-15 18:00')
             ->assertJsonPath('booking_services.1.end_at', '2027-06-15 20:00')
             ->assertJsonPath('booking_services.1.unit_rate', '4000.00')
-            ->assertJsonPath('booking_services.1.line_total', '8000.00');
+            ->assertJsonPath('booking_services.1.line_total', '8000.00')
+            ->assertJsonPath('booking_services.2.start_at', '2027-06-15 18:00')
+            ->assertJsonPath('booking_services.2.end_at', '2027-06-15 22:00');
     }
 
     public function test_updating_shared_start_moves_every_service_interval(): void
@@ -362,6 +381,10 @@ class BookingTest extends TestCase
 
         $this->actingAs($admin)->postJson('/api/v1/bookings', $payload)
             ->assertCreated()
+            ->assertJsonPath('start_at', '2027-12-20 23:00')
+            ->assertJsonPath('event_date', '2027-12-20')
+            ->assertJsonPath('start_time', '23:00')
+            ->assertJsonPath('end_at', '2027-12-21 02:00')
             ->assertJsonPath('booking_services.0.start_at', '2027-12-20 23:00')
             ->assertJsonPath('booking_services.0.end_at', '2027-12-21 02:00');
     }
@@ -480,8 +503,16 @@ class BookingTest extends TestCase
             'organization_id' => $organization->id, 'created_by' => $admin->id,
             'customer_id' => $customer->id, 'event_type_id' => $eventType->id,
             'customer_name' => 'Acme Search', 'event_type_name' => $eventType->name,
-            'start_at' => '2027-06-20 18:00:00', 'booking_number' => 'BK-2027-000002',
+            'start_at' => '2027-06-30 23:59:00', 'booking_number' => 'BK-2027-000002',
         ]);
+        foreach (['2027-05-31 23:59:59', '2027-07-01 00:00:00'] as $index => $startAt) {
+            Booking::factory()->create([
+                'organization_id' => $organization->id, 'created_by' => $admin->id,
+                'customer_id' => $customer->id, 'event_type_id' => $eventType->id,
+                'customer_name' => 'Acme Search', 'event_type_name' => $eventType->name,
+                'start_at' => $startAt, 'booking_number' => "BK-OUTSIDE-{$index}",
+            ]);
+        }
         Booking::factory()->create([
             'organization_id' => $otherOrganization->id,
             'created_by' => $otherAdmin->id,
@@ -493,6 +524,7 @@ class BookingTest extends TestCase
             ->assertOk()
             ->assertJsonPath('meta.total', 2)
             ->assertJsonPath('data.0.id', $second->id)
+            ->assertJsonPath('data.0.end_at', null)
             ->assertJsonPath('data.1.id', $first->id);
         $this->actingAs($admin)->getJson("/api/v1/bookings/{$second->id}")->assertOk();
     }

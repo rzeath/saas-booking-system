@@ -24,8 +24,18 @@ class BookingController extends Controller
     public function index(
         BookingIndexRequest $request,
         TenantContext $tenant,
+        ManilaSchedule $schedule,
     ): AnonymousResourceCollection {
         $validated = $request->validated();
+        $rangeStart = isset($validated['event_date_from'])
+            ? $schedule->startAt($validated['event_date_from'], '00:00', 'event_date_from')
+            : null;
+        $rangeEnd = isset($validated['event_date_to'])
+            ? $schedule->endAt(
+                $schedule->startAt($validated['event_date_to'], '00:00', 'event_date_to'),
+                1440,
+            )
+            : null;
 
         $bookings = Booking::query()
             ->with(['customer', 'eventType', 'bookingServices.assignedStaff'])
@@ -39,8 +49,8 @@ class BookingController extends Controller
                     ->orWhere('venue_name', 'like', "%{$term}%");
             }))
             ->when($validated['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
-            ->when($validated['event_date_from'] ?? null, fn ($query, string $date) => $query->whereDate('start_at', '>=', $date))
-            ->when($validated['event_date_to'] ?? null, fn ($query, string $date) => $query->whereDate('start_at', '<=', $date))
+            ->when($rangeStart, fn ($query) => $query->where('start_at', '>=', $rangeStart))
+            ->when($rangeEnd, fn ($query) => $query->where('start_at', '<', $rangeEnd))
             ->when($validated['customer_id'] ?? null, fn ($query, int $id) => $query->where('customer_id', $id))
             ->when($validated['event_type_id'] ?? null, fn ($query, int $id) => $query->where('event_type_id', $id))
             ->orderByDesc('start_at')

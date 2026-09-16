@@ -5,9 +5,14 @@ namespace App\Support\Quotations;
 use App\Models\Booking;
 use App\Models\BookingService;
 use App\Models\BusinessSetting;
+use App\Support\Bookings\ManilaSchedule;
 
 class QuotationSnapshotBuilder
 {
+    public function __construct(
+        private readonly ManilaSchedule $schedule,
+    ) {}
+
     /** @return array<string, mixed> */
     public function header(Booking $booking, BusinessSetting $settings): array
     {
@@ -23,7 +28,7 @@ class QuotationSnapshotBuilder
             'customer_address' => $booking->customer_address,
             'event_type_name' => $booking->event_type_name,
             'event_name' => $booking->event_name,
-            'event_date' => $booking->getRawOriginal('event_date'),
+            'event_date' => $booking->start_at->format('Y-m-d'),
             'venue_name' => $booking->venue_name,
             'venue_address' => $booking->venue_address,
             'contact_person' => $booking->contact_person,
@@ -35,9 +40,10 @@ class QuotationSnapshotBuilder
      * @param  iterable<BookingService>  $bookingServices
      * @return list<array<string, mixed>>
      */
-    public function items(iterable $bookingServices): array
+    public function items(Booking $booking, iterable $bookingServices): array
     {
         $items = [];
+        $startAt = $booking->start_at;
 
         foreach ($bookingServices as $bookingService) {
             $items[] = [
@@ -45,8 +51,8 @@ class QuotationSnapshotBuilder
                 'booking_service_id' => $bookingService->id,
                 'service_name' => $bookingService->service_name,
                 'package_name' => $bookingService->package_name,
-                'start_at' => $bookingService->getRawOriginal('start_at'),
-                'end_at' => $bookingService->getRawOriginal('end_at'),
+                'start_at' => $startAt,
+                'end_at' => $this->schedule->endAt($startAt, $bookingService->duration_minutes),
                 'duration_minutes' => $bookingService->duration_minutes,
                 'quantity' => $bookingService->quantity,
                 'unit_rate' => $bookingService->unit_rate,

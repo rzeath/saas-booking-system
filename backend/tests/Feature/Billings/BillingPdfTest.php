@@ -109,6 +109,7 @@ class BillingPdfTest extends TestCase
             'customer_name' => 'Changed Current Customer',
             'event_name' => 'Changed Current Event',
             'venue_name' => 'Changed Current Venue',
+            'start_at' => '2027-07-20 09:00:00',
         ]);
         $billing->booking->customer->update(['name' => 'Changed Master Customer']);
         $billing->booking->eventType->update(['name' => 'Changed Master Event Type']);
