@@ -21,7 +21,7 @@ const booking = {
 }
 
 function response(body: unknown, status = 200) { return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }) }
-function page(data: unknown[], currentPage = 1, lastPage = 1) { return { data, links: { prev: null, next: lastPage > currentPage ? 'next' : null }, meta: { current_page: currentPage, last_page: lastPage, per_page: 15, total: data.length } } }
+function page(data: unknown[], currentPage = 1, lastPage = 1, total = data.length) { return { data, links: { prev: null, next: lastPage > currentPage ? 'next' : null }, meta: { current_page: currentPage, last_page: lastPage, per_page: 15, total } } }
 
 function fetchApi(overrides?: (url: string, init?: RequestInit) => Response | Promise<Response> | undefined) {
   return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -52,38 +52,100 @@ function renderRoute(path: string, fetchMock = fetchApi()) {
 
 afterEach(() => { vi.unstubAllGlobals(); window.history.pushState({}, '', '/') })
 
-test('lists bookings and applies all supported filters', async () => {
+test('renders the responsive booking list with the shared shell hierarchy', async () => {
   const listBooking = { ...booking, start_at: '2027-06-15 17:30', start_time: '17:30' }
-  const fetchMock = renderRoute('/bookings', fetchApi((url) => url.includes('/api/v1/bookings?') ? response(page([listBooking])) : undefined))
-  const row = (await screen.findByText('BK-2027-000001')).closest('tr')
-  expect(within(row!).getByText('Ana Cruz')).toBeInTheDocument()
-  expect(within(row!).getByText('The Glass House')).toBeInTheDocument()
-  expect(within(row!).getByText('5:30 PM – 9:00 PM')).toBeInTheDocument()
+  renderRoute('/bookings', fetchApi((url) => url.includes('/api/v1/bookings?') ? response(page([listBooking])) : undefined))
 
-  fireEvent.change(screen.getByLabelText('Search bookings'), { target: { value: 'Ana' } })
+  expect(await screen.findByRole('heading', { name: 'Bookings' })).toBeInTheDocument()
+  expect(screen.getByText('Manage your event bookings')).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: 'New Booking' })).toHaveAttribute('href', '/bookings/new')
+  expect(screen.getByPlaceholderText('Booking number, customer, event, or venue')).toBeInTheDocument()
+  const reference = await screen.findByRole('link', { name: 'BK-2027-000001' })
+  expect(screen.getAllByRole('columnheader').map((heading) => heading.textContent)).toEqual([
+    'Reference',
+    'Customer / Event',
+    'Schedule',
+    'Venue',
+    'Total',
+    'Status',
+    'Actions',
+  ])
+  expect(screen.queryByRole('columnheader', { name: 'Staff' })).not.toBeInTheDocument()
+
+  expect(reference).toHaveAttribute('href', '/bookings/8')
+  const row = reference.closest('tr')
+  expect(row).toHaveClass('grid', 'md:table-row')
+  expect(within(row!).getByText('Ana Cruz')).toBeInTheDocument()
+  expect(within(row!).getByText('Ana & Leo')).toBeInTheDocument()
+  expect(within(row!).getByText('The Glass House')).toBeInTheDocument()
+  expect(within(row!).getByText('Jun 15, 2027')).toBeInTheDocument()
+  expect(within(row!).getByText('5:30 PM – 9:00 PM')).toBeInTheDocument()
+  expect(within(row!).getByText('₱8,000.00')).toBeInTheDocument()
+  expect(within(row!).getAllByText('Pending')).not.toHaveLength(0)
+  expect(within(row!).getByLabelText('Actions for BK-2027-000001')).toBeInTheDocument()
+})
+
+test('applies only the supported search, status, and date filters', async () => {
+  const fetchMock = renderRoute('/bookings')
+  await screen.findByRole('link', { name: 'BK-2027-000001' })
+
+  fireEvent.change(screen.getByLabelText('Search'), { target: { value: 'Ana' } })
   fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'CONFIRMED' } })
-  fireEvent.change(screen.getByLabelText('Event date from'), { target: { value: '2027-06-01' } })
-  fireEvent.change(screen.getByLabelText('Event date to'), { target: { value: '2027-06-30' } })
-  fireEvent.change(screen.getByLabelText('Customer'), { target: { value: '2' } })
-  fireEvent.change(screen.getByLabelText('Event type'), { target: { value: '3' } })
+  fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2027-06-15' } })
   fireEvent.click(screen.getByRole('button', { name: 'Search' }))
 
   await waitFor(() => expect(fetchMock.mock.calls.some(([input]) => {
     const url = String(input)
-    return url.includes('/api/v1/bookings?') && url.includes('search=Ana') && url.includes('status=CONFIRMED') && url.includes('event_date_from=2027-06-01') && url.includes('event_date_to=2027-06-30') && url.includes('customer_id=2') && url.includes('event_type_id=3')
+    return url.includes('/api/v1/bookings?') && url.includes('search=Ana') && url.includes('status=CONFIRMED') && url.includes('event_date_from=2027-06-15') && url.includes('event_date_to=2027-06-15')
   })).toBe(true))
+  expect(screen.queryByLabelText('Customer')).not.toBeInTheDocument()
+  expect(screen.queryByLabelText('Event type')).not.toBeInTheDocument()
 })
 
 test('paginates the booking list and opens a booking', async () => {
-  const fetchMock = fetchApi((url) => url.includes('/api/v1/bookings?') ? response(page([booking], url.includes('page=2') ? 2 : 1, 2)) : undefined)
+  const fetchMock = fetchApi((url) => url.includes('/api/v1/bookings?') ? response(page([booking], url.includes('page=2') ? 2 : 1, 2, 30)) : undefined)
   renderRoute('/bookings', fetchMock)
+  expect(await screen.findByText('Showing 1–15 of 30')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Go to page 1' })).toHaveAttribute('aria-current', 'page')
+  expect(screen.getByRole('button', { name: 'Go to page 2' })).toBeInTheDocument()
   fireEvent.click(await screen.findByRole('button', { name: 'Next' }))
   await waitFor(() => expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/api/v1/bookings?page=2'))).toBe(true))
-  fireEvent.click(await screen.findByRole('link', { name: 'Open' }))
+  fireEvent.click(await screen.findByRole('link', { name: 'BK-2027-000001' }))
   expect(await screen.findByRole('heading', { name: 'BK-2027-000001' })).toBeInTheDocument()
 })
 
-test('shows empty and recoverable list error states', async () => {
+test('renders an overnight booking from the shared booking schedule', async () => {
+  const overnight = {
+    ...booking,
+    start_at: '2027-06-15 23:00',
+    start_time: '23:00',
+    end_at: '2027-06-16 02:00',
+  }
+  renderRoute('/bookings', fetchApi((url) => url.includes('/api/v1/bookings?') ? response(page([overnight])) : undefined))
+  const row = (await screen.findByRole('link', { name: 'BK-2027-000001' })).closest('tr')
+  expect(within(row!).getByText('Jun 15, 2027 · 11:00 PM')).toBeInTheDocument()
+  expect(within(row!).getByText('→ Jun 16, 2027 · 2:00 AM')).toBeInTheDocument()
+})
+
+test('shows the filtered empty state', async () => {
+  const fetchMock = fetchApi((url) => {
+    if (url.includes('/api/v1/bookings?')) return url.includes('status=CONFIRMED') ? response(page([])) : response(page([booking]))
+  })
+  renderRoute('/bookings', fetchMock)
+  await screen.findByRole('link', { name: 'BK-2027-000001' })
+  fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'CONFIRMED' } })
+  expect(await screen.findByText('No bookings match your filters.')).toBeInTheDocument()
+  expect(screen.getByText('Try changing your search or filters.')).toBeInTheDocument()
+})
+
+test('shows the first-booking empty state and action', async () => {
+  renderRoute('/bookings', fetchApi((url) => url.includes('/api/v1/bookings?') ? response(page([])) : undefined))
+  expect(await screen.findByText('No bookings yet.')).toBeInTheDocument()
+  expect(screen.getByText('Create your first booking to start managing events.')).toBeInTheDocument()
+  expect(screen.getAllByRole('link', { name: 'New Booking' })).toHaveLength(2)
+})
+
+test('shows a recoverable list error state', async () => {
   let failed = true
   const fetchMock = fetchApi((url) => {
     if (url.includes('/api/v1/bookings?')) return failed ? response({ message: 'Failed' }, 500) : response(page([]))
@@ -92,7 +154,7 @@ test('shows empty and recoverable list error states', async () => {
   expect(await screen.findByText('We could not load bookings.')).toBeInTheDocument()
   failed = false
   fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
-  expect(await screen.findByText('No bookings match these filters.')).toBeInTheDocument()
+  expect(await screen.findByText('No bookings yet.')).toBeInTheDocument()
 })
 
 test('creates a booking with backend-authoritative pricing and availability preview', async () => {
@@ -407,7 +469,7 @@ test('shows the booking loading state', async () => {
   renderRoute('/bookings', fetchApi((url) => url.includes('/api/v1/bookings?') ? pending : undefined))
   expect(await screen.findByText('Loading bookings…')).toBeInTheDocument()
   resolveBookings(response(page([])))
-  expect(await screen.findByText('No bookings match these filters.')).toBeInTheDocument()
+  expect(await screen.findByText('No bookings yet.')).toBeInTheDocument()
 })
 
 test('blocks the edit UI for a non-pending booking', async () => {

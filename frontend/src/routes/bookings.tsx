@@ -1,22 +1,34 @@
-import { useQuery } from '@tanstack/react-query'
-import { Plus } from 'lucide-react'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { EllipsisVertical, Plus, Search, X } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import {
+  DataPanel,
+  tableBodyClassName,
+  tableCellClassName,
+  tableClassName,
+  tableHeadClassName,
+  tableHeaderCellClassName,
+} from '@/components/data/data-table'
+import { FilterBar } from '@/components/data/filter-bar'
 import { PaginationControls } from '@/components/data/pagination-controls'
+import { EmptyState, ErrorState, LoadingState } from '@/components/data/query-state'
 import { FormField, SelectField } from '@/components/forms/form-field'
+import { Page, PageHeader } from '@/components/layout/page'
+import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button-variants'
+import { BookingStatusBadge } from '@/components/ui/status-badge'
 import {
   getBookings,
-  getCustomers,
-  getEventTypes,
+  type Booking,
   type BookingQuery,
   type BookingStatus,
 } from '@/lib/api'
-import { bookingStatusLabel } from '@/lib/booking-format'
+import { bookingStatusLabel, formatMoney, sumMoney } from '@/lib/booking-format'
 import { bookingListQueryKey } from '@/lib/bookings-query'
-import { customerListQueryKey } from '@/lib/customers-query'
-import { eventTypeListQueryKey } from '@/lib/event-types-query'
-import { formatBusinessDate, formatManilaScheduleEnd, formatManilaTime } from '@/lib/quotation-format'
+import { formatBusinessDate, formatManilaTime } from '@/lib/quotation-format'
+import { cn } from '@/lib/utils'
 
 const initialQuery: BookingQuery = {
   page: 1,
@@ -27,8 +39,112 @@ const initialQuery: BookingQuery = {
   customer_id: 0,
   event_type_id: 0,
 }
-const selectorQuery = { page: 1, search: '', status: 'all' as const, per_page: 100 }
+
 const statuses: BookingStatus[] = ['PENDING', 'QUOTED', 'CONFIRMED', 'COMPLETED', 'CANCELLED']
+
+function bookingTotal(booking: Booking): string {
+  return sumMoney(booking.booking_services.map((line) => line.line_total))
+}
+
+function BookingSchedule({ booking }: { booking: Booking }) {
+  if (!booking.end_at) {
+    return (
+      <>
+        <span className="block whitespace-nowrap font-medium text-foreground">{formatBusinessDate(booking.event_date)}</span>
+        <span className="mt-0.5 block whitespace-nowrap text-xs text-muted">{formatManilaTime(booking.start_time)}</span>
+      </>
+    )
+  }
+
+  const endDate = booking.end_at.split(' ')[0] ?? booking.event_date
+  const endTime = formatManilaTime(booking.end_at)
+
+  if (endDate === booking.event_date) {
+    return (
+      <>
+        <span className="block whitespace-nowrap font-medium text-foreground">{formatBusinessDate(booking.event_date)}</span>
+        <span className="mt-0.5 block whitespace-nowrap text-xs text-muted">{formatManilaTime(booking.start_time)} – {endTime}</span>
+      </>
+    )
+  }
+
+  return (
+    <>
+      <span className="block whitespace-nowrap font-medium text-foreground">{formatBusinessDate(booking.event_date)} · {formatManilaTime(booking.start_time)}</span>
+      <span className="mt-0.5 block whitespace-nowrap text-xs text-muted">→ {formatBusinessDate(endDate)} · {endTime}</span>
+    </>
+  )
+}
+
+function BookingActions({ booking }: { booking: Booking }) {
+  return (
+    <details className="group relative inline-block text-left">
+      <summary
+        aria-label={`Actions for ${booking.booking_number}`}
+        className="grid size-8 cursor-pointer list-none place-items-center rounded-lg text-muted transition hover:bg-surface-subtle hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden"
+      >
+        <EllipsisVertical className="size-4" aria-hidden="true" />
+      </summary>
+      <div className="absolute bottom-full right-0 z-20 mb-1 min-w-36 rounded-lg border border-border bg-surface p-1 shadow-[0_8px_24px_rgb(35_28_31/0.12)]">
+        <Link to={`/bookings/${booking.id}`} className="block rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-surface-subtle">
+          View booking
+        </Link>
+      </div>
+    </details>
+  )
+}
+
+function BookingRows({ bookings }: { bookings: Booking[] }) {
+  return (
+    <table className={cn(tableClassName, 'block md:table')}>
+      <thead className={cn(tableHeadClassName, 'hidden md:table-header-group')}>
+        <tr>
+          <th className={tableHeaderCellClassName}>Reference</th>
+          <th className={tableHeaderCellClassName}>Customer / Event</th>
+          <th className={tableHeaderCellClassName}>Schedule</th>
+          <th className={tableHeaderCellClassName}>Venue</th>
+          <th className={`${tableHeaderCellClassName} text-right`}>Total</th>
+          <th className={tableHeaderCellClassName}>Status</th>
+          <th className={`${tableHeaderCellClassName} text-right`}>Actions</th>
+        </tr>
+      </thead>
+      <tbody className={cn(tableBodyClassName, 'block md:table-row-group')}>
+        {bookings.map((booking) => (
+          <tr key={booking.id} className="relative grid gap-3 p-4 pr-14 md:table-row md:p-0">
+            <td className="block md:table-cell md:px-5 md:py-3.5">
+              <div className="flex flex-wrap items-center gap-2 md:block">
+                <Link to={`/bookings/${booking.id}`} className="font-semibold text-primary hover:text-primary-hover">
+                  {booking.booking_number}
+                </Link>
+                <span className="md:hidden"><BookingStatusBadge status={booking.status} /></span>
+              </div>
+            </td>
+            <td className="block md:table-cell md:px-5 md:py-3.5">
+              <span className="block font-semibold text-foreground">{booking.customer_snapshot.name}</span>
+              <span className="mt-0.5 block text-xs text-muted">{booking.event_name || booking.event_type_snapshot.name}</span>
+            </td>
+            <td className="block md:table-cell md:px-5 md:py-3.5">
+              <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.08em] text-muted md:hidden">Schedule</span>
+              <BookingSchedule booking={booking} />
+            </td>
+            <td className="block min-w-0 md:table-cell md:max-w-56 md:px-5 md:py-3.5">
+              <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.08em] text-muted md:hidden">Venue</span>
+              <span className="block truncate text-foreground" title={booking.venue_name}>{booking.venue_name}</span>
+            </td>
+            <td className="block md:table-cell md:px-5 md:py-3.5 md:text-right">
+              <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.08em] text-muted md:hidden">Total</span>
+              <span className="font-semibold tabular-nums text-foreground">{formatMoney(bookingTotal(booking))}</span>
+            </td>
+            <td className={cn(tableCellClassName, 'hidden md:table-cell')}><BookingStatusBadge status={booking.status} /></td>
+            <td className="absolute right-3 top-3 block md:static md:table-cell md:px-5 md:py-3.5 md:text-right">
+              <BookingActions booking={booking} />
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
 
 export function BookingsRoute() {
   const [query, setQuery] = useState<BookingQuery>(initialQuery)
@@ -36,92 +152,109 @@ export function BookingsRoute() {
   const bookings = useQuery({
     queryKey: bookingListQueryKey(query),
     queryFn: () => getBookings(query),
+    placeholderData: keepPreviousData,
   })
-  const customers = useQuery({
-    queryKey: customerListQueryKey(selectorQuery),
-    queryFn: () => getCustomers(selectorQuery),
-  })
-  const eventTypes = useQuery({
-    queryKey: eventTypeListQueryKey(selectorQuery),
-    queryFn: () => getEventTypes(selectorQuery),
-  })
+
+  const hasFilters = Boolean(query.search || query.status || query.event_date_from)
 
   return (
-    <section>
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-sm font-semibold tracking-[0.08em] text-cyan-400">Operations</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight">Bookings</h1>
-          <p className="mt-2 text-sm text-slate-400">Manage event schedules, services, and current booking status.</p>
-        </div>
-        <Link to="/bookings/new" className="inline-flex items-center gap-2 rounded-lg bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-cyan-400">
-          <Plus className="size-4" aria-hidden="true" /> Create Booking
-        </Link>
-      </div>
+    <Page>
+      <PageHeader
+        title="Bookings"
+        description="Manage your event bookings"
+        actions={(
+          <Link to="/bookings/new" className={buttonVariants()}>
+            <Plus className="size-4" aria-hidden="true" /> New Booking
+          </Link>
+        )}
+      />
 
-      <div className="mt-8 rounded-2xl border border-slate-800 bg-slate-900">
-        <form
-          role="search"
-          className="grid gap-4 border-b border-slate-800 p-5 md:grid-cols-3 xl:grid-cols-4"
+      <DataPanel className="mt-6">
+        <FilterBar
+          className="items-end gap-3 p-4 sm:grid-cols-2 lg:grid-cols-[minmax(16rem,1fr)_12rem_12rem_auto]"
           onSubmit={(event) => {
             event.preventDefault()
             setQuery((current) => ({ ...current, page: 1, search: search.trim() }))
           }}
         >
-          <FormField label="Search bookings" id="booking-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Number, customer, event, contact, or venue" />
-          <SelectField label="Status" id="booking-status-filter" value={query.status} onChange={(event) => setQuery((current) => ({ ...current, page: 1, status: event.target.value as BookingStatus | '' }))}>
-            <option value="">All statuses</option>
+          <FormField
+            label="Search"
+            id="booking-search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Booking number, customer, event, or venue"
+          />
+          <SelectField
+            label="Status"
+            id="booking-status-filter"
+            value={query.status}
+            onChange={(event) => setQuery((current) => ({ ...current, page: 1, status: event.target.value as BookingStatus | '' }))}
+          >
+            <option value="">All</option>
             {statuses.map((status) => <option key={status} value={status}>{bookingStatusLabel(status)}</option>)}
           </SelectField>
-          <FormField label="Event date from" id="booking-date-from" type="date" value={query.event_date_from} onChange={(event) => setQuery((current) => ({ ...current, page: 1, event_date_from: event.target.value }))} />
-          <FormField label="Event date to" id="booking-date-to" type="date" value={query.event_date_to} onChange={(event) => setQuery((current) => ({ ...current, page: 1, event_date_to: event.target.value }))} />
-          <SelectField label="Customer" id="booking-customer-filter" value={query.customer_id} onChange={(event) => setQuery((current) => ({ ...current, page: 1, customer_id: Number(event.target.value) }))}>
-            <option value="0">All customers</option>
-            {customers.data?.data.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}
-          </SelectField>
-          <SelectField label="Event type" id="booking-event-type-filter" value={query.event_type_id} onChange={(event) => setQuery((current) => ({ ...current, page: 1, event_type_id: Number(event.target.value) }))}>
-            <option value="0">All event types</option>
-            {eventTypes.data?.data.map((eventType) => <option key={eventType.id} value={eventType.id}>{eventType.name}</option>)}
-          </SelectField>
-          <div className="flex items-end gap-2 md:col-span-3 xl:col-span-2">
-            <button type="submit" className="rounded-lg border border-slate-700 px-4 py-2.5 text-sm font-medium hover:bg-slate-800">Search</button>
-            <button type="button" onClick={() => { setSearch(''); setQuery(initialQuery) }} className="rounded-lg border border-slate-700 px-4 py-2.5 text-sm font-medium hover:bg-slate-800">Clear filters</button>
+          <FormField
+            label="Date"
+            id="booking-date-filter"
+            type="date"
+            value={query.event_date_from}
+            onChange={(event) => setQuery((current) => ({
+              ...current,
+              page: 1,
+              event_date_from: event.target.value,
+              event_date_to: event.target.value,
+            }))}
+          />
+          <div className="flex min-h-10 items-center gap-1.5">
+            <Button type="submit" size="small" className="min-h-10 px-3.5">
+              <Search className="size-4" aria-hidden="true" /> Search
+            </Button>
+            {hasFilters ? (
+              <Button
+                variant="ghost"
+                size="small"
+                className="min-h-10 px-2.5"
+                onClick={() => {
+                  setSearch('')
+                  setQuery(initialQuery)
+                }}
+              >
+                <X className="size-4" aria-hidden="true" /> Clear
+              </Button>
+            ) : null}
           </div>
-        </form>
+        </FilterBar>
 
-        {bookings.isPending ? <p role="status" className="p-8 text-center text-slate-400">Loading bookings…</p> : null}
+        {bookings.isFetching && !bookings.isPending ? (
+          <p role="status" className="border-b border-border bg-surface-subtle px-4 py-2 text-xs text-muted">Updating bookings…</p>
+        ) : null}
+        {bookings.isPending ? <LoadingState label="Loading bookings…" /> : null}
         {bookings.isError ? (
-          <div className="p-8 text-center">
-            <p role="alert" className="text-rose-300">We could not load bookings.</p>
-            <button type="button" onClick={() => { void bookings.refetch() }} className="mt-3 rounded-lg border border-slate-700 px-3 py-2 text-sm">Try again</button>
-          </div>
+          <ErrorState title="We could not load bookings." onRetry={() => { void bookings.refetch() }} />
         ) : null}
-        {bookings.data?.data.length === 0 ? <p className="p-8 text-center text-slate-400">No bookings match these filters.</p> : null}
-        {bookings.data && bookings.data.data.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-slate-800 text-xs uppercase tracking-wide text-slate-500">
-                <tr><th className="px-5 py-3">Booking Number</th><th className="px-5 py-3">Customer</th><th className="px-5 py-3">Event</th><th className="px-5 py-3">Schedule</th><th className="px-5 py-3">Event Type</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Venue</th><th className="px-5 py-3 text-right">Actions</th></tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800">
-                {bookings.data.data.map((booking) => (
-                  <tr key={booking.id}>
-                    <td className="px-5 py-4 font-medium text-cyan-300">{booking.booking_number}</td>
-                    <td className="px-5 py-4">{booking.customer_snapshot.name}</td>
-                    <td className="px-5 py-4">{booking.event_name}</td>
-                    <td className="px-5 py-4"><span className="block whitespace-nowrap">{formatBusinessDate(booking.event_date)}</span><span className="block whitespace-nowrap text-xs text-slate-500">{formatManilaTime(booking.start_time)} – {formatManilaScheduleEnd(booking.end_at, booking.event_date)}</span></td>
-                    <td className="px-5 py-4">{booking.event_type_snapshot.name}</td>
-                    <td className="px-5 py-4">{bookingStatusLabel(booking.status)}</td>
-                    <td className="px-5 py-4">{booking.venue_name}</td>
-                    <td className="px-5 py-4 text-right"><Link to={`/bookings/${booking.id}`} className="rounded-lg border border-slate-700 px-3 py-1.5 hover:bg-slate-800">Open</Link></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        {bookings.data?.data.length === 0 ? (
+          hasFilters ? (
+            <EmptyState title="No bookings match your filters." description="Try changing your search or filters." />
+          ) : (
+            <EmptyState
+              title="No bookings yet."
+              description="Create your first booking to start managing events."
+              action={<Link to="/bookings/new" className={buttonVariants({ size: 'small' })}><Plus className="size-4" aria-hidden="true" /> New Booking</Link>}
+            />
+          )
         ) : null}
-        {bookings.data ? <PaginationControls page={bookings.data.meta.current_page} lastPage={bookings.data.meta.last_page} total={bookings.data.meta.total} onPageChange={(page) => setQuery((current) => ({ ...current, page }))} /> : null}
-      </div>
-    </section>
+        {bookings.data && bookings.data.data.length > 0 ? <BookingRows bookings={bookings.data.data} /> : null}
+        {bookings.data ? (
+          <PaginationControls
+            page={bookings.data.meta.current_page}
+            lastPage={bookings.data.meta.last_page}
+            total={bookings.data.meta.total}
+            perPage={bookings.data.meta.per_page}
+            showPageNumbers
+            onPageChange={(page) => setQuery((current) => ({ ...current, page }))}
+          />
+        ) : null}
+      </DataPanel>
+    </Page>
   )
 }
