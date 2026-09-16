@@ -54,6 +54,14 @@ $organization->serviceRates()->create([
     'unit_rate' => '7500.00',
     'is_active' => true,
 ]);
+$organization->serviceRates()->create([
+    'event_type_id' => $eventType->id,
+    'service_id' => $service->id,
+    'package_id' => $package->id,
+    'duration_minutes' => 240,
+    'unit_rate' => '9000.00',
+    'is_active' => true,
+]);
 $bookingCounter = 0;
 
 $createBooking = function (bool $withSecondLine = false) use (
@@ -101,7 +109,7 @@ $createBooking = function (bool $withSecondLine = false) use (
             'id' => $line->id,
             'service_id' => $service->id,
             'package_id' => $package->id,
-            'duration_minutes' => 180,
+            'duration_minutes' => 240,
             'quantity' => 1,
             'staff_ids' => [],
         ];
@@ -112,7 +120,7 @@ $createBooking = function (bool $withSecondLine = false) use (
         'event_type_id' => $eventType->id,
         'event_name' => "Updated Race Event {$bookingCounter}",
         'event_date' => '2027-06-15',
-        'start_time' => '18:00',
+        'start_time' => '19:00',
         'venue_name' => 'Race Hall',
         'venue_address' => null,
         'contact_person' => 'Race Contact',
@@ -227,6 +235,8 @@ $validUntil = CarbonImmutable::now(config('app.timezone'))->addDay()->toDateStri
 
 [$sameBooking, $samePayload] = $createBooking();
 $samePayload['event_name'] = $sameBooking->event_name;
+$samePayload['start_time'] = '18:00';
+$samePayload['booking_services'][0]['duration_minutes'] = 180;
 $sameQuotation = app(CreateQuotation::class)->handle($user, $sameBooking->id, [
     'valid_until' => $validUntil,
 ]);
@@ -265,12 +275,20 @@ $final = fn (int $quotationId, int $bookingId): array => [
 $acceptFinal = $final($acceptQuotation->id, $acceptBooking->id);
 $sendFinal = $final($sendQuotation->id, $sendBooking->id);
 $removeFinal = $final($removeQuotation->id, $removeBooking->id);
+$acceptFinalService = (array) DB::table('booking_services')->where('booking_id', $acceptBooking->id)->first();
+$acceptSnapshotItem = (array) DB::table('quotation_items')->where('quotation_id', $acceptQuotation->id)->first();
+$sendFinalService = (array) DB::table('booking_services')->where('booking_id', $sendBooking->id)->first();
+$sendSnapshotItem = (array) DB::table('quotation_items')->where('quotation_id', $sendQuotation->id)->first();
 $acceptOriginalWon = $acceptFinal['quotation']['status'] === 'ACCEPTED'
     && $acceptFinal['booking']['status'] === 'QUOTED'
-    && $acceptFinal['booking']['event_name'] !== $acceptPayload['event_name'];
+    && $acceptFinal['booking']['event_name'] !== $acceptPayload['event_name']
+    && $acceptFinal['booking']['start_at'] === '2027-06-15 18:00:00.000000'
+    && $acceptFinalService['duration_minutes'] === 180;
 $acceptEditWon = $acceptFinal['quotation']['status'] === 'OUTDATED'
     && $acceptFinal['booking']['status'] === 'PENDING'
-    && $acceptFinal['booking']['event_name'] === $acceptPayload['event_name'];
+    && $acceptFinal['booking']['event_name'] === $acceptPayload['event_name']
+    && $acceptFinal['booking']['start_at'] === '2027-06-15 19:00:00.000000'
+    && $acceptFinalService['duration_minutes'] === 240;
 $removedItem = (array) DB::table('quotation_items')
     ->where('quotation_id', $removeQuotation->id)
     ->where('service_name', $service->name)
@@ -290,6 +308,14 @@ $passed = $allExitCodes === array_fill(0, 6, 0)
     && $sendFinal['quotation']['status'] === 'OUTDATED'
     && $sendFinal['booking']['status'] === 'PENDING'
     && $sendFinal['booking']['event_name'] === $sendPayload['event_name']
+    && $sendFinal['booking']['start_at'] === '2027-06-15 19:00:00.000000'
+    && $sendFinalService['duration_minutes'] === 240
+    && $acceptSnapshotItem['start_at'] === '2027-06-15 18:00:00.000000'
+    && $acceptSnapshotItem['end_at'] === '2027-06-15 21:00:00.000000'
+    && $acceptSnapshotItem['duration_minutes'] === 180
+    && $sendSnapshotItem['start_at'] === '2027-06-15 18:00:00.000000'
+    && $sendSnapshotItem['end_at'] === '2027-06-15 21:00:00.000000'
+    && $sendSnapshotItem['duration_minutes'] === 180
     && in_array($raceKinds($removeRace), [['conflict', 'remove'], ['remove', 'send']], true)
     && $removeFinal['quotation']['status'] === 'OUTDATED'
     && $removeFinal['booking']['status'] === 'PENDING'
@@ -311,6 +337,14 @@ echo json_encode([
         'remove_send' => $removeFinal,
     ],
     'historical_item_retained' => $removedItem !== [],
+    'shared_schedule_and_snapshot_checks' => [
+        'accept_race' => $acceptOriginalWon || $acceptEditWon,
+        'send_booking_start_at' => $sendFinal['booking']['start_at'],
+        'send_booking_duration_minutes' => $sendFinalService['duration_minutes'],
+        'send_quotation_item_start_at' => $sendSnapshotItem['start_at'],
+        'send_quotation_item_end_at' => $sendSnapshotItem['end_at'],
+        'send_quotation_item_duration_minutes' => $sendSnapshotItem['duration_minutes'],
+    ],
 ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR).PHP_EOL;
 
 exit($passed ? 0 : 1);

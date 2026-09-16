@@ -59,7 +59,7 @@ $createAcceptedQuotation = function () use (
         'customer_name' => $customer->name,
         'event_type_name' => $eventType->name,
         'event_name' => "Payment Race {$bookingCounter}",
-        'event_date' => '2027-06-15',
+        'start_at' => '2027-06-15 18:00:00',
         'venue_name' => 'Concurrency Hall',
         'contact_person' => 'Concurrency Contact',
         'contact_number' => '09170000000',
@@ -106,8 +106,8 @@ $createAcceptedQuotation = function () use (
             'booking_id' => $booking->id,
             'service_name' => '360 Booth',
             'package_name' => 'Essential',
-            'start_at' => '2027-06-15 21:00:00',
-            'end_at' => '2027-06-16 00:00:00',
+            'start_at' => '2027-06-15 18:00:00',
+            'end_at' => '2027-06-15 21:00:00',
             'duration_minutes' => 180,
             'quantity' => 1,
             'unit_rate' => '3000.00',
@@ -296,6 +296,15 @@ $sequence = DB::table('document_sequences')
 $billingNumbers = DB::table('billings')
     ->where('organization_id', $organization->id)
     ->pluck('billing_number');
+$billingSnapshotMismatchCount = DB::table('billing_items as billing_item')
+    ->join('quotation_items as quotation_item', 'quotation_item.id', '=', 'billing_item.quotation_item_id')
+    ->where('billing_item.organization_id', $organization->id)
+    ->where(function ($query): void {
+        $query->whereColumn('billing_item.start_at', '!=', 'quotation_item.start_at')
+            ->orWhereColumn('billing_item.end_at', '!=', 'quotation_item.end_at')
+            ->orWhereColumn('billing_item.duration_minutes', '!=', 'quotation_item.duration_minutes');
+    })
+    ->count();
 $allExitCodes = array_merge(
     $firstRace['exit_codes'],
     $finalRace['exit_codes'],
@@ -323,6 +332,7 @@ $passed = $allExitCodes === array_fill(0, 8, 0)
     && DB::table('bookings')->where('id', $voidBooking->id)->value('status') === 'CONFIRMED'
     && $billingNumbers->count() === 4
     && $billingNumbers->unique()->count() === 4
+    && $billingSnapshotMismatchCount === 0
     && $sequence !== null
     && (int) $sequence->next_number === 5;
 
@@ -338,6 +348,7 @@ echo json_encode([
         'payment_void' => $paymentVoidState['posted'],
         'void_replay' => $voidState['posted'],
     ],
+    'billing_snapshot_mismatch_count' => $billingSnapshotMismatchCount,
     'billing_numbers' => $billingNumbers->all(),
     'sequence_next_number' => $sequence?->next_number,
 ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR).PHP_EOL;
