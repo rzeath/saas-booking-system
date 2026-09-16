@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\BookingController;
 use App\Http\Controllers\Api\V1\BookingQuotationController;
 use App\Http\Controllers\Api\V1\BookingServiceStaffController;
 use App\Http\Controllers\Api\V1\BusinessSettingController;
+use App\Http\Controllers\Api\V1\CalendarController;
 use App\Http\Controllers\Api\V1\CustomerController;
 use App\Http\Controllers\Api\V1\EventTypeController;
 use App\Http\Controllers\Api\V1\PackageController;
@@ -49,6 +50,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
             ->name('business-settings.show');
         Route::put('/business-settings', [BusinessSettingController::class, 'update'])
             ->name('business-settings.update');
+
+        Route::get('/calendar', CalendarController::class)->name('calendar.index');
 
         Route::apiResource('customers', CustomerController::class)->only([
             'index', 'store', 'show', 'update',

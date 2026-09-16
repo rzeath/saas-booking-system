@@ -16,18 +16,29 @@ class BookingScheduleQuery
         DateTimeInterface $endAt,
     ): void {
         $query
-            ->where('bookings.start_at', '<', $this->wallClock($endAt))
-            ->whereRaw(
-                $this->endExpression().' > ?',
-                [$this->wallClock($startAt)],
-            );
+            ->where('bookings.start_at', '<', $this->wallClock($endAt));
+
+        $this->whereEndsAfter($query, $startAt);
     }
 
-    private function endExpression(): string
+    public function whereEndsAfter(
+        EloquentBuilder|QueryBuilder $query,
+        DateTimeInterface $boundary,
+        string $durationColumn = 'booking_services.duration_minutes',
+    ): void {
+        $query->whereRaw(
+            $this->endExpression($durationColumn).' > ?',
+            [$this->wallClock($boundary)],
+        );
+    }
+
+    private function endExpression(string $durationColumn): string
     {
+        $durationColumn = DB::connection()->getQueryGrammar()->wrap($durationColumn);
+
         return match (DB::connection()->getDriverName()) {
-            'mysql' => 'TIMESTAMPADD(MINUTE, booking_services.duration_minutes, bookings.start_at)',
-            'sqlite' => "datetime(bookings.start_at, '+' || booking_services.duration_minutes || ' minutes')",
+            'mysql' => "TIMESTAMPADD(MINUTE, {$durationColumn}, bookings.start_at)",
+            'sqlite' => "datetime(bookings.start_at, '+' || {$durationColumn} || ' minutes')",
             default => throw new RuntimeException('Unsupported database driver for Booking schedule queries.'),
         };
     }
