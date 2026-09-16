@@ -339,6 +339,33 @@ const bookingAvailabilitySchema = z.object({
   services: z.array(availabilityServiceSchema),
 })
 
+const calendarEventServiceSchema = z.object({
+  id: z.number(),
+  service_name: z.string(),
+  package_name: z.string(),
+  duration_minutes: z.number(),
+  quantity: z.number(),
+  start_at: z.string(),
+  end_at: z.string(),
+})
+
+const calendarEventSchema = z.object({
+  id: z.number(),
+  booking_number: z.string(),
+  status: bookingStatusSchema,
+  start_at: z.string(),
+  end_at: z.string(),
+  customer_name: z.string(),
+  event_name: z.string(),
+  event_type_name: z.string(),
+  venue_name: z.string(),
+  services: z.array(calendarEventServiceSchema),
+})
+
+const calendarEventCollectionSchema = z.object({
+  data: z.array(calendarEventSchema),
+})
+
 const staffAvailabilitySchema = z.object({
   staff: z.array(z.object({
     id: z.number(),
@@ -438,6 +465,8 @@ export type PaymentPage = z.infer<typeof paymentPageSchema>
 export type PaymentMutationResult = z.infer<typeof paymentMutationResultSchema>
 export type BookingAvailability = z.infer<typeof bookingAvailabilitySchema>
 export type StaffAvailability = z.infer<typeof staffAvailabilitySchema>
+export type CalendarEventService = z.infer<typeof calendarEventServiceSchema>
+export type CalendarEvent = z.infer<typeof calendarEventSchema>
 export type SaveBookingServiceInput = {
   id?: number
   service_id: number
@@ -480,6 +509,12 @@ export type BookingQuery = {
   customer_id: number
   event_type_id: number
   per_page?: number
+}
+export type CalendarQuery = {
+  start: string
+  end: string
+  statuses: BookingStatus[]
+  service_id?: number
 }
 export type QuotationQuery = {
   page: number
@@ -680,6 +715,13 @@ function bookingQueryString(query: BookingQuery): string {
   if (query.customer_id) params.set('customer_id', String(query.customer_id))
   if (query.event_type_id) params.set('event_type_id', String(query.event_type_id))
   if (query.per_page) params.set('per_page', String(query.per_page))
+  return params.toString()
+}
+
+function calendarQueryString(query: CalendarQuery): string {
+  const params = new URLSearchParams({ start: query.start, end: query.end })
+  query.statuses.forEach((status) => params.append('statuses[]', status))
+  if (query.service_id) params.set('service_id', String(query.service_id))
   return params.toString()
 }
 
@@ -886,6 +928,11 @@ export async function getBookings(query: BookingQuery): Promise<BookingPage> {
 export async function getBooking(id: number): Promise<Booking> {
   const response = await requestV1(`/bookings/${id}`)
   return bookingSchema.parse(await response.json())
+}
+
+export async function getCalendarEvents(query: CalendarQuery): Promise<CalendarEvent[]> {
+  const response = await requestV1(`/calendar?${calendarQueryString(query)}`)
+  return calendarEventCollectionSchema.parse(await response.json()).data
 }
 
 export async function getQuotations(query: QuotationQuery): Promise<QuotationPage> {

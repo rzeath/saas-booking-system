@@ -1,6 +1,8 @@
+import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 
 import { GuestRoute, ProtectedRoute } from '@/components/auth/auth-guards'
+import { LoadingState } from '@/components/data/query-state'
 import { AuthenticatedLayout } from '@/components/layout/authenticated-layout'
 import { LoginRoute } from '@/routes/auth/login'
 import { RegisterRoute } from '@/routes/auth/register'
@@ -19,6 +21,11 @@ import { QuotationDetailRoute } from '@/routes/quotation-detail'
 import { QuotationNewRoute } from '@/routes/quotation-new'
 import { QuotationsRoute } from '@/routes/quotations'
 
+const CalendarRoute = lazy(async () => {
+  const route = await import('@/routes/calendar')
+  return { default: route.CalendarRoute }
+})
+
 export default function App() {
   return (
     <Routes>
@@ -32,6 +39,7 @@ export default function App() {
         <Route path="/service-rates" element={<Navigate to="/master-data?tab=services" replace />} />
         <Route path="/staff" element={<Navigate to="/master-data?tab=staff" replace />} />
         <Route path="/bookings" element={<BookingsRoute />} />
+        <Route path="/calendar" element={<Suspense fallback={<LoadingState label="Loading calendar..." />}><CalendarRoute /></Suspense>} />
         <Route path="/bookings/new" element={<BookingNewRoute />} />
         <Route path="/bookings/:bookingId" element={<BookingDetailRoute />} />
         <Route path="/bookings/:bookingId/edit" element={<BookingEditRoute />} />

@@ -1,5 +1,6 @@
 import {
   CalendarDays,
+  CalendarRange,
   CircleDollarSign,
   Database,
   FileText,
@@ -23,7 +24,11 @@ const navigation = [
   { label: 'Overview', items: [{ to: '/', label: 'Dashboard', icon: Gauge, end: true }] },
   {
     label: 'Operations',
-    items: [{ to: '/bookings', label: 'Bookings', icon: CalendarDays, end: false }],
+    items: [
+      { to: '/bookings', label: 'Bookings', icon: CalendarDays, end: false },
+      { to: '/calendar', label: 'Calendar', icon: CalendarRange, end: false },
+      { to: '/customers', label: 'Customers', icon: Users, end: false },
+    ],
   },
   {
     label: 'Commercial',
@@ -32,10 +37,6 @@ const navigation = [
       { to: '/billings', label: 'Billings', icon: ReceiptText, end: false },
       { to: '/payments', label: 'Payments', icon: CircleDollarSign, end: false },
     ],
-  },
-  {
-    label: 'People',
-    items: [{ to: '/customers', label: 'Customers', icon: Users, end: false }],
   },
   {
     label: 'Configuration',

@@ -1,0 +1,170 @@
+.takda-calendar-workspace {
+  display: grid;
+  min-width: 0;
+}
+
+.takda-booking-calendar {
+  min-height: 34rem;
+  padding: 1rem;
+  color: var(--foreground);
+}
+
+.takda-booking-calendar .fc {
+  --fc-border-color: var(--border);
+  --fc-page-bg-color: var(--surface);
+  --fc-neutral-bg-color: var(--surface-subtle);
+  --fc-neutral-text-color: var(--muted);
+  --fc-today-bg-color: color-mix(in srgb, var(--primary) 6%, white);
+  --fc-event-bg-color: var(--primary-soft);
+  --fc-event-border-color: color-mix(in srgb, var(--primary) 28%, white);
+  --fc-event-text-color: var(--foreground);
+  height: 100%;
+  font-family: inherit;
+}
+
+.takda-booking-calendar .fc-theme-standard td,
+.takda-booking-calendar .fc-theme-standard th {
+  border-color: var(--border);
+}
+
+.takda-booking-calendar .fc-col-header-cell-cushion,
+.takda-booking-calendar .fc-daygrid-day-number {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.takda-booking-calendar .fc-daygrid-day-number[role="button"]:focus-visible {
+  border-radius: 0.25rem;
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.takda-booking-calendar .fc-daygrid-day-frame {
+  min-height: 6.25rem;
+}
+
+.takda-booking-calendar .takda-calendar-day--selected {
+  background: color-mix(in srgb, var(--primary) 10%, white);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--primary) 55%, white);
+}
+
+.takda-booking-calendar .takda-calendar-event {
+  border-left-width: 3px;
+  border-radius: 0.375rem;
+  background: var(--surface-subtle);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.05);
+  cursor: pointer;
+  color: var(--foreground);
+}
+
+.takda-booking-calendar .takda-calendar-event:hover {
+  box-shadow: 0 2px 7px rgb(15 23 42 / 0.1);
+}
+
+.takda-booking-calendar .takda-calendar-event:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.takda-booking-calendar .takda-calendar-event--pending { border-left-color: var(--warning); background: var(--warning-soft); }
+.takda-booking-calendar .takda-calendar-event--quoted { border-left-color: var(--primary); background: var(--primary-soft); }
+.takda-booking-calendar .takda-calendar-event--confirmed { border-left-color: var(--success); background: var(--success-soft); }
+.takda-booking-calendar .takda-calendar-event--completed { border-left-color: var(--muted); background: var(--surface-subtle); }
+.takda-booking-calendar .takda-calendar-event--cancelled { border-left-color: var(--danger); background: var(--danger-soft); }
+
+.takda-calendar-month-event,
+.takda-calendar-week-event {
+  display: grid;
+  min-width: 0;
+  gap: 0.0625rem;
+  padding: 0.2rem 0.3rem;
+  font-size: 0.6875rem;
+  line-height: 0.95rem;
+}
+
+.takda-calendar-event-time,
+.takda-calendar-event-customer,
+.takda-calendar-event-service {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.takda-calendar-event-time,
+.takda-calendar-event-customer {
+  font-weight: 700;
+}
+
+.takda-calendar-event-service {
+  color: var(--muted);
+}
+
+.takda-booking-calendar .fc-timegrid-event .takda-calendar-week-event {
+  font-size: 0.75rem;
+  line-height: 1.05rem;
+}
+
+.takda-booking-calendar .fc-list-event-title a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.takda-booking-calendar .fc-list-event:hover td {
+  background: var(--surface-subtle);
+}
+
+.takda-booking-calendar .fc-more-link {
+  color: var(--primary);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.takda-calendar-empty {
+  position: absolute;
+  inset: 4.5rem 1rem 1rem;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  background: rgb(255 255 255 / 0.9);
+  pointer-events: none;
+}
+
+.takda-calendar-agenda {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+@media (min-width: 768px) {
+  .takda-calendar-workspace {
+    grid-template-columns: minmax(0, 1fr) 20rem;
+    min-height: 42rem;
+  }
+
+  .takda-calendar-agenda {
+    border-top: 0;
+    border-left: 1px solid var(--border);
+  }
+}
+
+@media (min-width: 1280px) {
+  .takda-calendar-workspace {
+    grid-template-columns: minmax(0, 1fr) 22rem;
+  }
+}
+
+@media (max-width: 767px) {
+  .takda-booking-calendar {
+    min-height: 20rem;
+    padding: 0.75rem;
+  }
+
+  .takda-booking-calendar .fc-list-empty {
+    background: var(--surface);
+  }
+}
