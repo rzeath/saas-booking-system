@@ -37,7 +37,6 @@ const serviceLineSchema = z.object({
   id: z.number().optional(),
   service_id: z.number().int().min(1, 'Select a service.'),
   package_id: z.number().int().min(1, 'Select a package.'),
-  start_time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Enter a valid start time.'),
   duration_minutes: z.number().int().min(1, 'Select a duration.'),
   quantity: z.number().int('Quantity must be a whole number.').min(1, 'Quantity must be at least 1.'),
   staff_ids: z.array(z.number().int()),
@@ -48,6 +47,7 @@ const bookingFormSchema = z.object({
   event_type_id: z.number().int().min(1, 'Select an event type.'),
   event_name: z.string().trim().min(1, 'Event name is required.').max(255),
   event_date: z.string().min(1, 'Event date is required.'),
+  start_time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Enter a valid start time.'),
   venue_name: z.string().trim().min(1, 'Venue name is required.').max(255),
   venue_address: z.string().trim().max(2000, 'Use at most 2,000 characters.'),
   contact_person: z.string().trim().min(1, 'Contact person is required.').max(255),
@@ -61,7 +61,6 @@ const selectorQuery = { page: 1, search: '', status: 'active' as const, per_page
 const blankService = (): BookingFormValues['booking_services'][number] => ({
   service_id: 0,
   package_id: 0,
-  start_time: '',
   duration_minutes: 0,
   quantity: 1,
   staff_ids: [],
@@ -73,6 +72,7 @@ function valuesFromBooking(booking?: Booking): BookingFormValues {
     event_type_id: booking?.event_type.id ?? 0,
     event_name: booking?.event_name ?? '',
     event_date: booking?.event_date ?? '',
+    start_time: booking?.start_time ?? '',
     venue_name: booking?.venue_name ?? '',
     venue_address: booking?.venue_address ?? '',
     contact_person: booking?.contact_person ?? '',
@@ -82,7 +82,6 @@ function valuesFromBooking(booking?: Booking): BookingFormValues {
       id: line.id,
       service_id: line.service.id,
       package_id: line.package.id,
-      start_time: line.start_at.slice(11, 16),
       duration_minutes: line.duration_minutes,
       quantity: line.quantity,
       staff_ids: line.staff.map((staff) => staff.id),
@@ -112,11 +111,11 @@ function availabilityInput(values: BookingFormValues, bookingId?: number) {
   return {
     ...(bookingId ? { booking_id: bookingId } : {}),
     event_date: values.event_date,
+    start_time: values.start_time,
     booking_services: values.booking_services.map((line) => ({
       ...(line.id ? { id: line.id } : {}),
       service_id: line.service_id,
       package_id: line.package_id,
-      start_time: line.start_time,
       duration_minutes: line.duration_minutes,
       quantity: line.quantity,
     })),
@@ -131,6 +130,7 @@ function BookingServiceFields({
   eventTypeId,
   savedLine,
   eventDate,
+  startTime,
   onRemove,
   onScheduleChange,
 }: {
@@ -141,6 +141,7 @@ function BookingServiceFields({
   eventTypeId: number
   savedLine?: BookingService
   eventDate: string
+  startTime: string
   onRemove: () => void
   onScheduleChange: () => void
 }) {
@@ -148,7 +149,6 @@ function BookingServiceFields({
   const packageId = useWatch({ control: form.control, name: `booking_services.${index}.package_id` })
   const duration = useWatch({ control: form.control, name: `booking_services.${index}.duration_minutes` })
   const quantity = useWatch({ control: form.control, name: `booking_services.${index}.quantity` })
-  const startTime = useWatch({ control: form.control, name: `booking_services.${index}.start_time` })
   const staffIds = useWatch({ control: form.control, name: `booking_services.${index}.staff_ids` })
   const packages = useQuery({
     queryKey: servicePackageListQueryKey(serviceId, selectorQuery),
@@ -190,7 +190,6 @@ function BookingServiceFields({
   }
   const selectedService = services.find((service) => service.id === serviceId)
   const errors = form.formState.errors.booking_services?.[index]
-  const startRegistration = form.register(`booking_services.${index}.start_time`)
   const quantityRegistration = form.register(`booking_services.${index}.quantity`, { valueAsNumber: true })
   const activeStaff = staffAvailability.data?.staff.map((staff) => ({ ...staff, is_active: true })) ?? []
   const staffOptions = savedLine?.staff.reduce(
@@ -229,7 +228,6 @@ function BookingServiceFields({
             {durations.map((minutes) => <option key={minutes} value={minutes}>{durationLabel(minutes)}{availableRates.some((rate) => rate.duration_minutes === minutes) ? '' : ' (saved; unavailable)'}</option>)}
           </SelectField>
         )} />
-        <FormField label="Start time" id={`booking-start-${fieldKey}`} type="time" error={errors?.start_time?.message} {...startRegistration} onChange={(event) => { onScheduleChange(); void startRegistration.onChange(event) }} />
         <FormField label="Quantity" id={`booking-quantity-${fieldKey}`} type="number" min="1" max={selectedService?.total_units} error={errors?.quantity?.message} {...quantityRegistration} onChange={(event) => { onScheduleChange(); void quantityRegistration.onChange(event) }} />
         <div className="rounded-lg border border-slate-800 p-3 text-sm">
           <span className="block text-slate-400">Current configured price</span>
@@ -278,6 +276,7 @@ export function BookingForm({ booking }: { booking?: Booking }) {
   const customerId = useWatch({ control: form.control, name: 'customer_id' })
   const eventTypeId = useWatch({ control: form.control, name: 'event_type_id' })
   const eventDate = useWatch({ control: form.control, name: 'event_date' })
+  const startTime = useWatch({ control: form.control, name: 'start_time' })
   const eventTypes = useQuery({ queryKey: eventTypeListQueryKey(selectorQuery), queryFn: () => getEventTypes(selectorQuery) })
   const services = useQuery({ queryKey: serviceListQueryKey(selectorQuery), queryFn: () => getServices(selectorQuery) })
   const currentEventType: EventType | undefined = booking ? { ...booking.event_type, created_at: '', updated_at: '' } : undefined
@@ -330,6 +329,7 @@ export function BookingForm({ booking }: { booking?: Booking }) {
   const optionError = eventTypes.isError || services.isError
   const rootServiceError = form.formState.errors.booking_services?.root?.message ?? form.formState.errors.booking_services?.message
   const eventDateRegistration = form.register('event_date')
+  const startTimeRegistration = form.register('start_time')
 
   return (
     <form noValidate className="mt-8 space-y-6" onSubmit={form.handleSubmit((values) => {
@@ -363,8 +363,9 @@ export function BookingForm({ booking }: { booking?: Booking }) {
             field.onChange(Number(event.target.value))
             form.getValues('booking_services').forEach((_, index) => form.setValue(`booking_services.${index}.duration_minutes`, 0, { shouldValidate: true }))
           }}><option value="0">Select event type</option>{eventTypeOptions.map((item) => <option key={item.id} value={item.id}>{item.name}{item.is_active ? '' : ' (current; inactive)'}</option>)}</SelectField>} />
-          <FormField label="Event name / occasion" id="booking-event-name" error={form.formState.errors.event_name?.message} {...form.register('event_name')} />
           <FormField label="Event date" id="booking-event-date" type="date" error={form.formState.errors.event_date?.message} {...eventDateRegistration} onChange={(event) => { setAvailabilityIsStale(true); void eventDateRegistration.onChange(event) }} />
+          <FormField label="Start time" id="booking-start-time" type="time" error={form.formState.errors.start_time?.message} {...startTimeRegistration} onChange={(event) => { setAvailabilityIsStale(true); void startTimeRegistration.onChange(event) }} />
+          <FormField label="Event name / occasion" id="booking-event-name" error={form.formState.errors.event_name?.message} {...form.register('event_name')} />
           <FormField label="Venue name" id="booking-venue-name" error={form.formState.errors.venue_name?.message} {...form.register('venue_name')} />
           <FormField label="Contact person" id="booking-contact-person" error={form.formState.errors.contact_person?.message} {...form.register('contact_person')} />
           <FormField label="Contact number" id="booking-contact-number" error={form.formState.errors.contact_number?.message} {...form.register('contact_number')} />
@@ -375,12 +376,12 @@ export function BookingForm({ booking }: { booking?: Booking }) {
 
       <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
         <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-semibold">Booking services</h2><p className="mt-1 text-sm text-slate-400">Prices shown are estimates. The server resolves and saves the authoritative rate.</p></div><button type="button" onClick={() => { setAvailabilityIsStale(true); fields.append(blankService()) }} className="inline-flex items-center gap-2 rounded-lg border border-cyan-800 px-3 py-2 text-sm text-cyan-300"><Plus className="size-4" aria-hidden="true" /> Add service</button></div>
-        <div className="mt-5 space-y-5">{fields.fields.map((field, index) => <BookingServiceFields key={field.id} form={form} index={index} fieldKey={field.id} services={serviceOptions} eventTypeId={eventTypeId} eventDate={eventDate} savedLine={booking?.booking_services.find((line) => line.id === form.getValues(`booking_services.${index}.id`))} onScheduleChange={() => setAvailabilityIsStale(true)} onRemove={() => { setAvailabilityIsStale(true); fields.remove(index) }} />)}</div>
+        <div className="mt-5 space-y-5">{fields.fields.map((field, index) => <BookingServiceFields key={field.id} form={form} index={index} fieldKey={field.id} services={serviceOptions} eventTypeId={eventTypeId} eventDate={eventDate} startTime={startTime} savedLine={booking?.booking_services.find((line) => line.id === form.getValues(`booking_services.${index}.id`))} onScheduleChange={() => setAvailabilityIsStale(true)} onRemove={() => { setAvailabilityIsStale(true); fields.remove(index) }} />)}</div>
         {rootServiceError ? <p role="alert" className="mt-3 text-sm text-rose-300">{rootServiceError}</p> : null}
       </div>
 
       <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-        <div className="flex flex-wrap items-center justify-between gap-4"><div><h2 className="text-lg font-semibold">Availability preview</h2><p className="mt-1 text-sm text-slate-400">This preview is advisory. Availability is checked again when the booking is saved.</p></div><button type="button" disabled={availabilityMutation.isPending} onClick={() => { void form.trigger(['event_date', 'event_type_id', 'booking_services']).then((valid) => { if (valid) availabilityMutation.mutate(availabilityInput(form.getValues(), booking?.id)) }) }} className="rounded-lg border border-cyan-800 px-4 py-2 text-sm font-medium text-cyan-300 disabled:opacity-60">{availabilityMutation.isPending ? 'Checking…' : 'Check availability'}</button></div>
+        <div className="flex flex-wrap items-center justify-between gap-4"><div><h2 className="text-lg font-semibold">Availability preview</h2><p className="mt-1 text-sm text-slate-400">This preview is advisory. Availability is checked again when the booking is saved.</p></div><button type="button" disabled={availabilityMutation.isPending} onClick={() => { void form.trigger(['event_date', 'start_time', 'event_type_id', 'booking_services']).then((valid) => { if (valid) availabilityMutation.mutate(availabilityInput(form.getValues(), booking?.id)) }) }} className="rounded-lg border border-cyan-800 px-4 py-2 text-sm font-medium text-cyan-300 disabled:opacity-60">{availabilityMutation.isPending ? 'Checking…' : 'Check availability'}</button></div>
         {availability && availabilityIsStale ? <p role="status" className="mt-4 text-sm text-amber-300">Availability is stale because the schedule changed. Check again.</p> : null}
         {availability && !availabilityIsStale ? <div role="status" className={`mt-4 rounded-lg border p-4 text-sm ${availability.available ? 'border-emerald-900 bg-emerald-950/30 text-emerald-300' : 'border-rose-900 bg-rose-950/30 text-rose-300'}`}><strong>{availability.available ? 'All requested services are available.' : 'One or more services exceed capacity.'}</strong><ul className="mt-2 list-disc pl-5">{availability.services.map((service) => <li key={service.service_id}>Service {service.service_id}: {service.requested_quantity} requested, {service.total_units} total units{service.available ? '' : `, ${service.over_capacity_by} over capacity`}</li>)}</ul></div> : null}
       </div>

@@ -15,7 +15,7 @@ const staffAvailability = { staff: [{ id: 10, name: 'Mia Santos', available: tru
 const booking = {
   id: 8, booking_number: 'BK-2027-000001', status: 'PENDING',
   customer: { id: 2, name: 'Ana Cruz', is_active: true }, customer_snapshot: { name: 'Ana Cruz', email: 'ana@example.com', phone: '09171234567', address: 'Makati' },
-  event_type: { id: 3, name: 'Wedding', is_active: true }, event_type_snapshot: { name: 'Wedding' }, event_name: 'Ana & Leo', event_date: '2027-06-15', venue_name: 'The Glass House', venue_address: 'Makati', contact_person: 'Ana Cruz', contact_number: '09171234567', internal_notes: 'Load in early.',
+  event_type: { id: 3, name: 'Wedding', is_active: true }, event_type_snapshot: { name: 'Wedding' }, event_name: 'Ana & Leo', start_at: '2027-06-15 18:00', event_date: '2027-06-15', start_time: '18:00', end_at: '2027-06-15 21:00', venue_name: 'The Glass House', venue_address: 'Makati', contact_person: 'Ana Cruz', contact_number: '09171234567', internal_notes: 'Load in early.',
   booking_services: [{ id: 9, service: { id: 4, name: 'Mirror Booth' }, package: { id: 5, name: 'Premium' }, start_at: '2027-06-15 18:00', end_at: '2027-06-15 21:00', duration_minutes: 180, quantity: 1, unit_rate: '8000.00', line_total: '8000.00', sort_order: 0, staff: [{ id: 10, name: 'Mia Santos', is_active: true }] }],
   cancelled_at: null, cancellation_reason: null, created_at: '2026-01-01', updated_at: '2026-01-01',
 }
@@ -53,10 +53,12 @@ function renderRoute(path: string, fetchMock = fetchApi()) {
 afterEach(() => { vi.unstubAllGlobals(); window.history.pushState({}, '', '/') })
 
 test('lists bookings and applies all supported filters', async () => {
-  const fetchMock = renderRoute('/bookings')
+  const listBooking = { ...booking, start_at: '2027-06-15 17:30', start_time: '17:30' }
+  const fetchMock = renderRoute('/bookings', fetchApi((url) => url.includes('/api/v1/bookings?') ? response(page([listBooking])) : undefined))
   const row = (await screen.findByText('BK-2027-000001')).closest('tr')
   expect(within(row!).getByText('Ana Cruz')).toBeInTheDocument()
   expect(within(row!).getByText('The Glass House')).toBeInTheDocument()
+  expect(within(row!).getByText('5:30 PM – 9:00 PM')).toBeInTheDocument()
 
   fireEvent.change(screen.getByLabelText('Search bookings'), { target: { value: 'Ana' } })
   fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'CONFIRMED' } })
@@ -95,8 +97,17 @@ test('shows empty and recoverable list error states', async () => {
 
 test('creates a booking with backend-authoritative pricing and availability preview', async () => {
   let submitted: Record<string, unknown> | undefined
+  let availabilityPayload: Record<string, unknown> | undefined
+  const staffPayloads: Record<string, unknown>[] = []
   const fetchMock = fetchApi((url, init) => {
-    if (url.endsWith('/api/v1/bookings/availability') && init?.method === 'POST') return response({ available: true, services: [{ service_id: 4, available: true, total_units: 2, requested_quantity: 1, required_quantity: 1, over_capacity_by: 0 }] })
+    if (url.endsWith('/api/v1/bookings/staff-availability') && init?.method === 'POST') {
+      staffPayloads.push(JSON.parse(String(init.body)) as Record<string, unknown>)
+      return response(staffAvailability)
+    }
+    if (url.endsWith('/api/v1/bookings/availability') && init?.method === 'POST') {
+      availabilityPayload = JSON.parse(String(init.body)) as Record<string, unknown>
+      return response({ available: true, services: [{ service_id: 4, available: true, total_units: 2, requested_quantity: 1, required_quantity: 1, over_capacity_by: 0 }] })
+    }
     if (url.endsWith('/api/v1/bookings') && init?.method === 'POST') { submitted = JSON.parse(String(init.body)) as Record<string, unknown>; return response(booking, 201) }
   })
   renderRoute('/bookings/new', fetchMock)
@@ -118,17 +129,29 @@ test('creates a booking with backend-authoritative pricing and availability prev
   const availableStaff = await screen.findByRole('checkbox', { name: 'Mia Santos' })
   expect(screen.getByRole('checkbox', { name: /Carlo Reyes.*Unavailable/ })).toBeDisabled()
   fireEvent.click(availableStaff)
+  fireEvent.change(screen.getByLabelText('Start time'), { target: { value: '18:30' } })
+  await waitFor(() => expect(staffPayloads.some((payload) => payload.start_time === '18:30')).toBe(true))
+  expect(screen.getByRole('checkbox', { name: 'Mia Santos' })).toBeChecked()
   expect(await screen.findByText(/Estimated line total:/)).toHaveTextContent('₱8,000.00')
   fireEvent.click(screen.getByRole('button', { name: 'Check availability' }))
   expect(await screen.findByText('All requested services are available.')).toBeInTheDocument()
+  fireEvent.change(screen.getByLabelText('Start time'), { target: { value: '19:00' } })
+  expect(await screen.findByText(/Availability is stale because the schedule changed/)).toBeInTheDocument()
+  await waitFor(() => expect(staffPayloads.some((payload) => payload.start_time === '19:00')).toBe(true))
+  expect(screen.getByRole('checkbox', { name: 'Mia Santos' })).toBeChecked()
+  fireEvent.click(screen.getByRole('button', { name: 'Check availability' }))
+  await waitFor(() => expect(screen.queryByText(/Availability is stale because the schedule changed/)).not.toBeInTheDocument())
   fireEvent.change(screen.getByLabelText('Quantity'), { target: { value: '2' } })
   expect(await screen.findByText(/Availability is stale because the schedule changed/)).toBeInTheDocument()
   fireEvent.change(screen.getByLabelText('Quantity'), { target: { value: '1' } })
   fireEvent.click(screen.getByRole('button', { name: 'Create booking' }))
 
   await waitFor(() => expect(submitted).toBeDefined())
-  const payload = submitted as { booking_services: Record<string, unknown>[] }
-  expect(payload.booking_services[0]).toEqual({ service_id: 4, package_id: 5, start_time: '18:00', duration_minutes: 180, quantity: 1, staff_ids: [10] })
+  const payload = submitted as { start_time: string; booking_services: Record<string, unknown>[] }
+  expect(payload.start_time).toBe('19:00')
+  expect(payload.booking_services[0]).toEqual({ service_id: 4, package_id: 5, duration_minutes: 180, quantity: 1, staff_ids: [10] })
+  expect(availabilityPayload).toMatchObject({ event_date: '2027-06-15', start_time: '19:00' })
+  expect((availabilityPayload?.booking_services as Record<string, unknown>[])[0]).not.toHaveProperty('start_time')
   expect(payload.booking_services[0]).not.toHaveProperty('unit_rate')
   expect(payload.booking_services[0]).not.toHaveProperty('line_total')
 })
@@ -147,6 +170,9 @@ test('supports repeated service lines and clears dependent choices', async () =>
   expect(screen.getByLabelText('Duration')).toHaveValue('0')
   fireEvent.click(screen.getByRole('button', { name: 'Add service' }))
   expect(screen.getAllByLabelText('Service')).toHaveLength(2)
+  expect(screen.getAllByLabelText('Event date')).toHaveLength(1)
+  expect(screen.getAllByLabelText('Start time')).toHaveLength(1)
+  expect(screen.getAllByLabelText('Duration')).toHaveLength(2)
   fireEvent.change(screen.getAllByLabelText('Service')[0], { target: { value: '0' } })
   expect(screen.getAllByLabelText('Package')[0]).toHaveValue('0')
   expect(screen.getAllByLabelText('Duration')[0]).toHaveValue('0')
@@ -232,10 +258,11 @@ test('creates and selects a customer inline without resetting booking values', a
     customer_id: 12,
     event_name: 'Bea Birthday',
     event_date: '2027-08-20',
+    start_time: '19:30',
     venue_name: 'Garden Hall',
     contact_person: 'Lia Coordinator',
     contact_number: '09990000000',
-    booking_services: [{ service_id: 4, package_id: 5, start_time: '19:30', duration_minutes: 180, quantity: 2, staff_ids: [10] }],
+    booking_services: [{ service_id: 4, package_id: 5, duration_minutes: 180, quantity: 2, staff_ids: [10] }],
   })
 })
 
@@ -289,8 +316,8 @@ test('shows an authoritative capacity conflict when create is submitted', async 
   expect(await screen.findByText('The requested schedule exceeds available service capacity.')).toBeInTheDocument()
 })
 
-test('updates a pending booking and retains service line identity', async () => {
-  let updatePayload: { event_name: string; booking_services: { id?: number }[] } | undefined
+test('updates a pending booking shared time and retains service line state', async () => {
+  let updatePayload: { event_name: string; start_time: string; booking_services: { id?: number; duration_minutes: number; start_time?: string }[] } | undefined
   const fetchMock = fetchApi((url, init) => {
     if (url.endsWith('/api/v1/bookings/8') && init?.method === 'PUT') {
       updatePayload = JSON.parse(String(init.body)) as typeof updatePayload
@@ -299,11 +326,21 @@ test('updates a pending booking and retains service line identity', async () => 
   })
   renderRoute('/bookings/8/edit', fetchMock)
   await screen.findByRole('option', { name: '3 hours' })
+  expect(screen.getByLabelText('Event date')).toHaveValue('2027-06-15')
+  expect(screen.getByLabelText('Start time')).toHaveValue('18:00')
+  expect(screen.getByLabelText('Duration')).toHaveValue('180')
   fireEvent.change(screen.getByLabelText('Event name / occasion'), { target: { value: 'Updated occasion' } })
+  fireEvent.change(screen.getByLabelText('Start time'), { target: { value: '20:00' } })
+  expect(screen.getByLabelText('Service')).toHaveValue('4')
+  expect(screen.getByLabelText('Package')).toHaveValue('5')
+  expect(screen.getByLabelText('Duration')).toHaveValue('180')
   fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
   expect(await screen.findByRole('heading', { name: 'BK-2027-000001' })).toBeInTheDocument()
   expect(updatePayload?.event_name).toBe('Updated occasion')
+  expect(updatePayload?.start_time).toBe('20:00')
   expect(updatePayload?.booking_services[0].id).toBe(9)
+  expect(updatePayload?.booking_services[0].duration_minutes).toBe(180)
+  expect(updatePayload?.booking_services[0]).not.toHaveProperty('start_time')
 })
 
 test('maps backend booking conflicts and represents inactive current dependencies', async () => {
@@ -325,12 +362,25 @@ test('maps backend booking conflicts and represents inactive current dependencie
 })
 
 test('renders snapshots, total, and pending actions on booking detail', async () => {
-  renderRoute('/bookings/8')
+  const bookingWithDifferentDurations = {
+    ...booking,
+    end_at: '2027-06-15 22:00',
+    booking_services: [
+      booking.booking_services[0],
+      { ...booking.booking_services[0], id: 10, service: { id: 7, name: '360 Video Booth' }, package: { id: 8, name: 'Basic' }, end_at: '2027-06-15 20:00', duration_minutes: 120, unit_rate: '4000.00', line_total: '4000.00', sort_order: 1, staff: [] },
+    ],
+  }
+  renderRoute('/bookings/8', fetchApi((url) => url.endsWith('/api/v1/bookings/8') ? response(bookingWithDifferentDurations) : undefined))
   expect(await screen.findByRole('heading', { name: 'BK-2027-000001' })).toBeInTheDocument()
   expect(screen.getByText('Customer snapshot')).toBeInTheDocument()
-  expect(screen.getByText('Saved service, package, schedule, and price snapshots.')).toBeInTheDocument()
+  expect(screen.getByText('All services begin at the shared event start; each duration determines its effective end.')).toBeInTheDocument()
+  expect(screen.getByText('Jun 15, 2027')).toBeInTheDocument()
+  expect(screen.getAllByText('6:00 PM').length).toBeGreaterThan(0)
+  expect(screen.getByText('6:00 PM – 9:00 PM')).toBeInTheDocument()
+  expect(screen.getByText('6:00 PM – 8:00 PM')).toBeInTheDocument()
+  expect(screen.getByText('10:00 PM')).toBeInTheDocument()
   expect(screen.getByText('Mia Santos')).toBeInTheDocument()
-  expect(screen.getAllByText('₱8,000.00')).toHaveLength(3)
+  expect(screen.getAllByText('₱8,000.00')).toHaveLength(2)
   expect(screen.getByRole('link', { name: /Edit/ })).toHaveAttribute('href', '/bookings/8/edit')
   expect(screen.getByRole('button', { name: /Cancel booking/ })).toBeInTheDocument()
 })

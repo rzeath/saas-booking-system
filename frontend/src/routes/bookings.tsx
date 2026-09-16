@@ -16,6 +16,7 @@ import { bookingStatusLabel } from '@/lib/booking-format'
 import { bookingListQueryKey } from '@/lib/bookings-query'
 import { customerListQueryKey } from '@/lib/customers-query'
 import { eventTypeListQueryKey } from '@/lib/event-types-query'
+import { formatBusinessDate, formatManilaScheduleEnd, formatManilaTime } from '@/lib/quotation-format'
 
 const initialQuery: BookingQuery = {
   page: 1,
@@ -100,7 +101,7 @@ export function BookingsRoute() {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="border-b border-slate-800 text-xs uppercase tracking-wide text-slate-500">
-                <tr><th className="px-5 py-3">Booking Number</th><th className="px-5 py-3">Customer</th><th className="px-5 py-3">Event</th><th className="px-5 py-3">Event Date</th><th className="px-5 py-3">Event Type</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Venue</th><th className="px-5 py-3 text-right">Actions</th></tr>
+                <tr><th className="px-5 py-3">Booking Number</th><th className="px-5 py-3">Customer</th><th className="px-5 py-3">Event</th><th className="px-5 py-3">Schedule</th><th className="px-5 py-3">Event Type</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Venue</th><th className="px-5 py-3 text-right">Actions</th></tr>
               </thead>
               <tbody className="divide-y divide-slate-800">
                 {bookings.data.data.map((booking) => (
@@ -108,7 +109,7 @@ export function BookingsRoute() {
                     <td className="px-5 py-4 font-medium text-cyan-300">{booking.booking_number}</td>
                     <td className="px-5 py-4">{booking.customer_snapshot.name}</td>
                     <td className="px-5 py-4">{booking.event_name}</td>
-                    <td className="px-5 py-4">{booking.event_date}</td>
+                    <td className="px-5 py-4"><span className="block whitespace-nowrap">{formatBusinessDate(booking.event_date)}</span><span className="block whitespace-nowrap text-xs text-slate-500">{formatManilaTime(booking.start_time)} – {formatManilaScheduleEnd(booking.end_at, booking.event_date)}</span></td>
                     <td className="px-5 py-4">{booking.event_type_snapshot.name}</td>
                     <td className="px-5 py-4">{bookingStatusLabel(booking.status)}</td>
                     <td className="px-5 py-4">{booking.venue_name}</td>

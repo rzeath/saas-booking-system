@@ -308,7 +308,10 @@ const bookingSchema = z.object({
   event_type: relatedMasterDataSchema,
   event_type_snapshot: z.object({ name: z.string() }),
   event_name: z.string(),
+  start_at: z.string(),
   event_date: z.string(),
+  start_time: z.string(),
+  end_at: z.string().nullable(),
   venue_name: z.string(),
   venue_address: z.string().nullable(),
   contact_person: z.string(),
@@ -439,7 +442,6 @@ export type SaveBookingServiceInput = {
   id?: number
   service_id: number
   package_id: number
-  start_time: string
   duration_minutes: number
   quantity: number
   staff_ids: number[]
@@ -449,6 +451,7 @@ export type SaveBookingInput = {
   event_type_id: number
   event_name: string
   event_date: string
+  start_time: string
   venue_name: string
   venue_address: string | null
   contact_person: string
@@ -459,6 +462,7 @@ export type SaveBookingInput = {
 export type BookingAvailabilityInput = {
   booking_id?: number
   event_date: string
+  start_time: string
   booking_services: Omit<SaveBookingServiceInput, 'staff_ids'>[]
 }
 export type StaffAvailabilityInput = {

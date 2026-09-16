@@ -258,6 +258,8 @@ test('Billing detail uses snapshots and retains POSTED and VOIDED payment histor
   expect(screen.getByText('Historical Studio')).toBeInTheDocument()
   expect(screen.getByText('Ana and Leo')).toBeInTheDocument()
   expect(screen.getByText('Mirror Booth')).toBeInTheDocument()
+  expect(screen.getByText('Oct 15, 2026, 6:00 PM')).toBeInTheDocument()
+  expect(screen.getByText('to Oct 15, 2026, 9:00 PM')).toBeInTheDocument()
   expect(screen.getAllByText('₱8,125.25').length).toBeGreaterThan(0)
   expect(screen.getAllByText('₱6,125.15').length).toBeGreaterThan(0)
   expect(await screen.findByText('Posted')).toBeInTheDocument()

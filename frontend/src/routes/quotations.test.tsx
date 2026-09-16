@@ -35,7 +35,10 @@ const booking = {
   event_type: { id: 3, name: 'Wedding', is_active: true },
   event_type_snapshot: { name: 'Wedding' },
   event_name: 'Ana & Leo',
+  start_at: '2027-06-15 18:00',
   event_date: '2027-06-15',
+  start_time: '18:00',
+  end_at: '2027-06-15 21:00',
   venue_name: 'The Glass House',
   venue_address: 'Makati',
   contact_person: 'Ana Cruz',
@@ -173,6 +176,8 @@ test('creates a Draft from read-only Booking data and navigates to its detail', 
 
   await screen.findByRole('heading', { name: 'Create Quotation' })
   expect(screen.getByText('Mirror Booth')).toBeInTheDocument()
+  expect(screen.getByText('Jun 15, 2027, 6:00 PM')).toBeInTheDocument()
+  expect(screen.getByText('to Jun 15, 2027, 9:00 PM')).toBeInTheDocument()
   expect(screen.getAllByText('₱8,000.00').length).toBeGreaterThan(0)
   fireEvent.change(screen.getByLabelText('Transportation fee'), { target: { value: '250.25' } })
   fireEvent.change(screen.getByLabelText('Crew meal fee'), { target: { value: '125.00' } })
@@ -206,6 +211,8 @@ test('renders quotation snapshots, items, totals, and lifecycle detail', async (
   expect(screen.getByText('Quotation snapshot')).toBeInTheDocument()
   expect(screen.getByText('The Glass House')).toBeInTheDocument()
   expect(screen.getByText('Mirror Booth')).toBeInTheDocument()
+  expect(screen.getByText('Jun 15, 2027, 6:00 PM')).toBeInTheDocument()
+  expect(screen.getByText('to Jun 15, 2027, 9:00 PM')).toBeInTheDocument()
   expect(screen.getAllByText('₱8,000.00').length).toBeGreaterThan(0)
   expect(screen.getByText('₱8,125.25')).toBeInTheDocument()
 })

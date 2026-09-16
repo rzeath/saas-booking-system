@@ -25,6 +25,7 @@ import {
   type BookingStatus,
 } from '@/lib/api'
 import { bookingListQueryKey } from '@/lib/bookings-query'
+import { formatManilaScheduleEnd, formatManilaTime } from '@/lib/quotation-format'
 import { serviceListQueryKey } from '@/lib/services-query'
 
 function currentManilaDate(): string {
@@ -55,14 +56,6 @@ function formatEventDate(date: string): string {
   const [year, month, day] = date.split('-').map(Number)
   return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
     .format(new Date(Date.UTC(year, month - 1, day)))
-}
-
-function formatScheduleTime(startAt?: string): string {
-  if (!startAt) return 'Time not set'
-  const time = startAt.split(' ')[1]
-  const [hours, minutes] = time.split(':').map(Number)
-  return new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' })
-    .format(new Date(2000, 0, 1, hours, minutes))
 }
 
 function SummaryCard({ label, value, helper, icon: Icon, tone }: { label: string; value: number; helper: string; icon: typeof CalendarClock; tone: 'primary' | 'warning' | 'success' | 'info' }) {
@@ -103,11 +96,7 @@ export function HomeRoute() {
     const items = [pending.data?.data ?? [], quoted.data?.data ?? [], confirmed.data?.data ?? []].flat()
     return items
       .filter((booking, index, all) => all.findIndex((candidate) => candidate.id === booking.id) === index)
-      .sort((left, right) => {
-        const leftTime = left.booking_services[0]?.start_at ?? `${left.event_date} 23:59`
-        const rightTime = right.booking_services[0]?.start_at ?? `${right.event_date} 23:59`
-        return leftTime.localeCompare(rightTime)
-      })
+      .sort((left, right) => left.start_at.localeCompare(right.start_at))
       .slice(0, 8)
   }, [confirmed.data, pending.data, quoted.data])
 
@@ -171,7 +160,7 @@ export function HomeRoute() {
                   {confirmed.data.data.slice(0, 4).map((booking) => (
                     <li key={booking.id} className="p-4">
                       <div className="flex items-start justify-between gap-3"><div className="min-w-0"><Link to={`/bookings/${booking.id}`} className="truncate text-sm font-semibold text-foreground hover:text-primary">{booking.event_name}</Link><p className="mt-1 truncate text-xs text-muted">{booking.customer_snapshot.name}</p></div><BookingStatusBadge status={booking.status} /></div>
-                      <p className="mt-3 text-xs font-medium text-muted">{formatEventDate(booking.event_date)} · {formatScheduleTime(booking.booking_services[0]?.start_at)}</p>
+                      <p className="mt-3 text-xs font-medium text-muted">{formatEventDate(booking.event_date)} · {formatManilaTime(booking.start_time)}</p>
                     </li>
                   ))}
                 </ul>
@@ -190,7 +179,7 @@ function UpcomingRow({ booking }: { booking: Booking }) {
       <td className={`${tableCellClassName} whitespace-nowrap`}><Link to={`/bookings/${booking.id}`} className="font-semibold text-primary hover:text-primary-hover">{booking.booking_number}</Link></td>
       <td className={tableCellClassName}><p className="min-w-36 font-medium text-foreground">{booking.event_name}</p><p className="mt-0.5 text-xs text-muted">{booking.venue_name}</p></td>
       <td className={`${tableCellClassName} whitespace-nowrap text-muted`}>{booking.customer_snapshot.name}</td>
-      <td className={`${tableCellClassName} whitespace-nowrap`}><p className="font-medium text-foreground">{formatEventDate(booking.event_date)}</p><p className="mt-0.5 text-xs text-muted">{formatScheduleTime(booking.booking_services[0]?.start_at)}</p></td>
+      <td className={`${tableCellClassName} whitespace-nowrap`}><p className="font-medium text-foreground">{formatEventDate(booking.event_date)}</p><p className="mt-0.5 text-xs text-muted">{formatManilaTime(booking.start_time)} – {formatManilaScheduleEnd(booking.end_at, booking.event_date)}</p></td>
       <td className={`${tableCellClassName} whitespace-nowrap`}><BookingStatusBadge status={booking.status} /></td>
       <td className={`${tableCellClassName} whitespace-nowrap text-right`}><Link to={`/bookings/${booking.id}`} className="text-sm font-semibold text-primary hover:text-primary-hover">Open</Link></td>
     </tr>

@@ -31,12 +31,24 @@ export function formatLifecycleTimestamp(value: string | null): string {
 
 export function formatManilaWallClock(value: string): string {
   const [date = '', time = ''] = value.split(' ')
+  return `${formatBusinessDate(date)}, ${formatManilaTime(time)}`
+}
+
+export function formatManilaTime(value: string | null): string {
+  if (!value) return 'Not set'
+  const time = value.includes(' ') ? value.split(' ')[1] ?? '' : value
   const [hourValue = '0', minute = '00'] = time.split(':')
   const hour = Number(hourValue)
   const period = hour >= 12 ? 'PM' : 'AM'
   const displayHour = hour % 12 || 12
 
-  return `${formatBusinessDate(date)}, ${displayHour}:${minute} ${period}`
+  return `${displayHour}:${minute} ${period}`
+}
+
+export function formatManilaScheduleEnd(value: string | null, startDate: string): string {
+  if (!value) return 'Not set'
+  const [endDate = ''] = value.split(' ')
+  return endDate === startDate ? formatManilaTime(value) : formatManilaWallClock(value)
 }
 
 export function relevantQuotationDate(quotation: QuotationSummary): { label: string; value: string } {

@@ -21,7 +21,10 @@ function booking(id: number, status: BookingStatus, eventName: string, eventDate
     event_type: { id: 3, name: 'Wedding', is_active: true },
     event_type_snapshot: { name: 'Wedding' },
     event_name: eventName,
+    start_at: `${eventDate} 17:30`,
     event_date: eventDate,
+    start_time: '17:30',
+    end_at: `${eventDate} 21:00`,
     venue_name: 'The Glass House',
     venue_address: 'Makati',
     contact_person: 'Ana Cruz',
@@ -75,6 +78,7 @@ test('renders operational dashboard metrics and upcoming booking data from exist
   expect(within(screen.getByText('Active services').closest('article')!).getByText('6')).toBeInTheDocument()
   expect(screen.getByRole('link', { name: 'BK-2027-000001' })).toHaveAttribute('href', '/bookings/1')
   expect(screen.getAllByText('Company Night')).toHaveLength(2)
+  expect(screen.getAllByText('5:30 PM – 9:00 PM').length).toBeGreaterThan(0)
   expect(fetchMock.mock.calls.some(([input]) => String(input).includes('event_date_from='))).toBe(true)
 })
 
