@@ -16,7 +16,7 @@ const toneClasses: Record<StatusTone, string> = {
 
 export function StatusBadge({ children, tone = 'neutral', className }: PropsWithChildren<{ tone?: StatusTone; className?: string }>) {
   return (
-    <span className={cn('inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset', toneClasses[tone], className)}>
+    <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset before:size-1.5 before:rounded-full before:bg-current', toneClasses[tone], className)}>
       {children}
     </span>
   )

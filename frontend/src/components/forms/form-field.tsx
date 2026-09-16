@@ -5,9 +5,9 @@ import type {
   TextareaHTMLAttributes,
 } from 'react'
 
-const labelClassName = 'block text-sm font-medium text-foreground'
-const controlClassName = 'mt-2 w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-foreground shadow-sm outline-none transition placeholder:text-muted/70 focus:border-primary focus:ring-2 focus:ring-ring/40 disabled:cursor-not-allowed disabled:bg-surface-subtle disabled:text-muted'
-const errorClassName = 'mt-1.5 block text-sm text-danger'
+const labelClassName = 'block text-[13px] font-medium text-foreground'
+const controlClassName = 'mt-1.5 min-h-10 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none transition placeholder:text-muted/70 focus:border-primary focus:ring-2 focus:ring-ring/35 disabled:cursor-not-allowed disabled:bg-surface-subtle disabled:text-muted'
+const errorClassName = 'mt-1 block text-xs text-danger'
 
 type FormFieldProps = InputHTMLAttributes<HTMLInputElement> & { label: string; error?: string }
 

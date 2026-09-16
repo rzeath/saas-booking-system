@@ -83,8 +83,8 @@ export function AuthenticatedLayout() {
         logoutError={logoutMutation.isError}
         onLogout={() => logoutMutation.mutate()}
       />
-      <div className="lg:pl-64" inert={mobileOpen || undefined}>
-        <main id="main-content" className="app-workspace min-h-screen px-4 py-6 sm:px-6 sm:py-8 xl:px-10 xl:py-10">
+      <div className="lg:pl-[15.5rem]" inert={mobileOpen || undefined}>
+        <main id="main-content" className="app-workspace min-h-screen px-4 py-5 sm:px-6 sm:py-6 xl:px-8 xl:py-7">
           <Outlet context={authQuery.data} />
         </main>
       </div>

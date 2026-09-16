@@ -50,8 +50,11 @@ test('opens and dismisses grouped navigation at a mobile viewport', async () => 
   expect(within(drawer).queryByRole('link', { name: 'Service Rates' })).not.toBeInTheDocument()
   expect(within(drawer).getByRole('link', { name: 'Rzeath Events' })).toBeInTheDocument()
   expect(within(drawer).getByLabelText('RE business initials')).toBeInTheDocument()
+  expect(within(drawer).getByText('Event Services · Photobooth')).toBeInTheDocument()
   expect(within(drawer).getByText('Powered by TakdaOps')).toBeInTheDocument()
   expect(within(drawer).getByText('Erica Admin')).toBeInTheDocument()
+  expect(within(drawer).getByText('Owner ·')).toBeInTheDocument()
+  expect(within(drawer).queryByPlaceholderText(/search/i)).not.toBeInTheDocument()
 
   fireEvent.keyDown(document, { key: 'Escape' })
   expect(screen.queryByRole('complementary', { name: 'Mobile navigation' })).not.toBeInTheDocument()

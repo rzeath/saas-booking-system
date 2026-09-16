@@ -62,9 +62,9 @@ function BusinessMark({ branding, compact = false }: { branding: SidebarContentP
   const size = compact ? 'size-9' : 'size-10'
 
   return branding.logo_url ? (
-    <img src={branding.logo_url} alt={`${branding.display_name} logo`} className={`${size} shrink-0 rounded-lg border border-border bg-surface object-contain`} />
+    <img src={branding.logo_url} alt={`${branding.display_name} logo`} className={`${size} shrink-0 rounded-[10px] border border-border bg-surface object-contain`} />
   ) : (
-    <span className={`grid ${size} shrink-0 place-items-center rounded-lg bg-primary-soft text-xs font-bold text-primary`} aria-label={`${businessInitials(branding.display_name)} business initials`}>
+    <span className={`grid ${size} shrink-0 place-items-center rounded-[10px] border border-primary/10 bg-primary-soft text-xs font-bold text-primary`} aria-label={`${businessInitials(branding.display_name)} business initials`}>
       {businessInitials(branding.display_name)}
     </span>
   )
@@ -73,11 +73,11 @@ function BusinessMark({ branding, compact = false }: { branding: SidebarContentP
 function SidebarContent({ auth, branding, logoutPending, logoutError, onLogout, onNavigate, onClose, closeButtonRef }: SidebarContentProps) {
   return (
     <div className="flex h-full flex-col bg-surface">
-      <div className="flex min-h-20 items-center gap-3 border-b border-border px-5">
+      <div className="flex min-h-[78px] items-center gap-3 border-b border-border px-4">
         <BusinessMark branding={branding} />
         <div className="min-w-0 flex-1">
-          <NavLink to="/" onClick={onNavigate} className="block truncate text-base font-bold text-foreground">{branding.display_name}</NavLink>
-          <p className="truncate text-[10px] font-medium text-muted">Powered by TakdaOps</p>
+          <NavLink to="/" onClick={onNavigate} className="block truncate text-sm font-bold text-foreground">{branding.display_name}</NavLink>
+          <p className="mt-0.5 truncate text-[10px] font-medium text-muted">Event Services · Photobooth</p>
         </div>
         {onClose ? (
           <Button ref={closeButtonRef} variant="ghost" size="icon" onClick={onClose} aria-label="Close navigation" className="lg:hidden">
@@ -86,11 +86,11 @@ function SidebarContent({ auth, branding, logoutPending, logoutError, onLogout, 
         ) : null}
       </div>
 
-      <nav aria-label="Primary navigation" className="flex-1 overflow-y-auto px-3 py-5">
+      <nav aria-label="Primary navigation" className="flex-1 overflow-y-auto px-3 py-4">
         {navigation.map((group, index) => (
-          <div key={group.label} className={cn(index > 0 && 'mt-5')}>
-            <p className="px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-muted">{group.label}</p>
-            <div className="mt-1.5 space-y-1">
+          <div key={group.label} className={cn(index > 0 && 'mt-4')}>
+            <p className="px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted/80">{group.label}</p>
+            <div className="mt-1 space-y-0.5">
               {group.items.map((item) => {
                 const Icon = item.icon
                 return (
@@ -100,13 +100,13 @@ function SidebarContent({ auth, branding, logoutPending, logoutError, onLogout, 
                     end={item.end}
                     onClick={onNavigate}
                     className={({ isActive }) => cn(
-                      'flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      'relative flex min-h-10 items-center gap-3 rounded-lg px-3 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                       isActive
                         ? 'bg-primary-soft text-primary'
                         : 'text-muted hover:bg-surface-subtle hover:text-foreground',
                     )}
                   >
-                    <Icon className="size-[18px] shrink-0" aria-hidden="true" />
+                    <Icon className="size-4 shrink-0" strokeWidth={1.8} aria-hidden="true" />
                     {item.label}
                   </NavLink>
                 )
@@ -116,22 +116,21 @@ function SidebarContent({ auth, branding, logoutPending, logoutError, onLogout, 
         ))}
       </nav>
 
-      <div className="border-t border-border p-3">
-        <div className="rounded-xl bg-surface-subtle p-3">
-          <div className="flex items-center gap-3">
-            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-primary-soft text-xs font-bold text-primary" aria-hidden="true">
-              {businessInitials(auth.user.name)}
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-foreground">{auth.user.name}</p>
-              <p className="truncate text-xs text-muted">{auth.user.email}</p>
-            </div>
-            <Button variant="ghost" size="icon" disabled={logoutPending} onClick={onLogout} aria-label={logoutPending ? 'Signing out' : 'Sign out'} title="Sign out" className="size-9 shrink-0">
-              <LogOut className="size-4" aria-hidden="true" />
-            </Button>
+      <div className="border-t border-border px-3 pb-3 pt-3">
+        <div className="flex items-center gap-2.5 rounded-lg bg-surface-subtle px-2.5 py-2.5">
+          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary-soft text-[11px] font-bold text-primary" aria-hidden="true">
+            {businessInitials(auth.user.name)}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[13px] font-semibold text-foreground">{auth.user.name}</p>
+            <p className="flex min-w-0 items-center gap-1 truncate text-[10px] text-muted"><span>Owner ·</span><span className="truncate">{auth.user.email}</span></p>
           </div>
-          {logoutError ? <p role="alert" className="mt-2 text-xs text-danger">Sign out failed. Please try again.</p> : null}
+          <Button variant="ghost" size="icon" disabled={logoutPending} onClick={onLogout} aria-label={logoutPending ? 'Signing out' : 'Sign out'} title="Sign out" className="size-8 shrink-0">
+            <LogOut className="size-3.5" aria-hidden="true" />
+          </Button>
         </div>
+        {logoutError ? <p role="alert" className="mt-2 px-2 text-[11px] text-danger">Sign out failed. Please try again.</p> : null}
+        <p className="mt-2 text-center text-[9px] font-medium text-muted/75">Powered by TakdaOps</p>
       </div>
     </div>
   )
@@ -162,24 +161,24 @@ export function AppSidebar({ auth, mobileOpen, onMobileOpen, onMobileClose, menu
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex min-h-16 items-center justify-between border-b border-border bg-surface/95 px-4 backdrop-blur lg:hidden">
+      <header className="sticky top-0 z-30 flex min-h-16 items-center justify-between border-b border-border bg-surface px-4 lg:hidden">
         <div className="flex items-center gap-2.5">
           <BusinessMark branding={accountProps.branding} compact />
-          <div><p className="max-w-48 truncate text-sm font-bold text-foreground">{accountProps.branding.display_name}</p><p className="text-[10px] text-muted">Powered by TakdaOps</p></div>
+          <div><p className="max-w-48 truncate text-sm font-bold text-foreground">{accountProps.branding.display_name}</p><p className="text-[10px] text-muted">Event Services · Photobooth</p></div>
         </div>
         <Button ref={menuButtonRef} variant="ghost" size="icon" onClick={onMobileOpen} aria-label="Open navigation" aria-expanded={mobileOpen} aria-controls="mobile-sidebar">
           <Menu className="size-5" aria-hidden="true" />
         </Button>
       </header>
 
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-border lg:block">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[15.5rem] border-r border-border lg:block">
         <SidebarContent auth={auth} {...accountProps} />
       </aside>
 
       {mobileOpen ? (
         <div className="fixed inset-0 z-40 lg:hidden">
           <button type="button" aria-label="Close navigation overlay" onClick={onMobileClose} className="absolute inset-0 bg-slate-950/40" />
-          <aside id="mobile-sidebar" aria-label="Mobile navigation" onKeyDown={trapDrawerFocus} className="absolute inset-y-0 left-0 w-[min(20rem,88vw)] border-r border-border shadow-2xl">
+          <aside id="mobile-sidebar" aria-label="Mobile navigation" onKeyDown={trapDrawerFocus} className="absolute inset-y-0 left-0 w-[min(19rem,88vw)] border-r border-border shadow-xl">
             <SidebarContent auth={auth} {...accountProps} onNavigate={onMobileClose} onClose={onMobileClose} closeButtonRef={closeButtonRef} />
           </aside>
         </div>

@@ -20,7 +20,7 @@ import { ArrowRight, CalendarDays, ChevronLeft, ChevronRight, MapPin } from 'luc
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 
-import { EmptyState, ErrorState, LoadingState } from '@/components/data/query-state'
+import { ErrorState, LoadingState } from '@/components/data/query-state'
 import { SelectField } from '@/components/forms/form-field'
 import { Page, PageHeader } from '@/components/layout/page'
 import { Button } from '@/components/ui/button'
@@ -186,6 +186,9 @@ export function CalendarRoute() {
             <ErrorState title="We could not load this calendar period." onRetry={() => { void bookings.refetch() }} />
           </div>
         ) : null}
+        {!bookings.isPending && !bookings.isError && bookings.data?.length === 0 ? (
+          <p role="status" className="border-b border-border bg-surface-subtle px-4 py-2.5 text-sm text-muted">No bookings in this period.</p>
+        ) : null}
 
         <div className="takda-calendar-workspace">
           <div className="takda-booking-calendar relative min-w-0" aria-busy={bookings.isFetching}>
@@ -251,9 +254,6 @@ export function CalendarRoute() {
               slotMaxTime="24:00:00"
               eventTimeFormat={{ hour: 'numeric', minute: '2-digit', meridiem: 'short' }}
             />
-            {!bookings.isPending && !bookings.isError && bookings.data?.length === 0 ? (
-              <div className="takda-calendar-empty"><EmptyState title="No bookings in this period." description="Try another period or adjust the filters." /></div>
-            ) : null}
           </div>
 
           <SelectedDateAgenda date={selectedDate} bookings={selectedDateBookings} loading={bookings.isPending} />

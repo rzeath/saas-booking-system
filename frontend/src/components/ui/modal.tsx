@@ -61,7 +61,7 @@ export function Modal({ title, description, footer, size = 'default', onClose, c
 
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/50 p-4 backdrop-blur-[2px]"
+      className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/40 p-4"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose()
       }}
@@ -74,21 +74,21 @@ export function Modal({ title, description, footer, size = 'default', onClose, c
         aria-describedby={description ? descriptionId : undefined}
         tabIndex={-1}
         className={cn(
-          'my-8 w-full overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl outline-none',
+          'my-8 w-full overflow-hidden rounded-xl border border-border bg-surface shadow-[0_16px_40px_rgb(35_28_31/0.16)] outline-none',
           size === 'large' ? 'max-w-6xl' : 'max-w-2xl',
         )}
       >
-        <header className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
+        <header className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
           <div>
-            <h2 id={titleId} className="text-xl font-semibold text-foreground">{title}</h2>
-            {description ? <p id={descriptionId} className="mt-1 text-sm leading-6 text-muted">{description}</p> : null}
+            <h2 id={titleId} className="text-lg font-semibold text-foreground">{title}</h2>
+            {description ? <p id={descriptionId} className="mt-1 text-sm leading-5 text-muted">{description}</p> : null}
           </div>
           <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close dialog" className="-mr-2 -mt-2 shrink-0">
             <X className="size-5" aria-hidden="true" />
           </Button>
         </header>
-        <div className="max-h-[calc(100vh-12rem)] overflow-y-auto px-6 py-5">{children}</div>
-        {footer ? <footer className="flex flex-wrap justify-end gap-3 border-t border-border bg-surface-subtle px-6 py-4">{footer}</footer> : null}
+        <div className="max-h-[calc(100vh-12rem)] overflow-y-auto px-5 py-5">{children}</div>
+        {footer ? <footer className="flex flex-wrap justify-end gap-2 border-t border-border bg-surface-subtle px-5 py-3.5">{footer}</footer> : null}
       </div>
     </div>
   )

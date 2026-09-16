@@ -3,7 +3,7 @@ import type { PropsWithChildren, ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
 export function Page({ children, className }: PropsWithChildren<{ className?: string }>) {
-  return <section className={cn('mx-auto w-full max-w-[1440px]', className)}>{children}</section>
+  return <section className={cn('w-full', className)}>{children}</section>
 }
 
 export function PageHeader({
@@ -20,9 +20,9 @@ export function PageHeader({
   return (
     <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
-        {eyebrow ? <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary">{eyebrow}</p> : null}
-        <h1 className={cn('text-2xl font-bold tracking-tight text-foreground sm:text-3xl', eyebrow && 'mt-2')}>{title}</h1>
-        {description ? <p className="mt-2 max-w-3xl text-sm leading-6 text-muted">{description}</p> : null}
+        {eyebrow ? <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-primary">{eyebrow}</p> : null}
+        <h1 className={cn('text-2xl font-semibold text-foreground', eyebrow && 'mt-1.5')}>{title}</h1>
+        {description ? <p className="mt-1 max-w-3xl text-sm leading-5 text-muted">{description}</p> : null}
       </div>
       {actions ? <div className="flex shrink-0 flex-wrap gap-2">{actions}</div> : null}
     </header>
