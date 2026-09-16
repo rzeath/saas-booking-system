@@ -10,7 +10,6 @@ use App\Models\EventType;
 use App\Models\Organization;
 use App\Models\Package;
 use App\Models\Service;
-use App\Models\Staff;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -47,7 +46,10 @@ class CalendarApiTest extends TestCase
         $this->getJson($this->calendarUrl(['statuses' => ['INVALID']]))
             ->assertUnprocessable()
             ->assertJsonValidationErrors('statuses.0');
-        $this->getJson($this->calendarUrl(['staff' => 'available']))
+        $this->getJson($this->calendarUrl(['staff_id' => 1]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('staff_id');
+        $this->getJson($this->calendarUrl(['staff' => 'unassigned']))
             ->assertUnprocessable()
             ->assertJsonValidationErrors('staff');
     }
@@ -111,11 +113,6 @@ class CalendarApiTest extends TestCase
             'service_name' => '360 Booth',
             'package_name' => 'Premium',
         ]);
-        $zoe = Staff::factory()->for($organization)->create(['name' => 'Zoe Santos']);
-        $ana = Staff::factory()->for($organization)->create(['name' => 'Ana Reyes']);
-        $this->assign($long, $zoe, $admin);
-        $this->assign($long, $ana, $admin);
-
         $this->actingAs($admin)->getJson($this->calendarUrl())
             ->assertOk()
             ->assertJsonCount(1, 'data')
@@ -131,14 +128,13 @@ class CalendarApiTest extends TestCase
             ->assertJsonPath('data.0.services.0.id', $long->id)
             ->assertJsonPath('data.0.services.0.start_at', '2027-06-15 18:00')
             ->assertJsonPath('data.0.services.0.end_at', '2027-06-15 22:00')
-            ->assertJsonPath('data.0.services.0.staff.0.name', 'Ana Reyes')
-            ->assertJsonPath('data.0.services.0.staff.1.name', 'Zoe Santos')
             ->assertJsonPath('data.0.services.1.id', $short->id)
             ->assertJsonPath('data.0.services.1.start_at', '2027-06-15 18:00')
             ->assertJsonPath('data.0.services.1.end_at', '2027-06-15 20:00')
             ->assertJsonMissingPath('data.0.internal_notes')
             ->assertJsonMissingPath('data.0.customer_email')
             ->assertJsonMissingPath('data.0.services.0.unit_rate')
+            ->assertJsonMissingPath('data.0.services.0.staff')
             ->assertJsonMissingPath('data.0.quotations')
             ->assertJsonMissingPath('data.0.billings')
             ->assertJsonMissingPath('data.0.payments');
@@ -173,49 +169,22 @@ class CalendarApiTest extends TestCase
             ->assertJsonPath('data.0.status', 'CANCELLED');
     }
 
-    public function test_service_staff_and_unassigned_filters_match_relevant_lines_without_duplicates(): void
+    public function test_service_filter_matches_relevant_lines_without_duplicate_booking_events(): void
     {
         [$admin, $organization] = $this->admin();
         $serviceA = Service::factory()->for($organization)->create(['name' => 'Service A']);
         $serviceB = Service::factory()->for($organization)->create(['name' => 'Service B']);
-        $assignedStaff = Staff::factory()->for($organization)->create();
-        $otherStaff = Staff::factory()->for($organization)->create();
         $matching = $this->booking($organization, $admin, '2027-06-15 10:00:00');
-        $assignedLine = $this->serviceLine($matching, 120, service: $serviceA);
-        $unassignedLine = $this->serviceLine($matching, 180, sortOrder: 2, service: $serviceB);
-        $this->assign($assignedLine, $assignedStaff, $admin);
-        $this->assign($assignedLine, $otherStaff, $admin);
+        $this->serviceLine($matching, 120, service: $serviceA);
+        $this->serviceLine($matching, 180, sortOrder: 2, service: $serviceB);
         $other = $this->booking($organization, $admin, '2027-06-16 10:00:00');
-        $otherLine = $this->serviceLine($other, 120, service: $serviceA);
-        $this->assign($otherLine, $otherStaff, $admin);
+        $this->serviceLine($other, 120, service: $serviceA);
 
         $this->actingAs($admin)->getJson($this->calendarUrl(['service_id' => $serviceB->id]))
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $matching->id)
             ->assertJsonCount(2, 'data.0.services');
-        $this->getJson($this->calendarUrl(['staff_id' => $assignedStaff->id]))
-            ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $matching->id);
-        $this->getJson($this->calendarUrl(['staff' => 'unassigned']))
-            ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $matching->id);
-        $this->getJson($this->calendarUrl([
-            'service_id' => $serviceA->id,
-            'staff' => 'unassigned',
-        ]))->assertOk()->assertJsonCount(0, 'data');
-        $this->getJson($this->calendarUrl([
-            'service_id' => $serviceB->id,
-            'staff' => 'unassigned',
-        ]))->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.services.1.id', $unassignedLine->id);
-        $this->getJson($this->calendarUrl([
-            'staff_id' => $assignedStaff->id,
-            'staff' => 'unassigned',
-        ]))->assertUnprocessable()->assertJsonValidationErrors(['staff_id', 'staff']);
     }
 
     public function test_calendar_and_filter_ids_are_strictly_tenant_scoped(): void
@@ -226,8 +195,6 @@ class CalendarApiTest extends TestCase
         $ownLine = $this->serviceLine($own, 120);
         $foreign = $this->booking($foreignOrganization, $foreignAdmin, '2027-06-15 09:00:00');
         $foreignLine = $this->serviceLine($foreign, 120);
-        $foreignStaff = Staff::factory()->for($foreignOrganization)->create();
-        $this->assign($foreignLine, $foreignStaff, $foreignAdmin);
 
         $this->actingAs($admin)->getJson($this->calendarUrl())
             ->assertOk()
@@ -236,9 +203,6 @@ class CalendarApiTest extends TestCase
         $this->getJson($this->calendarUrl(['service_id' => $foreignLine->service_id]))
             ->assertUnprocessable()
             ->assertJsonValidationErrors('service_id');
-        $this->getJson($this->calendarUrl(['staff_id' => $foreignStaff->id]))
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('staff_id');
 
         $this->assertNotSame($ownLine->service_id, $foreignLine->service_id);
     }
@@ -246,15 +210,13 @@ class CalendarApiTest extends TestCase
     public function test_calendar_query_count_is_bounded_and_ordering_is_deterministic(): void
     {
         [$admin, $organization] = $this->admin();
-        $staff = Staff::factory()->for($organization)->create();
         $created = [];
 
         foreach (['2027-06-16 10:00:00', '2027-06-15 10:00:00', '2027-06-15 10:00:00'] as $startAt) {
             $booking = $this->booking($organization, $admin, $startAt);
             $created[] = $booking;
-            $line = $this->serviceLine($booking, 120);
+            $this->serviceLine($booking, 120);
             $this->serviceLine($booking, 180, sortOrder: 2);
-            $this->assign($line, $staff, $admin);
         }
 
         DB::flushQueryLog();
@@ -267,7 +229,7 @@ class CalendarApiTest extends TestCase
 
         $ids = $response->json('data.*.id');
         $this->assertSame([$created[1]->id, $created[2]->id, $created[0]->id], $ids);
-        $this->assertSame(3, $queryCount);
+        $this->assertSame(2, $queryCount);
     }
 
     /** @return array{User, Organization} */
@@ -341,15 +303,6 @@ class CalendarApiTest extends TestCase
                 'sort_order' => $sortOrder,
                 ...$overrides,
             ]);
-    }
-
-    private function assign(BookingService $line, Staff $staff, User $admin): void
-    {
-        $line->assignedStaff()->attach($staff->id, [
-            'organization_id' => $line->organization_id,
-            'assigned_by' => $admin->id,
-            'assigned_at' => '2027-06-01 00:00:00',
-        ]);
     }
 
     /** @param array<string, mixed> $overrides */

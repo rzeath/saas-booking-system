@@ -22,8 +22,6 @@ class CalendarController extends Controller
             $request->rangeEnd(),
             $request->statuses(),
             $request->serviceId(),
-            $request->staffId(),
-            $request->isUnassigned(),
         ));
     }
 }

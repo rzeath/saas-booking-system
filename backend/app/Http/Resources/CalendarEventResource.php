@@ -34,10 +34,6 @@ class CalendarEventResource extends JsonResource
                 'quantity' => $service->quantity,
                 'start_at' => $startAt->format('Y-m-d H:i'),
                 'end_at' => $startAt->addMinutes($service->duration_minutes)->format('Y-m-d H:i'),
-                'staff' => $service->assignedStaff->map(fn ($staff): array => [
-                    'id' => $staff->id,
-                    'name' => $staff->name,
-                ])->values(),
             ])->values(),
         ];
     }

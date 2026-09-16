@@ -38,18 +38,8 @@ class CalendarIndexRequest extends FormRequest
                 'integer',
                 Rule::exists('services', 'id')->where('organization_id', $tenant->organizationId()),
             ],
-            'staff_id' => [
-                'sometimes',
-                'integer',
-                Rule::prohibitedIf($this->filled('staff')),
-                Rule::exists('staff', 'id')->where('organization_id', $tenant->organizationId()),
-            ],
-            'staff' => [
-                'sometimes',
-                'string',
-                Rule::prohibitedIf($this->filled('staff_id')),
-                Rule::in(['unassigned']),
-            ],
+            'staff_id' => ['prohibited'],
+            'staff' => ['prohibited'],
         ];
     }
 
@@ -99,17 +89,5 @@ class CalendarIndexRequest extends FormRequest
         $serviceId = $this->validated('service_id');
 
         return $serviceId === null ? null : (int) $serviceId;
-    }
-
-    public function staffId(): ?int
-    {
-        $staffId = $this->validated('staff_id');
-
-        return $staffId === null ? null : (int) $staffId;
-    }
-
-    public function isUnassigned(): bool
-    {
-        return $this->validated('staff') === 'unassigned';
     }
 }
