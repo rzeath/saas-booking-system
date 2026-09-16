@@ -10,6 +10,11 @@ use Illuminate\Validation\ValidationException;
 
 class StaffAvailabilityChecker
 {
+    public function __construct(
+        private readonly BookingScheduleQuery $scheduleQuery,
+        private readonly ManilaSchedule $schedule,
+    ) {}
+
     /**
      * @param  list<int>  $staffIds
      * @return list<int>
@@ -27,12 +32,12 @@ class StaffAvailabilityChecker
         }
 
         $query = $this->reservationQuery($organizationId, $staffIds)
-            ->where('booking_services.start_at', '<', $endAt)
-            ->where('booking_services.end_at', '>', $startAt)
             ->when(
                 $excludeBookingServiceId !== null,
                 fn (Builder $query) => $query->where('booking_services.id', '!=', $excludeBookingServiceId),
             );
+
+        $this->scheduleQuery->whereOverlaps($query, $startAt, $endAt);
 
         if ($lockReservations) {
             $query->lockForUpdate();
@@ -73,15 +78,15 @@ class StaffAvailabilityChecker
         $query = $this->reservationQuery($organizationId, $staffIds)
             ->addSelect([
                 'booking_services.id as booking_service_id',
-                'booking_services.start_at',
-                'booking_services.end_at',
+                'booking_services.duration_minutes',
+                'bookings.start_at as booking_start_at',
             ])
-            ->where('booking_services.start_at', '<', $maximumEnd)
-            ->where('booking_services.end_at', '>', $minimumStart)
             ->when(
                 $excludeBookingId !== null,
                 fn (Builder $query) => $query->where('booking_services.booking_id', '!=', $excludeBookingId),
             );
+
+        $this->scheduleQuery->whereOverlaps($query, $minimumStart, $maximumEnd);
 
         if ($lockReservations) {
             $query->lockForUpdate();
@@ -93,11 +98,12 @@ class StaffAvailabilityChecker
         foreach ($candidates as $index => $candidate) {
             foreach ($candidate->staffIds as $staffId) {
                 foreach ($existing->get($staffId, collect()) as $reservation) {
+                    $existingStart = $this->schedule->fromStored($reservation->booking_start_at);
                     if ($this->overlaps(
                         $candidate->startAt,
                         $candidate->endAt,
-                        (string) $reservation->start_at,
-                        (string) $reservation->end_at,
+                        $existingStart,
+                        $this->schedule->endAt($existingStart, (int) $reservation->duration_minutes),
                     )) {
                         $this->throwConflict($index);
                     }

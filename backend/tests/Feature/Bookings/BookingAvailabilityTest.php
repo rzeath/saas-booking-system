@@ -104,7 +104,6 @@ class BookingAvailabilityTest extends TestCase
         $payload['booking_services'][] = [
             'service_id' => $service->id,
             'package_id' => $package->id,
-            'start_time' => '19:00',
             'duration_minutes' => 180,
             'quantity' => 2,
         ];
@@ -116,17 +115,16 @@ class BookingAvailabilityTest extends TestCase
             ->assertJsonPath('services.0.required_quantity', 3);
     }
 
-    public function test_non_overlapping_candidate_lines_for_same_service_are_valid(): void
+    public function test_candidate_lines_with_different_durations_share_the_start(): void
     {
         [$admin, $organization] = $this->admin();
         [$service, $package] = $this->catalog($organization, 2);
-        $payload = $this->previewPayload($service, $package, '18:00', 180, 2);
+        $payload = $this->previewPayload($service, $package, '18:00', 60, 1);
         $payload['booking_services'][] = [
             'service_id' => $service->id,
             'package_id' => $package->id,
-            'start_time' => '21:00',
             'duration_minutes' => 180,
-            'quantity' => 2,
+            'quantity' => 1,
         ];
 
         $this->actingAs($admin)->postJson('/api/v1/bookings/availability', $payload)
@@ -142,7 +140,7 @@ class BookingAvailabilityTest extends TestCase
         $payload = $this->previewPayload($service, $package, '18:00', 180, 1);
         $payload['booking_services'][] = [
             'service_id' => $service->id, 'package_id' => $package->id,
-            'start_time' => '19:00', 'duration_minutes' => 180, 'quantity' => 2,
+            'duration_minutes' => 180, 'quantity' => 2,
         ];
 
         $this->actingAs($admin)->postJson('/api/v1/bookings/availability', $payload)
@@ -187,17 +185,19 @@ class BookingAvailabilityTest extends TestCase
 
         $this->actingAs($admin)->postJson('/api/v1/bookings/availability', [
             'event_date' => '2027-06-15',
+            'start_time' => '23:30',
             'booking_services' => [[
                 'service_id' => $otherService->id, 'package_id' => $otherPackage->id,
-                'start_time' => '23:30', 'duration_minutes' => 120, 'quantity' => 1,
+                'duration_minutes' => 120, 'quantity' => 1,
             ]],
         ])->assertOk()->assertJsonPath('available', true);
 
         $this->actingAs($admin)->postJson('/api/v1/bookings/availability', [
             'event_date' => '2027-06-16',
+            'start_time' => '02:00',
             'booking_services' => [[
                 'service_id' => $service->id, 'package_id' => $package->id,
-                'start_time' => '02:00', 'duration_minutes' => 120, 'quantity' => 1,
+                'duration_minutes' => 120, 'quantity' => 1,
             ]],
         ])->assertOk()->assertJsonPath('available', false);
     }
@@ -235,7 +235,7 @@ class BookingAvailabilityTest extends TestCase
 
         $this->reservation($admin, $organization, $service, $package, '2027-06-15 21:00:00', '2027-06-16 00:00:00', 1);
         $payload['event_name'] = 'Should Not Persist';
-        $payload['booking_services'][0]['start_time'] = '21:00';
+        $payload['start_time'] = '21:00';
         $this->actingAs($admin)->putJson("/api/v1/bookings/{$bookingId}", $payload)
             ->assertUnprocessable()->assertJsonValidationErrors('booking_services');
         $this->assertDatabaseHas('bookings', ['id' => $bookingId, 'event_name' => 'Availability Test']);
@@ -360,6 +360,7 @@ class BookingAvailabilityTest extends TestCase
             'customer_name' => $customer->name,
             'event_type_name' => $eventType->name,
             'status' => $status,
+            'start_at' => $start,
         ];
 
         if ($status === BookingStatus::Completed) {
@@ -371,8 +372,6 @@ class BookingAvailabilityTest extends TestCase
 
         $booking = Booking::factory()->create($attributes);
         BookingService::factory()->forBooking($booking)->forPackage($package, $service)->create([
-            'start_at' => $start,
-            'end_at' => $end,
             'duration_minutes' => (strtotime($end) - strtotime($start)) / 60,
             'quantity' => $quantity,
             'line_total' => number_format(7500 * $quantity, 2, '.', ''),
@@ -391,10 +390,10 @@ class BookingAvailabilityTest extends TestCase
     ): array {
         return [
             'event_date' => '2027-06-15',
+            'start_time' => $start,
             'booking_services' => [[
                 'service_id' => $service->id,
                 'package_id' => $package->id,
-                'start_time' => $start,
                 'duration_minutes' => $duration,
                 'quantity' => $quantity,
             ]],
@@ -414,13 +413,13 @@ class BookingAvailabilityTest extends TestCase
             'event_type_id' => $eventType->id,
             'event_name' => 'Availability Test',
             'event_date' => '2027-06-15',
+            'start_time' => '18:00',
             'venue_name' => 'Grand Hall',
             'contact_person' => 'Alex Cruz',
             'contact_number' => '09170000000',
             'booking_services' => [[
                 'service_id' => $service->id,
                 'package_id' => $package->id,
-                'start_time' => '18:00',
                 'duration_minutes' => 180,
                 'quantity' => $quantity,
             ]],

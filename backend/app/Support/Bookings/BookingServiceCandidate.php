@@ -30,8 +30,6 @@ final readonly class BookingServiceCandidate
             'organization_id' => $organizationId,
             'service_id' => $this->service->id,
             'package_id' => $this->package->id,
-            'start_at' => $this->startAt,
-            'end_at' => $this->endAt,
             'duration_minutes' => $this->durationMinutes,
             'quantity' => $this->quantity,
             'service_name' => $this->service->name,

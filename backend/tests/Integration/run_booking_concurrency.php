@@ -58,13 +58,13 @@ $payload = [
     'event_type_id' => $eventType->id,
     'event_name' => 'Concurrent Booking',
     'event_date' => '2027-06-15',
+    'start_time' => '18:00',
     'venue_name' => 'Concurrency Hall',
     'contact_person' => 'Concurrency Contact',
     'contact_number' => '09170000000',
     'booking_services' => [[
         'service_id' => $service->id,
         'package_id' => $package->id,
-        'start_time' => '18:00',
         'duration_minutes' => 180,
         'quantity' => 2,
     ]],
@@ -168,11 +168,9 @@ $rejects = function (callable $operation): bool {
 
 $storedLine = (array) DB::table('booking_services')->where('organization_id', $organization->id)->first();
 unset($storedLine['id']);
-$invalidInterval = $storedLine;
-$invalidInterval['end_at'] = $invalidInterval['start_at'];
+$invalidDuration = $storedLine;
+$invalidDuration['duration_minutes'] = 10081;
 $invalidTotal = $storedLine;
-$invalidTotal['start_at'] = '2027-06-16 18:00:00';
-$invalidTotal['end_at'] = '2027-06-16 21:00:00';
 $invalidTotal['line_total'] = '0.01';
 $storedBooking = (array) DB::table('bookings')->where('organization_id', $organization->id)->first();
 unset($storedBooking['id']);
@@ -183,7 +181,7 @@ $tenantMismatch = $storedLine;
 $tenantMismatch['organization_id'] = $otherOrganization->id;
 
 $constraintChecks = [
-    'interval_order' => $rejects(fn () => DB::table('booking_services')->insert($invalidInterval)),
+    'duration_limit' => $rejects(fn () => DB::table('booking_services')->insert($invalidDuration)),
     'exact_line_total' => $rejects(fn () => DB::table('booking_services')->insert($invalidTotal)),
     'booking_status' => $rejects(fn () => DB::table('bookings')->insert($storedBooking)),
     'tenant_relationship' => $rejects(fn () => DB::table('booking_services')->insert($tenantMismatch)),

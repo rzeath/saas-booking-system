@@ -466,7 +466,6 @@ class BookingQuotationIntegrationTest extends TestCase
             $payload['booking_services'][] = [
                 'service_id' => $otherService->id,
                 'package_id' => $otherPackage->id,
-                'start_time' => '19:00',
                 'duration_minutes' => 180,
                 'quantity' => 1,
             ];
@@ -522,7 +521,7 @@ class BookingQuotationIntegrationTest extends TestCase
                 $payload['booking_services'][0]['package_id'] = $package->id;
                 break;
             case 'schedule':
-                $payload['booking_services'][0]['start_time'] = '20:00';
+                $payload['start_time'] = '20:00';
                 break;
             case 'duration':
                 ServiceRate::factory()->forCombination(
@@ -546,7 +545,6 @@ class BookingQuotationIntegrationTest extends TestCase
                 $payload['booking_services'][] = [
                     'service_id' => $service->id,
                     'package_id' => $package->id,
-                    'start_time' => '19:00',
                     'duration_minutes' => 180,
                     'quantity' => 1,
                 ];
@@ -582,6 +580,7 @@ class BookingQuotationIntegrationTest extends TestCase
             'event_type_id' => $eventType->id,
             'event_name' => 'Booked Occasion',
             'event_date' => '2027-06-15',
+            'start_time' => '18:00',
             'venue_name' => 'Booked Venue',
             'venue_address' => 'Booked Venue Address',
             'contact_person' => 'Booked Contact',
@@ -590,7 +589,6 @@ class BookingQuotationIntegrationTest extends TestCase
             'booking_services' => [[
                 'service_id' => $service->id,
                 'package_id' => $package->id,
-                'start_time' => '18:00',
                 'duration_minutes' => 180,
                 'quantity' => 1,
             ]],
@@ -606,7 +604,8 @@ class BookingQuotationIntegrationTest extends TestCase
             'customer_id' => $booking->customer_id,
             'event_type_id' => $booking->event_type_id,
             'event_name' => $booking->event_name,
-            'event_date' => $booking->getRawOriginal('event_date'),
+            'event_date' => $booking->start_at->format('Y-m-d'),
+            'start_time' => $booking->start_at->format('H:i'),
             'venue_name' => $booking->venue_name,
             'venue_address' => $booking->venue_address,
             'contact_person' => $booking->contact_person,
@@ -616,7 +615,6 @@ class BookingQuotationIntegrationTest extends TestCase
                 'id' => $line->id,
                 'service_id' => $line->service_id,
                 'package_id' => $line->package_id,
-                'start_time' => substr($line->getRawOriginal('start_at'), 11, 5),
                 'duration_minutes' => $line->duration_minutes,
                 'quantity' => $line->quantity,
                 'staff_ids' => $line->assignedStaff->pluck('id')->all(),

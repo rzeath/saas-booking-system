@@ -366,7 +366,7 @@ class BookingStaffAssignmentTest extends TestCase
             staffIds: [$busyStaff->id],
         ))->assertCreated();
         $payload['event_name'] = 'Must Roll Back';
-        $payload['booking_services'][0]['start_time'] = '19:30';
+        $payload['start_time'] = '19:30';
         $payload['booking_services'][0]['staff_ids'] = [$busyStaff->id];
 
         $this->actingAs($admin)->putJson("/api/v1/bookings/{$created->json('id')}", $payload)
@@ -506,13 +506,13 @@ class BookingStaffAssignmentTest extends TestCase
             'event_type_id' => $eventType->id,
             'event_name' => 'Operations Test',
             'event_date' => $eventDate,
+            'start_time' => $startTime,
             'venue_name' => 'Grand Hall',
             'contact_person' => 'Alex Cruz',
             'contact_number' => '09170000000',
             'booking_services' => [[
                 'service_id' => $service->id,
                 'package_id' => $package->id,
-                'start_time' => $startTime,
                 'duration_minutes' => $duration,
                 'quantity' => 1,
                 'staff_ids' => $staffIds,

@@ -28,7 +28,7 @@ class BookingServiceStaffController extends Controller
             $validated['start_time'],
             'start_time',
         );
-        $endAt = $startAt->modify("+{$validated['duration_minutes']} minutes");
+        $endAt = $schedule->endAt($startAt, (int) $validated['duration_minutes']);
 
         return response()->json([
             'staff' => $availability->forSchedule(
@@ -44,14 +44,18 @@ class BookingServiceStaffController extends Controller
         int $bookingService,
         TenantContext $tenant,
         StaffAvailabilityFinder $availability,
+        ManilaSchedule $schedule,
     ): JsonResponse {
         $resolved = $this->resolve($bookingService, $tenant);
 
         return response()->json([
             'staff' => $availability->forSchedule(
                 $tenant->organizationId(),
-                $resolved->start_at,
-                $resolved->end_at,
+                $resolved->booking->start_at,
+                $schedule->endAt(
+                    $resolved->booking->start_at,
+                    $resolved->duration_minutes,
+                ),
                 $resolved->id,
             ),
         ]);
@@ -88,6 +92,7 @@ class BookingServiceStaffController extends Controller
     private function resolve(int $bookingService, TenantContext $tenant): BookingService
     {
         return BookingService::query()
+            ->with('booking')
             ->where('organization_id', $tenant->organizationId())
             ->whereKey($bookingService)
             ->firstOrFail();

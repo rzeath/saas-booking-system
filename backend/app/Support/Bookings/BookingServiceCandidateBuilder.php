@@ -6,7 +6,7 @@ use App\Models\Organization;
 use App\Models\Package;
 use App\Models\Service;
 use App\Support\Pricing\ActiveServiceRateResolver;
-use DateInterval;
+use DateTimeImmutable;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Validation\ValidationException;
 
@@ -25,7 +25,7 @@ class BookingServiceCandidateBuilder
      */
     public function build(
         Organization $organization,
-        string $eventDate,
+        DateTimeImmutable $bookingStart,
         array $lines,
         ?int $eventTypeId = null,
         ?Collection $resolvedServices = null,
@@ -62,12 +62,7 @@ class BookingServiceCandidateBuilder
             }
 
             $durationMinutes = (int) $line['duration_minutes'];
-            $startAt = $this->schedule->startAt(
-                $eventDate,
-                (string) $line['start_time'],
-                "booking_services.{$index}.start_time",
-            );
-            $endAt = $startAt->add(new DateInterval("PT{$durationMinutes}M"));
+            $endAt = $this->schedule->endAt($bookingStart, $durationMinutes);
             $unitRate = null;
             $lineTotal = null;
 
@@ -98,7 +93,7 @@ class BookingServiceCandidateBuilder
                 isset($line['id']) ? (int) $line['id'] : null,
                 $service,
                 $package,
-                $startAt,
+                $bookingStart,
                 $endAt,
                 $durationMinutes,
                 (int) $line['quantity'],

@@ -15,6 +15,7 @@ use App\Support\Bookings\BookingCommercialChangeDetector;
 use App\Support\Bookings\BookingMasterDataResolver;
 use App\Support\Bookings\BookingServiceCandidate;
 use App\Support\Bookings\BookingServiceCandidateBuilder;
+use App\Support\Bookings\ManilaSchedule;
 use App\Support\Bookings\ServiceAvailabilityChecker;
 use App\Support\Bookings\ServiceRowLocker;
 use App\Support\Bookings\StaffAssignmentSynchronizer;
@@ -30,6 +31,7 @@ class UpdateBooking
     public function __construct(
         private readonly BookingMasterDataResolver $masterData,
         private readonly ServiceRowLocker $serviceLocker,
+        private readonly ManilaSchedule $schedule,
         private readonly BookingServiceCandidateBuilder $candidateBuilder,
         private readonly ServiceAvailabilityChecker $availability,
         private readonly StaffRowLocker $staffLocker,
@@ -70,9 +72,14 @@ class UpdateBooking
             $services = $this->serviceLocker->lock($organization, $allServiceIds);
             $customer = $this->masterData->customer($organization, (int) $data['customer_id']);
             $eventType = $this->masterData->eventType($organization, (int) $data['event_type_id']);
+            $startAt = $this->schedule->startAt(
+                $data['event_date'],
+                $data['start_time'],
+                'start_time',
+            );
             $candidates = $this->candidateBuilder->build(
                 $organization,
-                $data['event_date'],
+                $startAt,
                 $data['booking_services'],
                 $eventType->id,
                 $services,
@@ -85,6 +92,7 @@ class UpdateBooking
                 $customer,
                 $eventType,
                 $candidates,
+                $startAt,
                 $data,
             );
 
@@ -130,7 +138,7 @@ class UpdateBooking
                 'customer_address' => $customer->address,
                 'event_type_name' => $eventType->name,
                 'event_name' => $data['event_name'],
-                'event_date' => $data['event_date'],
+                'start_at' => $startAt,
                 'venue_name' => $data['venue_name'],
                 'venue_address' => $data['venue_address'] ?? null,
                 'contact_person' => $data['contact_person'],

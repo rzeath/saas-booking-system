@@ -10,13 +10,21 @@ use Illuminate\Validation\ValidationException;
 
 class ServiceAvailabilityChecker
 {
+    public function __construct(
+        private readonly BookingScheduleQuery $scheduleQuery,
+        private readonly ManilaSchedule $schedule,
+    ) {}
+
     public function peakReservedQuantity(
         int $organizationId,
         int $serviceId,
         bool $lockReservations = false,
     ): int {
         $query = BookingService::query()
-            ->select('booking_services.*')
+            ->select([
+                'booking_services.*',
+                'bookings.start_at as booking_start_at',
+            ])
             ->join('bookings', function ($join): void {
                 $join->on('bookings.id', '=', 'booking_services.booking_id')
                     ->on('bookings.organization_id', '=', 'booking_services.organization_id');
@@ -31,10 +39,11 @@ class ServiceAvailabilityChecker
 
         $events = [];
         foreach ($query->get() as $reservation) {
+            $startAt = $this->schedule->fromStored($reservation->booking_start_at);
             $this->addInterval(
                 $events,
-                $reservation->start_at,
-                $reservation->end_at,
+                $startAt,
+                $this->schedule->endAt($startAt, $reservation->duration_minutes),
                 $reservation->quantity,
                 'existing',
             );
@@ -78,7 +87,10 @@ class ServiceAvailabilityChecker
         ));
 
         $query = BookingService::query()
-            ->select('booking_services.*')
+            ->select([
+                'booking_services.*',
+                'bookings.start_at as booking_start_at',
+            ])
             ->join('bookings', function ($join): void {
                 $join->on('bookings.id', '=', 'booking_services.booking_id')
                     ->on('bookings.organization_id', '=', 'booking_services.organization_id');
@@ -86,9 +98,9 @@ class ServiceAvailabilityChecker
             ->where('booking_services.organization_id', $organizationId)
             ->whereIn('booking_services.service_id', $serviceIds)
             ->whereIn('bookings.status', BookingStatus::capacityReservingValues())
-            ->where('booking_services.start_at', '<', $maximumEnd)
-            ->where('booking_services.end_at', '>', $minimumStart)
             ->when($excludeBookingId !== null, fn (Builder $query) => $query->where('booking_services.booking_id', '!=', $excludeBookingId));
+
+        $this->scheduleQuery->whereOverlaps($query, $minimumStart, $maximumEnd);
 
         if ($lockReservations) {
             // This is a current/locking read so a waiter sees reservations committed
@@ -107,10 +119,11 @@ class ServiceAvailabilityChecker
             $events = [];
 
             foreach ($existing->get($serviceId, collect()) as $reservation) {
+                $startAt = $this->schedule->fromStored($reservation->booking_start_at);
                 $this->addInterval(
                     $events,
-                    $reservation->start_at,
-                    $reservation->end_at,
+                    $startAt,
+                    $this->schedule->endAt($startAt, $reservation->duration_minutes),
                     $reservation->quantity,
                     'existing',
                 );

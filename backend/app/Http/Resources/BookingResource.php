@@ -12,6 +12,8 @@ class BookingResource extends JsonResource
     /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
+        $startAt = $this->resource->start_at;
+
         return [
             'id' => $this->resource->id,
             'booking_number' => $this->resource->booking_number,
@@ -34,7 +36,7 @@ class BookingResource extends JsonResource
             ],
             'event_type_snapshot' => ['name' => $this->resource->event_type_name],
             'event_name' => $this->resource->event_name,
-            'event_date' => $this->resource->event_date->format('Y-m-d'),
+            'event_date' => $startAt->format('Y-m-d'),
             'venue_name' => $this->resource->venue_name,
             'venue_address' => $this->resource->venue_address,
             'contact_person' => $this->resource->contact_person,
@@ -50,8 +52,8 @@ class BookingResource extends JsonResource
                     'id' => $line->package_id,
                     'name' => $line->package_name,
                 ],
-                'start_at' => $line->start_at->format('Y-m-d H:i'),
-                'end_at' => $line->end_at->format('Y-m-d H:i'),
+                'start_at' => $startAt->format('Y-m-d H:i'),
+                'end_at' => $startAt->addMinutes($line->duration_minutes)->format('Y-m-d H:i'),
                 'duration_minutes' => $line->duration_minutes,
                 'quantity' => $line->quantity,
                 'unit_rate' => $line->unit_rate,

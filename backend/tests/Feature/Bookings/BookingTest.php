@@ -158,7 +158,6 @@ class BookingTest extends TestCase
         $payload['booking_services'][] = [
             'service_id' => $otherService->id,
             'package_id' => $otherPackage->id,
-            'start_time' => '20:00',
             'duration_minutes' => 120,
             'quantity' => 2,
         ];
@@ -166,8 +165,50 @@ class BookingTest extends TestCase
         $this->actingAs($admin)->postJson('/api/v1/bookings', $payload)
             ->assertCreated()
             ->assertJsonCount(2, 'booking_services')
+            ->assertJsonPath('booking_services.0.start_at', '2027-06-15 18:00')
+            ->assertJsonPath('booking_services.0.end_at', '2027-06-15 21:00')
+            ->assertJsonPath('booking_services.1.start_at', '2027-06-15 18:00')
+            ->assertJsonPath('booking_services.1.end_at', '2027-06-15 20:00')
             ->assertJsonPath('booking_services.1.unit_rate', '4000.00')
             ->assertJsonPath('booking_services.1.line_total', '8000.00');
+    }
+
+    public function test_updating_shared_start_moves_every_service_interval(): void
+    {
+        [$admin, $organization] = $this->admin();
+        [$customer, $eventType, $service, $package] = $this->catalog($organization);
+        $otherService = Service::factory()->for($organization)->create(['total_units' => 5]);
+        $otherPackage = Package::factory()->forService($otherService)->create();
+        ServiceRate::factory()->forCombination($eventType, $service, $package)->create([
+            'duration_minutes' => 180,
+        ]);
+        ServiceRate::factory()->forCombination($eventType, $otherService, $otherPackage)->create([
+            'duration_minutes' => 120,
+        ]);
+        $payload = $this->payload($customer, $eventType, $service, $package);
+        $payload['booking_services'][] = [
+            'service_id' => $otherService->id,
+            'package_id' => $otherPackage->id,
+            'duration_minutes' => 120,
+            'quantity' => 1,
+        ];
+        $created = $this->actingAs($admin)->postJson('/api/v1/bookings', $payload)->assertCreated();
+        foreach ($created->json('booking_services') as $index => $line) {
+            $payload['booking_services'][$index]['id'] = $line['id'];
+        }
+        $payload['event_date'] = '2027-06-16';
+        $payload['start_time'] = '23:00';
+
+        $this->actingAs($admin)->putJson("/api/v1/bookings/{$created->json('id')}", $payload)
+            ->assertOk()
+            ->assertJsonPath('booking_services.0.start_at', '2027-06-16 23:00')
+            ->assertJsonPath('booking_services.0.end_at', '2027-06-17 02:00')
+            ->assertJsonPath('booking_services.1.start_at', '2027-06-16 23:00')
+            ->assertJsonPath('booking_services.1.end_at', '2027-06-17 01:00');
+        $this->assertDatabaseHas('bookings', [
+            'id' => $created->json('id'),
+            'start_at' => '2027-06-16 23:00:00',
+        ]);
     }
 
     public function test_foreign_or_inactive_customer_and_event_type_are_rejected(): void
@@ -263,6 +304,28 @@ class BookingTest extends TestCase
         }
     }
 
+    public function test_duration_above_seven_days_and_service_schedule_fields_are_rejected(): void
+    {
+        [$admin, $organization] = $this->admin();
+        [$customer, $eventType, $service, $package] = $this->catalog($organization);
+
+        $payload = $this->payload($customer, $eventType, $service, $package);
+        $payload['booking_services'][0]['duration_minutes'] = BookingService::MAX_DURATION_MINUTES + 1;
+        $this->actingAs($admin)->postJson('/api/v1/bookings', $payload)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('booking_services.0.duration_minutes');
+
+        foreach (['start_time', 'start_at', 'end_at'] as $field) {
+            $payload = $this->payload($customer, $eventType, $service, $package);
+            $payload['booking_services'][0][$field] = '2027-06-15 18:00';
+            $this->actingAs($admin)->postJson('/api/v1/bookings', $payload)
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors("booking_services.0.{$field}");
+        }
+
+        $this->assertDatabaseCount('bookings', 0);
+    }
+
     public function test_failure_after_number_allocation_rolls_back_sequence_and_entire_aggregate(): void
     {
         [$admin, $organization] = $this->admin();
@@ -295,7 +358,7 @@ class BookingTest extends TestCase
         ServiceRate::factory()->forCombination($eventType, $service, $package)->create(['duration_minutes' => 180]);
         $payload = $this->payload($customer, $eventType, $service, $package);
         $payload['event_date'] = '2027-12-20';
-        $payload['booking_services'][0]['start_time'] = '23:00';
+        $payload['start_time'] = '23:00';
 
         $this->actingAs($admin)->postJson('/api/v1/bookings', $payload)
             ->assertCreated()
@@ -411,13 +474,13 @@ class BookingTest extends TestCase
             'organization_id' => $organization->id, 'created_by' => $admin->id,
             'customer_id' => $customer->id, 'event_type_id' => $eventType->id,
             'customer_name' => 'Acme Search', 'event_type_name' => $eventType->name,
-            'event_date' => '2027-06-01', 'booking_number' => 'BK-2027-000001',
+            'start_at' => '2027-06-01 18:00:00', 'booking_number' => 'BK-2027-000001',
         ]);
         $second = Booking::factory()->create([
             'organization_id' => $organization->id, 'created_by' => $admin->id,
             'customer_id' => $customer->id, 'event_type_id' => $eventType->id,
             'customer_name' => 'Acme Search', 'event_type_name' => $eventType->name,
-            'event_date' => '2027-06-20', 'booking_number' => 'BK-2027-000002',
+            'start_at' => '2027-06-20 18:00:00', 'booking_number' => 'BK-2027-000002',
         ]);
         Booking::factory()->create([
             'organization_id' => $otherOrganization->id,
@@ -466,6 +529,7 @@ class BookingTest extends TestCase
             'event_type_id' => $eventType->id,
             'event_name' => 'Anniversary',
             'event_date' => '2027-06-15',
+            'start_time' => '18:00',
             'venue_name' => 'Grand Hall',
             'venue_address' => 'Manila',
             'contact_person' => 'Alex Cruz',
@@ -474,10 +538,8 @@ class BookingTest extends TestCase
             'booking_services' => [[
                 'service_id' => $service->id,
                 'package_id' => $package->id,
-                'start_time' => '18:00',
                 'duration_minutes' => 180,
                 'quantity' => 3,
-                'end_at' => '1900-01-01 00:00',
                 'unit_rate' => '0.01',
                 'line_total' => '0.01',
             ]],

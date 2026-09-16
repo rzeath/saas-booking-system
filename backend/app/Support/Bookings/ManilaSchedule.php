@@ -2,7 +2,9 @@
 
 namespace App\Support\Bookings;
 
+use DateInterval;
 use DateTimeImmutable;
+use DateTimeInterface;
 use DateTimeZone;
 use Illuminate\Validation\ValidationException;
 
@@ -24,5 +26,23 @@ class ManilaSchedule
         }
 
         return $startAt;
+    }
+
+    public function endAt(DateTimeInterface $startAt, int $durationMinutes): DateTimeImmutable
+    {
+        return DateTimeImmutable::createFromInterface($startAt)
+            ->add(new DateInterval("PT{$durationMinutes}M"));
+    }
+
+    public function fromStored(DateTimeInterface|string $startAt): DateTimeImmutable
+    {
+        if ($startAt instanceof DateTimeInterface) {
+            return DateTimeImmutable::createFromInterface($startAt);
+        }
+
+        return new DateTimeImmutable(
+            $startAt,
+            new DateTimeZone((string) config('app.timezone')),
+        );
     }
 }

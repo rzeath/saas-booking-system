@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Support\Bookings\BookingMasterDataResolver;
 use App\Support\Bookings\BookingServiceCandidate;
 use App\Support\Bookings\BookingServiceCandidateBuilder;
+use App\Support\Bookings\ManilaSchedule;
 use App\Support\Bookings\ServiceAvailabilityChecker;
 use App\Support\Bookings\ServiceRowLocker;
 use App\Support\Bookings\StaffAssignmentSynchronizer;
@@ -24,6 +25,7 @@ class CreateBooking
     public function __construct(
         private readonly BookingMasterDataResolver $masterData,
         private readonly ServiceRowLocker $serviceLocker,
+        private readonly ManilaSchedule $schedule,
         private readonly BookingServiceCandidateBuilder $candidateBuilder,
         private readonly ServiceAvailabilityChecker $availability,
         private readonly StaffRowLocker $staffLocker,
@@ -39,6 +41,11 @@ class CreateBooking
         return DB::transaction(function () use ($organization, $user, $data): Booking {
             $customer = $this->masterData->customer($organization, (int) $data['customer_id']);
             $eventType = $this->masterData->eventType($organization, (int) $data['event_type_id']);
+            $startAt = $this->schedule->startAt(
+                $data['event_date'],
+                $data['start_time'],
+                'start_time',
+            );
             $serviceIds = array_map(
                 fn (array $line): int => (int) $line['service_id'],
                 $data['booking_services'],
@@ -46,7 +53,7 @@ class CreateBooking
             $services = $this->serviceLocker->lock($organization, $serviceIds);
             $candidates = $this->candidateBuilder->build(
                 $organization,
-                $data['event_date'],
+                $startAt,
                 $data['booking_services'],
                 $eventType->id,
                 $services,
@@ -75,7 +82,7 @@ class CreateBooking
                     DocumentType::Booking,
                     $createdAt,
                 ),
-                ...$this->bookingAttributes($data, $customer, $eventType),
+                ...$this->bookingAttributes($data, $customer, $eventType, $startAt),
                 'status' => BookingStatus::Pending,
                 'created_by' => $user->id,
                 'created_at' => $createdAt,
@@ -106,8 +113,12 @@ class CreateBooking
     }
 
     /** @return array<string, mixed> */
-    private function bookingAttributes(array $data, object $customer, object $eventType): array
-    {
+    private function bookingAttributes(
+        array $data,
+        object $customer,
+        object $eventType,
+        \DateTimeImmutable $startAt,
+    ): array {
         return [
             'customer_id' => $customer->id,
             'event_type_id' => $eventType->id,
@@ -117,7 +128,7 @@ class CreateBooking
             'customer_address' => $customer->address,
             'event_type_name' => $eventType->name,
             'event_name' => $data['event_name'],
-            'event_date' => $data['event_date'],
+            'start_at' => $startAt,
             'venue_name' => $data['venue_name'],
             'venue_address' => $data['venue_address'] ?? null,
             'contact_person' => $data['contact_person'],

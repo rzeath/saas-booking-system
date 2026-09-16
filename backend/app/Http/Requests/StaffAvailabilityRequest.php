@@ -34,7 +34,14 @@ class StaffAvailabilityRequest extends FormRequest
             'booking_service_id' => ['sometimes', 'integer'],
             'event_date' => ['required', 'date_format:Y-m-d'],
             'start_time' => ['required', 'date_format:H:i'],
-            'duration_minutes' => ['required', 'integer', 'min:1', 'max:4294967295'],
+            'start_at' => ['prohibited'],
+            'end_at' => ['prohibited'],
+            'duration_minutes' => [
+                'required',
+                'integer',
+                'min:'.BookingService::MIN_DURATION_MINUTES,
+                'max:'.BookingService::MAX_DURATION_MINUTES,
+            ],
         ];
     }
 }

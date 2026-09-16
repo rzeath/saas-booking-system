@@ -7,6 +7,7 @@ use App\Models\Booking;
 use App\Models\BookingService;
 use App\Models\Organization;
 use App\Models\User;
+use App\Support\Bookings\ManilaSchedule;
 use App\Support\Bookings\StaffAssignmentSynchronizer;
 use App\Support\Bookings\StaffAssignmentValidator;
 use App\Support\Bookings\StaffAvailabilityChecker;
@@ -21,6 +22,7 @@ class UpdateBookingServiceStaffAssignments
         private readonly StaffAssignmentValidator $staffValidator,
         private readonly StaffAvailabilityChecker $availability,
         private readonly StaffAssignmentSynchronizer $synchronizer,
+        private readonly ManilaSchedule $schedule,
     ) {}
 
     /** @param list<int> $staffIds */
@@ -66,8 +68,8 @@ class UpdateBookingServiceStaffAssignments
             $conflicts = $this->availability->conflictingStaffIds(
                 $organization->id,
                 $staffIds,
-                $bookingService->start_at,
-                $bookingService->end_at,
+                $booking->start_at,
+                $this->schedule->endAt($booking->start_at, $bookingService->duration_minutes),
                 $bookingService->id,
                 lockReservations: true,
             );

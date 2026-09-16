@@ -6,6 +6,7 @@ use App\Models\Booking;
 use App\Models\BookingService;
 use App\Models\Customer;
 use App\Models\EventType;
+use DateTimeInterface;
 use Illuminate\Database\Eloquent\Collection;
 
 class BookingCommercialChangeDetector
@@ -21,9 +22,10 @@ class BookingCommercialChangeDetector
         Customer $customer,
         EventType $eventType,
         array $candidates,
+        DateTimeInterface $startAt,
         array $data,
     ): bool {
-        return $this->currentHeader($booking) !== $this->proposedHeader($customer, $eventType, $data)
+        return $this->currentHeader($booking) !== $this->proposedHeader($customer, $eventType, $startAt, $data)
             || $this->currentLines($existingLines) !== $this->proposedLines($candidates);
     }
 
@@ -39,7 +41,7 @@ class BookingCommercialChangeDetector
             'customer_address' => $booking->customer_address,
             'event_type_name' => $booking->event_type_name,
             'event_name' => $booking->event_name,
-            'event_date' => $booking->getRawOriginal('event_date'),
+            'start_at' => $this->wallClock($booking->getRawOriginal('start_at')),
             'venue_name' => $booking->venue_name,
             'venue_address' => $booking->venue_address,
             'contact_person' => $booking->contact_person,
@@ -51,8 +53,12 @@ class BookingCommercialChangeDetector
      * @param  array<string, mixed>  $data
      * @return array<string, int|string|null>
      */
-    private function proposedHeader(Customer $customer, EventType $eventType, array $data): array
-    {
+    private function proposedHeader(
+        Customer $customer,
+        EventType $eventType,
+        DateTimeInterface $startAt,
+        array $data,
+    ): array {
         return [
             'customer_id' => $customer->id,
             'event_type_id' => $eventType->id,
@@ -62,7 +68,7 @@ class BookingCommercialChangeDetector
             'customer_address' => $customer->address,
             'event_type_name' => $eventType->name,
             'event_name' => $data['event_name'],
-            'event_date' => $data['event_date'],
+            'start_at' => $startAt->format('Y-m-d H:i:s'),
             'venue_name' => $data['venue_name'],
             'venue_address' => $data['venue_address'] ?? null,
             'contact_person' => $data['contact_person'],
@@ -88,8 +94,6 @@ class BookingCommercialChangeDetector
                 'package_id' => (int) $line->package_id,
                 'service_name' => $line->service_name,
                 'package_name' => $line->package_name,
-                'start_at' => $this->wallClock($line->getRawOriginal('start_at')),
-                'end_at' => $this->wallClock($line->getRawOriginal('end_at')),
                 'duration_minutes' => $line->duration_minutes,
                 'quantity' => $line->quantity,
                 'unit_rate' => $line->unit_rate,
@@ -111,8 +115,6 @@ class BookingCommercialChangeDetector
             'package_id' => $candidate->package->id,
             'service_name' => $candidate->service->name,
             'package_name' => $candidate->package->name,
-            'start_at' => $candidate->startAt->format('Y-m-d H:i:s'),
-            'end_at' => $candidate->endAt->format('Y-m-d H:i:s'),
             'duration_minutes' => $candidate->durationMinutes,
             'quantity' => $candidate->quantity,
             'unit_rate' => $candidate->unitRate,

@@ -74,7 +74,7 @@ $createBooking = function (bool $withSecondLine = false) use (
         'customer_name' => $customer->name,
         'event_type_name' => $eventType->name,
         'event_name' => "Original Race Event {$bookingCounter}",
-        'event_date' => '2027-06-15',
+        'start_at' => '2027-06-15 18:00:00',
         'venue_name' => 'Race Hall',
         'contact_person' => 'Race Contact',
         'contact_number' => '09170000000',
@@ -85,13 +85,10 @@ $createBooking = function (bool $withSecondLine = false) use (
     $payloadLines = [];
 
     for ($index = 0; $index < $lineCount; $index++) {
-        $startHour = 18 + ($index * 2);
         $line = $booking->bookingServices()->create([
             'organization_id' => $organization->id,
             'service_id' => $service->id,
             'package_id' => $package->id,
-            'start_at' => sprintf('2027-06-15 %02d:00:00', $startHour),
-            'end_at' => sprintf('2027-06-15 %02d:00:00', $startHour + 3),
             'duration_minutes' => 180,
             'quantity' => 1,
             'service_name' => $service->name,
@@ -104,7 +101,6 @@ $createBooking = function (bool $withSecondLine = false) use (
             'id' => $line->id,
             'service_id' => $service->id,
             'package_id' => $package->id,
-            'start_time' => sprintf('%02d:00', $startHour),
             'duration_minutes' => 180,
             'quantity' => 1,
             'staff_ids' => [],
@@ -116,6 +112,7 @@ $createBooking = function (bool $withSecondLine = false) use (
         'event_type_id' => $eventType->id,
         'event_name' => "Updated Race Event {$bookingCounter}",
         'event_date' => '2027-06-15',
+        'start_time' => '18:00',
         'venue_name' => 'Race Hall',
         'venue_address' => null,
         'contact_person' => 'Race Contact',

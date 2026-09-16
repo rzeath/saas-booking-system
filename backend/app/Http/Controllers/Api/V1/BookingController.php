@@ -13,6 +13,7 @@ use App\Http\Requests\SaveBookingRequest;
 use App\Http\Resources\BookingResource;
 use App\Models\Booking;
 use App\Support\Bookings\BookingServiceCandidateBuilder;
+use App\Support\Bookings\ManilaSchedule;
 use App\Support\Bookings\ServiceAvailabilityChecker;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
@@ -38,11 +39,11 @@ class BookingController extends Controller
                     ->orWhere('venue_name', 'like', "%{$term}%");
             }))
             ->when($validated['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
-            ->when($validated['event_date_from'] ?? null, fn ($query, string $date) => $query->whereDate('event_date', '>=', $date))
-            ->when($validated['event_date_to'] ?? null, fn ($query, string $date) => $query->whereDate('event_date', '<=', $date))
+            ->when($validated['event_date_from'] ?? null, fn ($query, string $date) => $query->whereDate('start_at', '>=', $date))
+            ->when($validated['event_date_to'] ?? null, fn ($query, string $date) => $query->whereDate('start_at', '<=', $date))
             ->when($validated['customer_id'] ?? null, fn ($query, int $id) => $query->where('customer_id', $id))
             ->when($validated['event_type_id'] ?? null, fn ($query, int $id) => $query->where('event_type_id', $id))
-            ->orderByDesc('event_date')
+            ->orderByDesc('start_at')
             ->orderByDesc('id')
             ->paginate($validated['per_page'] ?? 15)
             ->withQueryString();
@@ -100,14 +101,20 @@ class BookingController extends Controller
     public function availability(
         BookingAvailabilityRequest $request,
         TenantContext $tenant,
+        ManilaSchedule $schedule,
         BookingServiceCandidateBuilder $candidateBuilder,
         ServiceAvailabilityChecker $availability,
     ): JsonResponse {
         $organization = $tenant->organization();
         $validated = $request->validated();
+        $startAt = $schedule->startAt(
+            $validated['event_date'],
+            $validated['start_time'],
+            'start_time',
+        );
         $candidates = $candidateBuilder->build(
             $organization,
-            $validated['event_date'],
+            $startAt,
             $validated['booking_services'],
         );
 
