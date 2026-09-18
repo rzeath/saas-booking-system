@@ -162,6 +162,12 @@ test('hides Create Quotation while an active or accepted quotation blocks creati
 
   await screen.findByText('QT-2027-000003')
   expect(screen.queryByRole('link', { name: /Create Quotation/ })).not.toBeInTheDocument()
+  expect(screen.getAllByText('Quoted')).toHaveLength(2)
+  expect(screen.getAllByText('Accepted')).toHaveLength(1)
+  expect(screen.getAllByRole('link', { name: 'View Quotation' })).toHaveLength(1)
+  expect(screen.getByRole('link', { name: 'View Quotation' })).toHaveAttribute('href', '/quotations/21')
+  expect(screen.queryByRole('link', { name: 'Edit Booking' })).not.toBeInTheDocument()
+  expect(screen.queryByLabelText('More booking actions')).not.toBeInTheDocument()
 })
 
 test('creates a Draft from read-only Booking data and navigates to its detail', async () => {

@@ -264,7 +264,7 @@ function BookingServiceFields({
   }, [fieldKey, lineTotal, onPricingChange, unitRate])
 
   return (
-    <fieldset className="rounded-xl border border-border bg-surface p-4">
+    <fieldset className="border-b border-border py-4 first:pt-0 last:border-b-0 last:pb-0">
       <legend className="sr-only">Service {index + 1}</legend>
       <div className="mb-3 flex items-center justify-between gap-3 border-b border-border pb-2.5">
         <h3 className="text-sm font-semibold text-foreground">Service {index + 1}</h3>
@@ -302,17 +302,17 @@ function BookingServiceFields({
         )} />
         <div className="max-w-36"><FormField label="Quantity" id={`booking-quantity-${fieldKey}`} type="number" min="1" max={selectedService?.total_units} error={errors?.quantity?.message} {...quantityRegistration} onChange={(event) => { onScheduleChange(); void quantityRegistration.onChange(event) }} /></div>
       </div>
-      <div className="mt-3.5 border-t border-border pt-3.5">
+      <div className="mt-3 border-t border-border pt-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="text-[13px] font-medium text-foreground">Staff</span>
           {staffAvailability.isPending ? <span role="status" className="text-xs text-muted">Loading staff options…</span> : null}
         </div>
         {staffAvailability.isError ? <p role="alert" className="mt-2 text-sm text-danger">Staff availability could not be loaded.</p> : null}
         {staffOptions.length > 0 ? <Controller name={`booking_services.${index}.staff_ids`} control={form.control} render={({ field }) => (
-          <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
+          <div className="mt-2 flex flex-wrap gap-1.5">
             {staffOptions.map((staff) => {
               const selected = staffIds.includes(staff.id)
-              return <label key={staff.id} className={`flex min-h-10 items-center gap-2.5 rounded-lg border px-3 py-2 text-sm ${staff.available || selected ? 'border-border bg-surface text-foreground' : 'border-border bg-surface-subtle text-muted'}`}><input type="checkbox" className="size-4 accent-primary" checked={selected} disabled={!staff.available && !selected} onChange={(event) => {
+              return <label key={staff.id} className={`flex min-h-8 items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs ${staff.available || selected ? 'border-border bg-surface text-foreground' : 'border-border bg-surface-subtle text-muted'}`}><input type="checkbox" className="size-3.5 accent-primary" checked={selected} disabled={!staff.available && !selected} onChange={(event) => {
                 const next = event.target.checked
                   ? [...field.value, staff.id]
                   : field.value.filter((id) => id !== staff.id)
@@ -323,7 +323,7 @@ function BookingServiceFields({
         )} /> : !staffAvailability.isPending && staffAvailability.isFetched ? <p className="mt-2 text-sm text-muted">No active staff records are available.</p> : null}
         {errors?.staff_ids?.message ? <p role="alert" className="mt-2 text-sm text-danger">{errors.staff_ids.message}</p> : null}
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-4 rounded-lg bg-surface-subtle px-3.5 py-2.5">
+      <div className="mt-3 grid grid-cols-2 gap-4 border-t border-border pt-3">
         <div>
           <p className="text-xs font-medium text-muted">Rate</p>
           <p className="mt-1 font-semibold tabular-nums text-foreground">{unitRate ? formatMoney(unitRate) : 'Unavailable'}</p>
@@ -427,14 +427,14 @@ export function BookingForm({ booking }: { booking?: Booking }) {
   const startTimeRegistration = form.register('start_time')
 
   return (
-    <form noValidate className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start" onSubmit={form.handleSubmit((values) => {
+    <form noValidate className="mt-5 grid max-w-[1500px] gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(17rem,1fr)] xl:items-start" onSubmit={form.handleSubmit((values) => {
       setMessage(undefined)
       saveMutation.mutate({ ...values, venue_address: values.venue_address || null, internal_notes: values.internal_notes || null })
     })}>
-      <div className="min-w-0 overflow-hidden rounded-xl border border-border bg-surface">
-        {optionError ? <p role="alert" className="border-b border-danger/20 bg-danger-soft px-5 py-3 text-sm text-danger">Some booking choices could not be loaded. Refresh before continuing.</p> : null}
+      <div className="min-w-0 space-y-4">
+        {optionError ? <p role="alert" className="rounded-lg border border-danger/20 bg-danger-soft px-5 py-3 text-sm text-danger">Some booking choices could not be loaded. Refresh before continuing.</p> : null}
 
-        <section aria-labelledby="booking-customer-heading" className="border-b border-border p-5 sm:p-6">
+        <section aria-labelledby="booking-customer-heading" className="rounded-xl border border-border bg-surface p-5">
           <div>
             <h2 id="booking-customer-heading" className="text-base font-semibold text-foreground">Customer</h2>
             <p className="mt-1 text-sm text-muted">Select the customer for this booking.</p>
@@ -461,12 +461,12 @@ export function BookingForm({ booking }: { booking?: Booking }) {
           </div>
         </section>
 
-        <section aria-labelledby="booking-event-heading" className="border-b border-border p-5 sm:p-6">
+        <section aria-labelledby="booking-event-heading" className="rounded-xl border border-border bg-surface p-5">
           <div>
             <h2 id="booking-event-heading" className="text-base font-semibold text-foreground">Event Details</h2>
             <p className="mt-1 text-sm text-muted">Set the shared event schedule and venue.</p>
           </div>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="mt-4 grid gap-x-4 gap-y-3 sm:grid-cols-2">
             <Controller name="event_type_id" control={form.control} render={({ field }) => <SelectField label="Event type" id="booking-event-type" disabled={loadingOptions} error={form.formState.errors.event_type_id?.message} {...field} onChange={(event) => {
               setAvailabilityIsStale(true)
               field.onChange(Number(event.target.value))
@@ -476,24 +476,24 @@ export function BookingForm({ booking }: { booking?: Booking }) {
             <FormField label="Event date" id="booking-event-date" type="date" error={form.formState.errors.event_date?.message} {...eventDateRegistration} onChange={(event) => { setAvailabilityIsStale(true); void eventDateRegistration.onChange(event) }} />
             <FormField label="Start time" id="booking-start-time" type="time" error={form.formState.errors.start_time?.message} {...startTimeRegistration} onChange={(event) => { setAvailabilityIsStale(true); void startTimeRegistration.onChange(event) }} />
             <FormField label="Venue name" id="booking-venue-name" error={form.formState.errors.venue_name?.message} {...form.register('venue_name')} />
-            <div className="sm:col-span-2"><TextAreaField label="Venue address" id="booking-venue-address" rows={2} className="!min-h-20" error={form.formState.errors.venue_address?.message} {...form.register('venue_address')} /></div>
+            <TextAreaField label="Venue address" id="booking-venue-address" rows={2} className="!min-h-20" error={form.formState.errors.venue_address?.message} {...form.register('venue_address')} />
           </div>
-          <div className="mt-5 border-t border-border pt-4">
+          <div className="mt-4 border-t border-border pt-4">
             <h3 className="text-sm font-semibold text-foreground">Event contact</h3>
             <p className="mt-1 text-xs text-muted">Contact details for coordination on this event.</p>
-            <div className="mt-3 grid gap-4 sm:grid-cols-2">
+            <div className="mt-3 grid gap-x-4 gap-y-3 sm:grid-cols-2">
               <FormField label="Contact person" id="booking-contact-person" error={form.formState.errors.contact_person?.message} {...form.register('contact_person')} />
               <FormField label="Contact number" id="booking-contact-number" error={form.formState.errors.contact_number?.message} {...form.register('contact_number')} />
             </div>
           </div>
         </section>
 
-        <section aria-labelledby="booking-services-heading" className="border-b border-border p-5 sm:p-6">
+        <section aria-labelledby="booking-services-heading" className="rounded-xl border border-border bg-surface p-5">
           <div>
             <h2 id="booking-services-heading" className="text-base font-semibold text-foreground">Services</h2>
             <p className="mt-1 text-sm text-muted">Add the services included in this booking.</p>
           </div>
-          <div className="mt-4 space-y-3">
+          <div className="mt-4 border-t border-border pt-4">
             {fields.fields.map((field, index) => (
               <BookingServiceFields
                 key={field.id}
@@ -546,13 +546,13 @@ export function BookingForm({ booking }: { booking?: Booking }) {
           </div>
         </section>
 
-        <section aria-labelledby="booking-additional-heading" className="p-5 sm:p-6">
+        <section aria-labelledby="booking-additional-heading" className="rounded-xl border border-border bg-surface p-5">
           <h2 id="booking-additional-heading" className="text-base font-semibold text-foreground">Additional Details</h2>
           <p className="mt-1 text-sm text-muted">Optional internal information for this booking.</p>
           <div className="mt-4"><TextAreaField label="Notes" id="booking-internal-notes" error={form.formState.errors.internal_notes?.message} {...form.register('internal_notes')} /></div>
         </section>
 
-        {message ? <p role="alert" className="border-t border-danger/20 bg-danger-soft px-5 py-3 text-sm text-danger">{message}</p> : null}
+        {message ? <p role="alert" className="rounded-lg border border-danger/20 bg-danger-soft px-5 py-3 text-sm text-danger">{message}</p> : null}
       </div>
 
       <aside aria-labelledby="booking-summary-heading" className="rounded-xl border border-border bg-surface p-5 xl:sticky xl:top-7">

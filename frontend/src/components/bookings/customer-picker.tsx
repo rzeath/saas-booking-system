@@ -54,15 +54,8 @@ export function CustomerPicker({
 
   return (
     <div className="md:col-span-2">
-      <div className="flex items-center justify-between gap-3">
-        <span className="sr-only">Customer</span>
-        {selectedCustomer && !isChoosing ? (
-          <Button variant="ghost" size="small" disabled={disabled} onClick={() => setIsChanging(true)}>Change</Button>
-        ) : null}
-      </div>
-
       {selectedCustomer && !isChoosing ? (
-        <div className="mt-2 flex min-h-14 items-center justify-between gap-4 rounded-lg bg-surface-subtle px-3.5 py-2.5">
+        <div className="flex min-h-14 items-center justify-between gap-4 rounded-lg bg-surface-subtle px-3.5 py-2.5">
           <div className="min-w-0">
             <strong className="block truncate text-sm text-foreground">{selectedCustomer.name}</strong>
             <p className="mt-1 truncate text-sm text-muted">
@@ -70,9 +63,10 @@ export function CustomerPicker({
             </p>
             {!selectedCustomer.is_active ? <span className="mt-1 block text-xs text-warning">Inactive customer</span> : null}
           </div>
+          <Button variant="ghost" size="small" className="shrink-0" disabled={disabled} onClick={() => setIsChanging(true)}>Change</Button>
         </div>
       ) : (
-        <div className="mt-2">
+        <div>
           <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
             <FormField
               label="Search customer"
@@ -92,7 +86,7 @@ export function CustomerPicker({
             </Button>
           </div>
 
-          <div className="mt-3 overflow-hidden rounded-lg border border-border bg-surface" role="listbox" aria-label="Customer search results">
+          <div className="mt-3 max-h-56 overflow-y-auto rounded-lg border border-border bg-surface" role="listbox" aria-label="Customer search results">
             {customers.isPending ? <p role="status" className="px-4 py-5 text-center text-sm text-muted">Searching customers…</p> : null}
             {customers.isError ? (
               <div className="px-4 py-5 text-center">

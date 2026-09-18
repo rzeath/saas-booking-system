@@ -176,7 +176,11 @@ test('renders the create workflow structure without unsupported schedule or comm
 
   const summary = screen.getByRole('heading', { name: 'Booking Summary' }).closest('aside')
   expect(summary).toHaveClass('xl:sticky', 'xl:top-7')
-  expect(summary?.closest('form')).toHaveClass('xl:grid-cols-[minmax(0,1fr)_20rem]')
+  expect(summary?.closest('form')).toHaveClass('xl:grid-cols-[minmax(0,3fr)_minmax(17rem,1fr)]')
+  for (const name of sectionNames.slice(0, 4)) {
+    expect(screen.getByRole('region', { name })).toHaveClass('rounded-xl', 'bg-surface', 'p-5')
+  }
+  expect(screen.getByRole('region', { name: 'Services' }).querySelector('fieldset')).toHaveClass('border-b', 'last:border-b-0')
   expect(within(summary!).getByText('No services yet')).toBeInTheDocument()
   expect(within(summary!).getByText('—')).toBeInTheDocument()
   expect(within(summary!).getByRole('link', { name: 'Cancel' })).toHaveAttribute('href', '/bookings')
@@ -321,6 +325,7 @@ test('shows an empty result when customer search has no matches', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Search' }))
 
   expect(await screen.findByText('No customers found.')).toBeInTheDocument()
+  expect(screen.getByRole('listbox', { name: 'Customer search results' })).toHaveClass('max-h-56', 'overflow-y-auto')
   expect(screen.getByRole('button', { name: 'Add New Customer' })).toBeInTheDocument()
 })
 
@@ -367,7 +372,9 @@ test('creates and selects a customer inline without resetting booking values', a
   fireEvent.click(screen.getByRole('button', { name: 'Create customer' }))
 
   expect(await screen.findByText('Bea Ramos')).toBeInTheDocument()
-  expect(screen.getByRole('button', { name: 'Change' })).toBeInTheDocument()
+  const changeCustomer = screen.getByRole('button', { name: 'Change' })
+  expect(within(changeCustomer.parentElement!).getByText('Bea Ramos')).toBeInTheDocument()
+  expect(screen.queryByRole('listbox', { name: 'Customer search results' })).not.toBeInTheDocument()
   expect(screen.getByLabelText('Event name / occasion')).toHaveValue('Bea Birthday')
   expect(screen.getByLabelText('Event date')).toHaveValue('2027-08-20')
   expect(screen.getByLabelText('Venue name')).toHaveValue('Garden Hall')
@@ -491,28 +498,59 @@ test('maps backend booking conflicts and represents inactive current dependencie
   expect(await screen.findByText('The requested schedule exceeds available service capacity.')).toBeInTheDocument()
 })
 
-test('renders snapshots, total, and pending actions on booking detail', async () => {
+test('renders the Booking Detail record with shared schedule, snapshots, Staff, and summary', async () => {
   const bookingWithDifferentDurations = {
     ...booking,
     end_at: '2027-06-15 22:00',
     booking_services: [
       booking.booking_services[0],
-      { ...booking.booking_services[0], id: 10, service: { id: 7, name: '360 Video Booth' }, package: { id: 8, name: 'Basic' }, end_at: '2027-06-15 20:00', duration_minutes: 120, unit_rate: '4000.00', line_total: '4000.00', sort_order: 1, staff: [] },
+      { ...booking.booking_services[0], id: 10, service: { id: 7, name: '360 Video Booth' }, package: { id: 8, name: 'Basic' }, end_at: '2027-06-15 22:00', duration_minutes: 240, quantity: 2, unit_rate: '4000.00', line_total: '8000.00', sort_order: 1, staff: [] },
     ],
   }
   renderRoute('/bookings/8', fetchApi((url) => url.endsWith('/api/v1/bookings/8') ? response(bookingWithDifferentDurations) : undefined))
   expect(await screen.findByRole('heading', { name: 'BK-2027-000001' })).toBeInTheDocument()
-  expect(screen.getByText('Customer snapshot')).toBeInTheDocument()
-  expect(screen.getByText('All services begin at the shared event start; each duration determines its effective end.')).toBeInTheDocument()
-  expect(screen.getByText('Jun 15, 2027')).toBeInTheDocument()
-  expect(screen.getAllByText('6:00 PM').length).toBeGreaterThan(0)
-  expect(screen.getByText('6:00 PM – 9:00 PM')).toBeInTheDocument()
-  expect(screen.getByText('6:00 PM – 8:00 PM')).toBeInTheDocument()
-  expect(screen.getByText('10:00 PM')).toBeInTheDocument()
-  expect(screen.getByText('Mia Santos')).toBeInTheDocument()
-  expect(screen.getAllByText('₱8,000.00')).toHaveLength(2)
-  expect(screen.getByRole('link', { name: /Edit/ })).toHaveAttribute('href', '/bookings/8/edit')
-  expect(screen.getByRole('button', { name: /Cancel booking/ })).toBeInTheDocument()
+  expect(screen.getByText('Ana Cruz · Ana & Leo')).toBeInTheDocument()
+  expect(screen.getAllByText('Pending')).toHaveLength(2)
+  const summary = screen.getByRole('heading', { name: 'Booking Summary' }).closest('aside')
+  expect(summary).toHaveClass('xl:sticky', 'xl:row-start-1')
+  expect(summary?.parentElement).toHaveClass('xl:grid-cols-[minmax(0,3fr)_minmax(18rem,1fr)]')
+  expect(within(summary!).getByText('6:00 PM – 10:00 PM')).toBeInTheDocument()
+  expect(within(summary!).getByText('2 services')).toBeInTheDocument()
+  expect(within(summary!).getByText('₱16,000.00')).toBeInTheDocument()
+  expect(within(summary!).getByRole('link', { name: 'Create Quotation' })).toHaveAttribute('href', '/bookings/8/quotations/new')
+
+  const event = screen.getByRole('region', { name: 'Event Details' })
+  expect(event).toHaveClass('rounded-xl', 'bg-surface', 'p-5')
+  expect(within(event).getByText('Wedding')).toBeInTheDocument()
+  expect(within(event).getByText('Ana & Leo')).toBeInTheDocument()
+  expect(within(event).getByText('Jun 15, 2027 · 10:00 PM')).toBeInTheDocument()
+  expect(within(event).getByText('The Glass House')).toBeInTheDocument()
+  const customerSection = screen.getByRole('region', { name: 'Customer' })
+  expect(within(customerSection).getByText('ana@example.com')).toBeInTheDocument()
+  expect(within(customerSection).getByText('Makati')).toBeInTheDocument()
+  expect(within(customerSection).getByRole('heading', { name: 'Event Contact' })).toBeInTheDocument()
+  expect(within(customerSection).getAllByText('09171234567')).toHaveLength(2)
+
+  const services = screen.getByRole('region', { name: 'Services' })
+  const lines = within(services).getAllByRole('article')
+  expect(lines).toHaveLength(2)
+  expect(within(lines[0]).getByText('Mirror Booth')).toBeInTheDocument()
+  expect(within(lines[0]).getByText('Premium')).toBeInTheDocument()
+  expect(within(lines[0]).getByText('3 hours')).toBeInTheDocument()
+  expect(within(lines[0]).getByText('Mia Santos')).toBeInTheDocument()
+  expect(within(lines[0]).getAllByText('₱8,000.00')).toHaveLength(2)
+  expect(within(lines[1]).getByText('360 Video Booth')).toBeInTheDocument()
+  expect(within(lines[1]).getByText('Basic')).toBeInTheDocument()
+  expect(within(lines[1]).getByText('4 hours')).toBeInTheDocument()
+  expect(within(lines[1]).getByText('2')).toBeInTheDocument()
+  expect(within(lines[1]).getByText('No staff assigned')).toBeInTheDocument()
+  expect(within(lines[1]).getByText('₱4,000.00')).toBeInTheDocument()
+  expect(within(lines[1]).getByText('₱8,000.00')).toBeInTheDocument()
+  expect(screen.getByText('Load in early.')).toBeInTheDocument()
+  expect(screen.getByText('No quotation yet.')).toBeInTheDocument()
+  expect(screen.getByRole('link', { name: 'Edit Booking' })).toHaveAttribute('href', '/bookings/8/edit')
+  expect(screen.getByLabelText('More booking actions')).toBeInTheDocument()
+  expect(screen.queryByText(/billing balance/i)).not.toBeInTheDocument()
 })
 
 test('cancels a pending booking only after confirmation', async () => {
@@ -522,6 +560,7 @@ test('cancels a pending booking only after confirmation', async () => {
     if (url.endsWith('/api/v1/bookings/8/cancel') && init?.method === 'POST') { cancelCalls += 1; return response(cancelled) }
   })
   renderRoute('/bookings/8', fetchMock)
+  fireEvent.click(await screen.findByLabelText('More booking actions'))
   fireEvent.click(await screen.findByRole('button', { name: /Cancel booking/ }))
   expect(cancelCalls).toBe(0)
   fireEvent.change(screen.getByLabelText('Reason (optional)'), { target: { value: 'Client request' } })
@@ -529,6 +568,65 @@ test('cancels a pending booking only after confirmation', async () => {
   expect(await screen.findByText('Booking cancelled. Historical details were preserved.')).toBeInTheDocument()
   await waitFor(() => expect(screen.queryByRole('button', { name: /Cancel booking/ })).not.toBeInTheDocument())
   expect(screen.getByText('Mirror Booth')).toBeInTheDocument()
+})
+
+test('shows a cancellation failure inside the confirmation dialog', async () => {
+  renderRoute('/bookings/8', fetchApi((url, init) => {
+    if (url.endsWith('/api/v1/bookings/8/cancel') && init?.method === 'POST') return response({ message: 'This booking cannot be cancelled.' }, 409)
+  }))
+  fireEvent.click(await screen.findByLabelText('More booking actions'))
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel booking' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Confirm cancellation' }))
+  const dialog = screen.getByRole('dialog')
+  expect(await within(dialog).findByRole('alert')).toHaveTextContent('This booking cannot be cancelled.')
+})
+
+test('makes the overnight Booking schedule explicit and keeps empty details quiet', async () => {
+  const overnight = {
+    ...booking,
+    start_at: '2027-06-15 23:00', start_time: '23:00', end_at: '2027-06-16 02:00',
+    internal_notes: null, contact_person: '', contact_number: '',
+    booking_services: [{ ...booking.booking_services[0], start_at: '2027-06-15 23:00', end_at: '2027-06-16 02:00', staff: [] }],
+  }
+  renderRoute('/bookings/8', fetchApi((url) => url.endsWith('/api/v1/bookings/8') ? response(overnight) : undefined))
+  const summary = (await screen.findByRole('heading', { name: 'Booking Summary' })).closest('aside')
+  expect(within(summary!).getByText('Jun 15, 2027 · 11:00 PM')).toBeInTheDocument()
+  expect(within(summary!).getByText('→ Jun 16, 2027 · 2:00 AM')).toBeInTheDocument()
+  expect(within(screen.getByRole('region', { name: 'Event Details' })).getByText('Jun 16, 2027 · 2:00 AM')).toBeInTheDocument()
+  expect(screen.getByText('No event contact provided.')).toBeInTheDocument()
+  expect(screen.getByText('No notes added.')).toBeInTheDocument()
+  expect(screen.getByText('No staff assigned')).toBeInTheDocument()
+})
+
+test('shows read-only Booking Detail actions for confirmed and cancelled records', async () => {
+  const confirmed = { ...booking, status: 'CONFIRMED' }
+  renderRoute('/bookings/8', fetchApi((url) => url.endsWith('/api/v1/bookings/8') ? response(confirmed) : undefined))
+  await screen.findByRole('heading', { name: 'BK-2027-000001' })
+  expect(screen.getAllByText('Confirmed')).toHaveLength(2)
+  expect(screen.queryByRole('link', { name: 'Edit Booking' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('link', { name: 'Create Quotation' })).not.toBeInTheDocument()
+  expect(screen.queryByLabelText('More booking actions')).not.toBeInTheDocument()
+})
+
+test('keeps a cancelled booking read-only and shows its cancellation reason', async () => {
+  const cancelled = { ...booking, status: 'CANCELLED', cancellation_reason: 'Client request' }
+  renderRoute('/bookings/8', fetchApi((url) => url.endsWith('/api/v1/bookings/8') ? response(cancelled) : undefined))
+  await screen.findByRole('heading', { name: 'BK-2027-000001' })
+  expect(screen.getAllByText('Cancelled')).toHaveLength(2)
+  expect(screen.getByText('Client request')).toBeInTheDocument()
+  expect(screen.queryByRole('link', { name: 'Edit Booking' })).not.toBeInTheDocument()
+  expect(screen.queryByLabelText('More booking actions')).not.toBeInTheDocument()
+})
+
+test('retries a failed Booking Detail query', async () => {
+  let failed = true
+  renderRoute('/bookings/8', fetchApi((url) => {
+    if (url.endsWith('/api/v1/bookings/8')) return failed ? response({ message: 'Failed' }, 500) : response(booking)
+  }))
+  expect(await screen.findByText('We could not load this booking.')).toBeInTheDocument()
+  failed = false
+  fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+  expect(await screen.findByRole('heading', { name: 'BK-2027-000001' })).toBeInTheDocument()
 })
 
 test('shows the booking loading state', async () => {
