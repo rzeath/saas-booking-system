@@ -227,7 +227,15 @@ describe('CalendarRoute', () => {
     renderCalendar()
 
     expect(screen.getByRole('heading', { name: 'Calendar' })).toBeInTheDocument()
+    expect(screen.getByText('Review scheduled bookings.')).toBeInTheDocument()
     expect(await screen.findByText('Maria Santos')).toBeInTheDocument()
+    const workspace = screen.getByRole('region', { name: 'Booking calendar workspace' })
+    expect(workspace).toHaveClass('takda-calendar-workspace')
+    expect(screen.getByRole('complementary')).toHaveClass('takda-calendar-agenda')
+    expect(screen.getByRole('button', { name: 'month' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByLabelText('Staff')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Event Type')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'day' })).not.toBeInTheDocument()
     const request = urls.find((url) => url.includes('/api/v1/calendar?'))
     expect(request).toBeDefined()
     const query = new URL(request as string, 'http://localhost').searchParams
@@ -238,6 +246,22 @@ describe('CalendarRoute', () => {
     expect(query.has('staff')).toBe(false)
     expect(screen.queryByText('Completed Customer')).not.toBeInTheDocument()
     expect(screen.queryByText('Cancelled Customer')).not.toBeInTheDocument()
+  })
+
+  test('keeps month events compact with semantic status and selected-date styling', async () => {
+    installFetch()
+    renderCalendar()
+    const event = (await screen.findAllByTestId('calendar-event'))[0]
+    expect(within(event).getByText('Maria Santos').parentElement).toHaveTextContent('Maria Santos · Wedding')
+    expect(within(event).getByText('6:00 PM')).toBeInTheDocument()
+    const eventClass = calendarHarness.props?.eventClass as ((info: { event: { extendedProps: { booking: CalendarEvent } } }) => string)
+    expect(eventClass({ event: { extendedProps: { booking } } })).toContain('takda-calendar-event--confirmed')
+    fireEvent.click(screen.getByRole('button', { name: 'Select June 15' }))
+    await waitFor(() => {
+      const dayCellClass = calendarHarness.props?.dayCellClass as ((info: { date: Date }) => string)
+      expect(dayCellClass({ date: new Date('2027-06-15T00:00:00+08:00') })).toBe('takda-calendar-day--selected')
+    })
+    expect(calendarHarness.props?.dayMaxEvents).toBe(2)
   })
 
   test('sends explicit status and service filters and changes queried range on navigation', async () => {
@@ -291,7 +315,7 @@ describe('CalendarRoute', () => {
     expect(screen.getByRole('complementary', { name: 'Bookings for June 15' })).toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'PENDING' } })
-    expect(await screen.findByText('No bookings in this period.')).toBeInTheDocument()
+    expect(await screen.findByText('No bookings in this period. Try another period or adjust the filters.')).toBeInTheDocument()
   })
 
   test('opens an accessible read-only booking summary without staff or financial data', async () => {

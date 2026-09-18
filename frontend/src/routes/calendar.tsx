@@ -134,11 +134,11 @@ export function CalendarRoute() {
 
   return (
     <Page>
-      <PageHeader eyebrow="Operations" title="Calendar" description="Review scheduled bookings across your event calendar." />
+      <PageHeader title="Calendar" description="Review scheduled bookings." />
 
-      <section className="mt-7 overflow-hidden rounded-xl border border-border bg-surface shadow-sm" aria-label="Booking calendar workspace">
-        <div className="flex flex-col gap-4 border-b border-border px-4 py-4 xl:flex-row xl:items-end xl:justify-between">
-          <div className="flex min-w-0 items-center justify-between gap-3 xl:flex-1">
+      <section className="takda-calendar-workspace mt-5" aria-label="Booking calendar workspace">
+        <div className="min-w-0 overflow-hidden rounded-xl border border-border bg-surface">
+          <div className="flex flex-wrap items-end gap-x-3 gap-y-2 border-b border-border px-4 py-3">
             <div className="flex shrink-0 items-center gap-1">
               <Button variant="secondary" size="small" onClick={() => calendarRef.current?.getApi().today()}>Today</Button>
               <Button variant="ghost" size="icon" onClick={() => calendarRef.current?.getApi().prev()} aria-label="Previous period" title="Previous period" className="size-9">
@@ -148,49 +148,49 @@ export function CalendarRoute() {
                 <ChevronRight className="size-4" aria-hidden="true" />
               </Button>
             </div>
-            <h2 className="min-w-0 truncate text-base font-semibold text-foreground sm:text-lg" aria-live="polite">{title || 'Calendar'}</h2>
-          </div>
+            <h2 className="order-first w-full min-w-0 truncate text-base font-semibold text-foreground sm:order-none sm:mr-auto sm:w-auto" aria-live="polite">{title || 'Calendar'}</h2>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-            <div className="grid grid-cols-2 gap-3 sm:flex sm:items-end">
-              <SelectField label="Status" id="calendar-status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as CalendarStatusFilter)}>
-                {statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-              </SelectField>
-              <SelectField label="Service" id="calendar-service" value={serviceId} disabled={services.isPending} onChange={(event) => setServiceId(Number(event.target.value))}>
-                <option value="0">All services</option>
-                {services.data?.data.map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}
-              </SelectField>
+            <div className="flex w-full flex-wrap items-end gap-2 sm:w-auto">
+              <div className="min-w-40 flex-1 sm:w-40 sm:flex-none">
+                <SelectField label="Status" id="calendar-status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as CalendarStatusFilter)}>
+                  {statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </SelectField>
+              </div>
+              <div className="min-w-40 flex-1 sm:w-40 sm:flex-none">
+                <SelectField label="Service" id="calendar-service" value={serviceId} disabled={services.isPending} onChange={(event) => setServiceId(Number(event.target.value))}>
+                  <option value="0">All services</option>
+                  {services.data?.data.map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}
+                </SelectField>
+              </div>
+              <div className="inline-flex h-10 rounded-lg border border-border bg-surface-subtle p-0.5" aria-label="Calendar view">
+                {(['month', 'week'] as const).map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    aria-pressed={view === option}
+                    onClick={() => changeView(option)}
+                    className={cn(
+                      'min-w-14 rounded-md px-2.5 text-xs font-semibold capitalize transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      view === option ? 'bg-primary-soft text-primary' : 'text-muted hover:text-foreground',
+                    )}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="inline-flex h-10 self-end rounded-lg border border-border bg-surface-subtle p-1" aria-label="Calendar view">
-              {(['month', 'week'] as const).map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  aria-pressed={view === option}
-                  onClick={() => changeView(option)}
-                  className={cn(
-                    'min-w-16 rounded-md px-3 text-xs font-semibold capitalize transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                    view === option ? 'bg-surface text-primary shadow-sm' : 'text-muted hover:text-foreground',
-                  )}
-                >
-                  {option}
-                </button>
-              ))}
+          </div>
+
+          {services.isError ? <p role="alert" className="border-b border-border bg-danger-soft px-4 py-2 text-sm text-danger">Services could not be loaded. The calendar remains available without a service filter.</p> : null}
+          {bookings.isError ? (
+            <div className="border-b border-border">
+              <ErrorState title="We could not load this calendar period." onRetry={() => { void bookings.refetch() }} />
             </div>
-          </div>
-        </div>
+          ) : null}
+          {!bookings.isPending && !bookings.isError && bookings.data?.length === 0 ? (
+            <p role="status" className="border-b border-border bg-surface-subtle px-4 py-2.5 text-sm text-muted">No bookings in this period. Try another period or adjust the filters.</p>
+          ) : null}
 
-        {services.isError ? <p role="alert" className="border-b border-border bg-danger-soft px-4 py-2 text-sm text-danger">Services could not be loaded. The calendar remains available without a service filter.</p> : null}
-        {bookings.isError ? (
-          <div className="border-b border-border">
-            <ErrorState title="We could not load this calendar period." onRetry={() => { void bookings.refetch() }} />
-          </div>
-        ) : null}
-        {!bookings.isPending && !bookings.isError && bookings.data?.length === 0 ? (
-          <p role="status" className="border-b border-border bg-surface-subtle px-4 py-2.5 text-sm text-muted">No bookings in this period.</p>
-        ) : null}
-
-        <div className="takda-calendar-workspace">
           <div className="takda-booking-calendar relative min-w-0" aria-busy={bookings.isFetching}>
             {bookings.isPending ? <div className="absolute inset-0 z-10 bg-surface/90"><LoadingState label="Loading calendar..." /></div> : null}
             {bookings.isFetching && !bookings.isPending ? <span role="status" className="absolute right-3 top-3 z-10 rounded-md bg-surface px-2 py-1 text-xs font-medium text-muted shadow-sm">Refreshing...</span> : null}
@@ -255,9 +255,9 @@ export function CalendarRoute() {
               eventTimeFormat={{ hour: 'numeric', minute: '2-digit', meridiem: 'short' }}
             />
           </div>
-
-          <SelectedDateAgenda date={selectedDate} bookings={selectedDateBookings} loading={bookings.isPending} />
         </div>
+
+        <SelectedDateAgenda date={selectedDate} bookings={selectedDateBookings} loading={bookings.isPending} />
       </section>
 
       {selectedBooking ? <BookingSummary booking={selectedBooking} onClose={() => setSelectedBooking(null)} /> : null}
@@ -272,9 +272,8 @@ function CalendarEventContent({ info }: { info: EventDisplayInfo }) {
   if (isMonth) {
     return (
       <span className="takda-calendar-month-event">
+        <span className="takda-calendar-event-customer"><span>{booking.customer_name}</span><span className="font-medium"> · {booking.event_type_name}</span></span>
         <span className="takda-calendar-event-time">{formatCalendarTime(booking.start_at)}</span>
-        <span className="takda-calendar-event-customer">{booking.customer_name}</span>
-        <span className="takda-calendar-event-service">{serviceSummary(booking)}</span>
       </span>
     )
   }
@@ -292,26 +291,26 @@ function SelectedDateAgenda({ date, bookings, loading }: { date: string; booking
 
   return (
     <aside className="takda-calendar-agenda" aria-label={`Bookings for ${label.date}`} aria-live="polite">
-      <header className="border-b border-border px-5 py-4">
-        <h2 className="font-semibold text-foreground">{label.date}</h2>
-        <p className="mt-0.5 text-sm text-muted">{label.weekday}</p>
+      <header className="border-b border-border px-4 py-3">
+        <h2 className="text-sm font-semibold text-foreground">{label.date}</h2>
+        <p className="mt-0.5 text-xs text-muted">{label.weekday}</p>
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto px-5">
-        {loading ? <p role="status" className="py-5 text-sm text-muted">Loading bookings...</p> : null}
-        {!loading && bookings.length === 0 ? <p className="py-5 text-sm text-muted">No bookings scheduled for this date.</p> : null}
+      <div className="min-h-0 flex-1 overflow-y-auto px-4">
+        {loading ? <p role="status" className="py-4 text-sm text-muted">Loading bookings...</p> : null}
+        {!loading && bookings.length === 0 ? <p className="py-4 text-sm text-muted">No bookings scheduled for this date.</p> : null}
         {!loading && bookings.length > 0 ? (
           <ol className="divide-y divide-border">
             {bookings.map((booking) => (
               <li key={booking.id}>
-                <article className="py-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <p className="text-sm font-semibold text-foreground">{formatCalendarTimeRange(booking.start_at, booking.end_at)}</p>
+                <article className="py-3.5">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <p className="text-xs font-semibold text-foreground">{formatCalendarTimeRange(booking.start_at, booking.end_at)}</p>
                     <BookingStatusBadge status={booking.status} />
                   </div>
-                  <p className="mt-3 font-semibold text-foreground">{booking.customer_name}</p>
-                  <p className="mt-0.5 text-sm text-muted">{booking.event_name}</p>
-                  <p className="mt-2 text-sm text-foreground">{serviceSummary(booking)}</p>
-                  <Link to={`/bookings/${booking.id}`} className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <p className="mt-2 text-sm font-semibold text-foreground">{booking.customer_name}</p>
+                  <p className="mt-0.5 text-xs text-muted">{booking.event_name}</p>
+                  <p className="mt-1.5 text-xs text-foreground">{serviceSummary(booking)}</p>
+                  <Link to={`/bookings/${booking.id}`} className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                     View Booking <ArrowRight className="size-3.5" aria-hidden="true" />
                   </Link>
                 </article>
